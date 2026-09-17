@@ -7,9 +7,28 @@ import {
   type SimParams,
 } from "./presets";
 
+export type Antenna = {
+  x: number;
+  y: number;
+  on: boolean;
+  pressure: number;
+};
+
+export type Sense = {
+  roll: number;
+  pitch: number;
+  yaw: number;
+  spin: number;
+  gforce: number;
+  heading: number;
+  pressure: number;
+};
+
 export type Runtime = {
   params: SimParams;
   brushes: Brush[];
+  antenna: Antenna;
+  sense: Sense;
   flowX: number;
   flowY: number;
   pointerFlowX: number;
@@ -30,6 +49,8 @@ export type Runtime = {
 export const runtime: Runtime = {
   params: { ...DEFAULT_PARAMS },
   brushes: [],
+  antenna: { x: 0.5, y: 0.5, on: false, pressure: 0 },
+  sense: { roll: 0, pitch: 0, yaw: 0, spin: 0, gforce: 0, heading: 0, pressure: 0 },
   flowX: 0,
   flowY: 0,
   pointerFlowX: 0,

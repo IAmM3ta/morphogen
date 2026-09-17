@@ -9,13 +9,19 @@ type DME = typeof DeviceMotionEvent & {
   requestPermission?: () => Promise<"granted" | "denied">;
 };
 
+type OrientEvent = DeviceOrientationEvent & { webkitCompassHeading?: number };
+
 export type SensorSample = {
   alpha: number;
   beta: number;
   gamma: number;
+  heading: number;
   ax: number;
   ay: number;
   az: number;
+  ux: number;
+  uy: number;
+  uz: number;
   gx: number;
   gy: number;
   gz: number;
@@ -25,9 +31,13 @@ export const sensorSample: SensorSample = {
   alpha: 0,
   beta: 0,
   gamma: 0,
+  heading: 0,
   ax: 0,
   ay: 0,
   az: 0,
+  ux: 0,
+  uy: 0,
+  uz: 0,
   gx: 0,
   gy: 0,
   gz: 0,
@@ -54,60 +64,97 @@ export async function requestSensorPermission(): Promise<boolean> {
 export function attachSensors(onShake?: (mag: number) => void): () => void {
   let restG = 0;
   let restB = 0;
+  let restA = 0;
   let samples = 0;
   let calibrated = false;
+  let spin = 0;
 
-  const onOrient = (e: DeviceOrientationEvent) => {
+  const applyOrient = (e: OrientEvent) => {
     const gamma = e.gamma ?? 0;
     const beta = e.beta ?? 0;
-    sensorSample.alpha = e.alpha ?? 0;
+    const alpha = e.alpha ?? 0;
+    sensorSample.alpha = alpha;
     sensorSample.beta = beta;
     sensorSample.gamma = gamma;
+    if (typeof e.webkitCompassHeading === "number") sensorSample.heading = e.webkitCompassHeading;
+    else sensorSample.heading = alpha;
+
     if (!calibrated) {
       restG += gamma;
       restB += beta;
+      restA += alpha;
       samples += 1;
-      if (samples >= 14) {
+      if (samples >= 12) {
         restG /= samples;
         restB /= samples;
+        restA /= samples;
         calibrated = true;
       }
       runtime.flowX = 0;
       runtime.flowY = 0;
+      runtime.sense.roll = 0;
+      runtime.sense.pitch = 0;
+      runtime.sense.yaw = 0;
       return;
     }
     let dx = gamma - restG;
     let dy = beta - restB;
-    if (Math.abs(dx) < 10) dx = 0;
-    if (Math.abs(dy) < 10) dy = 0;
-    runtime.flowX = Math.max(-0.35, Math.min(0.35, dx / 110));
-    runtime.flowY = Math.max(-0.35, Math.min(0.35, dy / 130));
+    let dz = alpha - restA;
+    if (dz > 180) dz -= 360;
+    if (dz < -180) dz += 360;
+    if (Math.abs(dx) < 4) dx = 0;
+    if (Math.abs(dy) < 4) dy = 0;
+    runtime.sense.roll = Math.max(-1, Math.min(1, dx / 45));
+    runtime.sense.pitch = Math.max(-1, Math.min(1, dy / 50));
+    runtime.sense.yaw = Math.max(-1, Math.min(1, dz / 90));
+    runtime.sense.heading = sensorSample.heading;
+    runtime.flowX = Math.max(-0.28, Math.min(0.28, runtime.sense.roll * 0.22));
+    runtime.flowY = Math.max(-0.28, Math.min(0.28, runtime.sense.pitch * 0.22));
   };
 
+  const onOrient = (e: DeviceOrientationEvent) => applyOrient(e as OrientEvent);
+  const onOrientAbs = (e: Event) => applyOrient(e as OrientEvent);
+
   const onMotion = (e: DeviceMotionEvent) => {
-    const a = e.accelerationIncludingGravity;
+    const g = e.accelerationIncludingGravity;
+    if (g) {
+      sensorSample.ax = g.x ?? 0;
+      sensorSample.ay = g.y ?? 0;
+      sensorSample.az = g.z ?? 0;
+      const mag = Math.hypot(g.x ?? 0, g.y ?? 0, g.z ?? 0);
+      runtime.sense.gforce = mag / 9.81;
+      if (mag > 17) onShake?.((mag - 17) / 12);
+    }
+    const a = e.acceleration;
     if (a) {
-      sensorSample.ax = a.x ?? 0;
-      sensorSample.ay = a.y ?? 0;
-      sensorSample.az = a.z ?? 0;
-      const mag = Math.hypot(a.x ?? 0, a.y ?? 0, a.z ?? 0);
-      if (mag > 18) onShake?.((mag - 18) / 14);
+      sensorSample.ux = a.x ?? 0;
+      sensorSample.uy = a.y ?? 0;
+      sensorSample.uz = a.z ?? 0;
     }
     const r = e.rotationRate;
     if (r) {
       sensorSample.gx = r.alpha ?? 0;
       sensorSample.gy = r.beta ?? 0;
       sensorSample.gz = r.gamma ?? 0;
+      const rate = Math.hypot(r.alpha ?? 0, r.beta ?? 0, r.gamma ?? 0);
+      spin = spin * 0.82 + Math.min(1, rate / 280) * 0.18;
+      runtime.sense.spin = spin;
     }
   };
 
   window.addEventListener("deviceorientation", onOrient);
+  window.addEventListener("deviceorientationabsolute", onOrientAbs);
   window.addEventListener("devicemotion", onMotion);
   return () => {
     window.removeEventListener("deviceorientation", onOrient);
+    window.removeEventListener("deviceorientationabsolute", onOrientAbs);
     window.removeEventListener("devicemotion", onMotion);
     runtime.flowX = 0;
     runtime.flowY = 0;
+    runtime.sense.roll = 0;
+    runtime.sense.pitch = 0;
+    runtime.sense.yaw = 0;
+    runtime.sense.spin = 0;
   };
 }
 
@@ -124,6 +171,8 @@ type Finger = {
   locked: boolean;
   painting: boolean;
   hold: number | null;
+  pressure: number;
+  radius: number;
 };
 
 export function localPointerBrushes(
@@ -141,21 +190,36 @@ export function localPointerBrushes(
   let lastTap = { t: 0, x: 0, y: 0 };
   let pointerHeard = false;
 
+  const feel = (pressure: number, width: number, height: number) => {
+    const p = Number.isFinite(pressure) ? pressure : 0;
+    const r = Math.max(width, height);
+    return {
+      pressure: p > 0.02 && p < 0.999 ? p : p >= 0.999 ? 1 : 0.55,
+      radius: Math.max(0.15, Math.min(1, r > 1 ? r / 48 : 0.45)),
+    };
+  };
+
   const sync = () => {
     const list: Brush[] = [];
+    let maxP = 0;
     for (const f of fingers.values()) {
       if (!f.painting) continue;
       const { size, strength } = getSize();
+      maxP = Math.max(maxP, f.pressure);
       list.push({
+        id: f.id,
         x: f.x,
         y: f.y,
         px: f.px,
         py: f.py,
-        size,
-        strength,
+        size: size * (0.78 + f.radius * 0.5),
+        strength: strength * (0.7 + f.pressure * 0.45),
+        pressure: f.pressure,
+        radius: f.radius,
       });
       if (list.length >= MAX_BRUSHES) break;
     }
+    runtime.sense.pressure = maxP;
     if (onChange) onChange(list);
     else runtime.brushes = list;
   };
@@ -190,7 +254,7 @@ export function localPointerBrushes(
     }
   };
 
-  const begin = (id: number, clientX: number, clientY: number) => {
+  const begin = (id: number, clientX: number, clientY: number, pressure: number, width: number, height: number) => {
     const { x, y, px, py } = fromClient(clientX, clientY);
     const now = performance.now();
     const isDouble =
@@ -200,6 +264,7 @@ export function localPointerBrushes(
 
     if (fingers.size > 0) cancelPendingLocks();
 
+    const fFeel = feel(pressure, width, height);
     const f: Finger = {
       id,
       x,
@@ -213,8 +278,11 @@ export function localPointerBrushes(
       locked: false,
       painting: !isDouble,
       hold: null,
+      pressure: fFeel.pressure,
+      radius: fFeel.radius,
     };
     fingers.set(id, f);
+    runtime.antenna = { x, y, on: false, pressure: 0 };
 
     if (isDouble) {
       f.hold = window.setTimeout(() => {
@@ -243,7 +311,14 @@ export function localPointerBrushes(
     }
   };
 
-  const move = (id: number, clientX: number, clientY: number) => {
+  const move = (
+    id: number,
+    clientX: number,
+    clientY: number,
+    pressure: number,
+    width: number,
+    height: number,
+  ) => {
     const f = fingers.get(id);
     if (!f) return;
     const { x, y, px, py } = fromClient(clientX, clientY);
@@ -251,9 +326,12 @@ export function localPointerBrushes(
     f.py = f.y;
     f.x = x;
     f.y = y;
+    const felt = feel(pressure, width, height);
+    f.pressure = felt.pressure;
+    f.radius = felt.radius;
     const dx = f.x - f.px;
     const dy = f.y - f.py;
-    runtime.pointerMotion = Math.min(1.4, runtime.pointerMotion + Math.hypot(dx, dy) * 6);
+    runtime.pointerMotion = Math.min(1.8, runtime.pointerMotion + Math.hypot(dx, dy) * 8);
 
     const moved = Math.hypot(px - f.sx, py - f.sy);
     if (f.lock && !f.locked && !f.painting && moved > TAP_MOVE) startPaint(f);
@@ -285,20 +363,34 @@ export function localPointerBrushes(
     try {
       canvas.setPointerCapture(e.pointerId);
     } catch {
-      /* capture is optional; fullscreen wrap still receives moves */
+      /* capture is optional */
     }
-    begin(e.pointerId, e.clientX, e.clientY);
+    begin(e.pointerId, e.clientX, e.clientY, e.pressure, e.width, e.height);
   };
 
   const onPointerMove = (e: PointerEvent) => {
-    if (!fingers.has(e.pointerId)) return;
-    e.preventDefault();
-    const extras =
-      typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
-    if (extras && extras.length > 1) {
-      for (const c of extras) move(e.pointerId, c.clientX, c.clientY);
-    } else {
-      move(e.pointerId, e.clientX, e.clientY);
+    if (fingers.has(e.pointerId)) {
+      e.preventDefault();
+      const extras = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
+      if (extras && extras.length > 1) {
+        for (const c of extras) move(e.pointerId, c.clientX, c.clientY, c.pressure, c.width, c.height);
+      } else {
+        move(e.pointerId, e.clientX, e.clientY, e.pressure, e.width, e.height);
+      }
+      return;
+    }
+    if (isUi(e.target)) {
+      runtime.antenna.on = false;
+      return;
+    }
+    if (e.pointerType === "mouse" || e.pointerType === "pen") {
+      const { x, y } = fromClient(e.clientX, e.clientY);
+      runtime.antenna = {
+        x,
+        y,
+        on: true,
+        pressure: e.buttons ? Math.max(0.35, e.pressure) : 0.28,
+      };
     }
   };
 
@@ -312,6 +404,12 @@ export function localPointerBrushes(
     }
   };
 
+  const onPointerLeave = (e: PointerEvent) => {
+    if (e.pointerType === "mouse" || e.pointerType === "pen") {
+      if (!fingers.has(e.pointerId)) runtime.antenna.on = false;
+    }
+  };
+
   const onTouchStart = (e: TouchEvent) => {
     if (isUi(e.target)) return;
     e.preventDefault();
@@ -319,7 +417,7 @@ export function localPointerBrushes(
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches.item(i);
       if (!t) continue;
-      begin(t.identifier + 1000, t.clientX, t.clientY);
+      begin(t.identifier + 1000, t.clientX, t.clientY, t.force, t.radiusX * 2, t.radiusY * 2);
     }
   };
 
@@ -329,7 +427,7 @@ export function localPointerBrushes(
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches.item(i);
       if (!t) continue;
-      move(t.identifier + 1000, t.clientX, t.clientY);
+      move(t.identifier + 1000, t.clientX, t.clientY, t.force, t.radiusX * 2, t.radiusY * 2);
     }
   };
 
@@ -348,6 +446,7 @@ export function localPointerBrushes(
   canvas.addEventListener("pointermove", onPointerMove, opts);
   canvas.addEventListener("pointerup", up, opts);
   canvas.addEventListener("pointercancel", up, opts);
+  canvas.addEventListener("pointerleave", onPointerLeave);
   canvas.addEventListener("touchstart", onTouchStart, opts);
   canvas.addEventListener("touchmove", onTouchMove, opts);
   canvas.addEventListener("touchend", onTouchEnd, opts);
@@ -359,6 +458,7 @@ export function localPointerBrushes(
     canvas.removeEventListener("pointermove", onPointerMove);
     canvas.removeEventListener("pointerup", up);
     canvas.removeEventListener("pointercancel", up);
+    canvas.removeEventListener("pointerleave", onPointerLeave);
     canvas.removeEventListener("touchstart", onTouchStart);
     canvas.removeEventListener("touchmove", onTouchMove);
     canvas.removeEventListener("touchend", onTouchEnd);
@@ -367,6 +467,7 @@ export function localPointerBrushes(
       if (f.hold != null) window.clearTimeout(f.hold);
     }
     fingers.clear();
+    runtime.antenna.on = false;
     sync();
   };
 }

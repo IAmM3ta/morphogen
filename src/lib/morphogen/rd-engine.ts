@@ -125,9 +125,20 @@ const DISPLAY_UNIFORMS = [
   "uVignette",
   "uFlash",
   "uLockCount",
+  "uSense",
 ];
 
-const EMPTY: Brush = { x: 0, y: 0, px: 0, py: 0, size: 0.03, strength: 0 };
+const EMPTY: Brush = {
+  id: -1,
+  x: 0,
+  y: 0,
+  px: 0,
+  py: 0,
+  size: 0.03,
+  strength: 0,
+  pressure: 0,
+  radius: 0,
+};
 
 export class RDEngine {
   readonly canvas: HTMLCanvasElement;
@@ -170,9 +181,11 @@ export class RDEngine {
   private destroyed = false;
   private running = false;
   private acc = 0;
+  private slow = 0;
+  private frames = 0;
   onFrame: ((dt: number, stats: FieldStats) => void) | null = null;
 
-  constructor(canvas: HTMLCanvasElement, maxSide = 512) {
+  constructor(canvas: HTMLCanvasElement, maxSide = 1440) {
     this.canvas = canvas;
     this.maxSide = maxSide;
     canvas.style.touchAction = "none";
@@ -318,46 +331,45 @@ export class RDEngine {
     const w = this.simW;
     const h = this.simH;
     const data = new Uint8Array(w * h * 4);
+    for (let i = 0; i < w * h; i++) {
+      const o = i * 4;
+      data[o] = 255;
+      data[o + 3] = 255;
+    }
     const spots: [number, number, number][] = [
-      [0.5, 0.52, 0.08],
-      [0.36, 0.44, 0.055],
-      [0.65, 0.58, 0.05],
-      [0.48, 0.7, 0.048],
-      [0.6, 0.36, 0.046],
-      [0.3, 0.62, 0.044],
-      [0.7, 0.4, 0.042],
+      [0.5, 0.52, 0.055],
+      [0.38, 0.44, 0.038],
+      [0.63, 0.58, 0.034],
+      [0.47, 0.68, 0.03],
+      [0.6, 0.36, 0.028],
+      [0.31, 0.6, 0.026],
+      [0.7, 0.42, 0.024],
+      [0.42, 0.32, 0.022],
+      [0.55, 0.78, 0.02],
     ];
-    const jitter = Math.random() * 1000;
     const minSide = Math.min(w, h);
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const i = (y * w + x) * 4;
-        let u = 1;
-        let v = 0;
-        const ux = (x + 0.5) / w;
-        const uy = (y + 0.5) / h;
-        for (const [cx, cy, r] of spots) {
-          const dx = (ux - cx) * w;
-          const dy = (uy - cy) * h;
-          const rad = r * minSide;
+    const paint = (cx: number, cy: number, r: number, vAmt: number) => {
+      const rad = r * minSide;
+      const x0 = Math.max(0, Math.floor(cx * w - rad - 1));
+      const x1 = Math.min(w - 1, Math.ceil(cx * w + rad + 1));
+      const y0 = Math.max(0, Math.floor(cy * h - rad - 1));
+      const y1 = Math.min(h - 1, Math.ceil(cy * h + rad + 1));
+      for (let y = y0; y <= y1; y++) {
+        for (let x = x0; x <= x1; x++) {
+          const dx = x + 0.5 - cx * w;
+          const dy = y + 0.5 - cy * h;
           const t = Math.hypot(dx, dy) / Math.max(rad, 1);
-          if (t < 1) {
-            const ink = t < 0.62 ? 1 : 1 - (t - 0.62) / 0.38;
-            v = Math.max(v, ink * 0.28);
-            u = Math.min(u, 1 - ink * 0.5);
-          }
+          if (t >= 1) continue;
+          const ink = t < 0.58 ? 1 : 1 - (t - 0.58) / 0.42;
+          const o = (y * w + x) * 4;
+          data[o] = Math.min(data[o]!, Math.round((1 - ink * 0.5) * 255));
+          data[o + 1] = Math.max(data[o + 1]!, Math.round(ink * vAmt * 255));
         }
-        const n = Math.abs(Math.sin((x * 12.9898 + y * 78.233 + jitter) * 43758.5453));
-        const speckle = n - Math.floor(n);
-        if (speckle > 0.996) {
-          v = Math.max(v, 0.22);
-          u = Math.min(u, 0.7);
-        }
-        data[i] = Math.max(0, Math.min(255, Math.round(u * 255)));
-        data[i + 1] = Math.max(0, Math.min(255, Math.round(v * 255)));
-        data[i + 2] = 0;
-        data[i + 3] = 255;
       }
+    };
+    for (const [cx, cy, r] of spots) paint(cx, cy, r, 0.28);
+    for (let s = 0; s < 40; s++) {
+      paint(0.15 + Math.random() * 0.7, 0.15 + Math.random() * 0.7, 0.008 + Math.random() * 0.01, 0.22);
     }
     gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -402,11 +414,11 @@ export class RDEngine {
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
-  private fitSim() {
+  private fitSim(force = false) {
     const cssW = this.canvas.clientWidth || window.innerWidth || 1;
     const cssH = this.canvas.clientHeight || window.innerHeight || 1;
     const dim = chooseSim(cssW, cssH, this.maxSide);
-    if (Math.abs(dim.w - this.simW) < 12 && Math.abs(dim.h - this.simH) < 12) return;
+    if (!force && Math.abs(dim.w - this.simW) < 12 && Math.abs(dim.h - this.simH) < 12) return;
     const gl = this.gl;
     const oldAspect = this.simW / Math.max(1, this.simH);
     const newAspect = dim.w / Math.max(1, dim.h);
@@ -425,7 +437,7 @@ export class RDEngine {
     this.lockCount = 0;
     this.lockStart = 0;
     runtime.lockCount = 0;
-    if (aspectShift > 0.08) {
+    if (aspectShift > 0.08 || force) {
       gl.deleteTexture(oldTex);
       gl.deleteFramebuffer(oldFbo);
       this.seed(true);
@@ -483,6 +495,17 @@ export class RDEngine {
   }
 
   private frame(dt: number, time: number) {
+    this.frames++;
+    if (this.frames > 90) {
+      if (dt > 0.028) this.slow += 1;
+      else this.slow = Math.max(0, this.slow - 2);
+      if (this.slow > 48 && this.maxSide > 800) {
+        this.maxSide = Math.round(this.maxSide * 0.82);
+        this.slow = 0;
+        this.fitSim(true);
+      }
+    }
+
     if (runtime.seedNonce !== this.seedSeen) this.seed();
     if (runtime.scatterNonce !== this.scatterSeen) this.scatterSeen = runtime.scatterNonce;
     this.fitSim();
@@ -507,6 +530,8 @@ export class RDEngine {
         const u = this.simProg.uniforms;
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         gl.uniform1i(u.uPrev, 0);
         gl.activeTexture(gl.TEXTURE1);
         gl.bindTexture(gl.TEXTURE_2D, this.imageOrDummy());
@@ -542,7 +567,7 @@ export class RDEngine {
       if (this.acc > stepDt * 4) this.acc = 0;
     }
 
-    const dpr = Math.min(2, window.devicePixelRatio || 1);
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
     const cssW = this.canvas.clientWidth || 1;
     const cssH = this.canvas.clientHeight || 1;
     const bw = Math.max(1, Math.round(cssW * dpr));
@@ -559,6 +584,8 @@ export class RDEngine {
     const du = this.displayProg.uniforms;
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.uniform1i(du.uField, 0);
     const lp = new Float32Array(48);
     for (let i = 0; i < 4; i++) {
@@ -587,7 +614,11 @@ export class RDEngine {
     gl.uniform1f(du.uGlow, params.glow);
     gl.uniform1f(du.uVignette, params.vignette);
     gl.uniform1f(du.uFlash, this.flash);
+    gl.uniform4f(du.uSense, runtime.sense.roll, runtime.sense.pitch, runtime.sense.spin, runtime.sense.pressure);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     this.flash *= Math.exp(-2.4 * dt);
     this.lockImpulse *= Math.exp(-3.2 * dt);
 
@@ -604,6 +635,8 @@ export class RDEngine {
     this.bindQuad();
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.uniform1i(this.statsProg.uniforms.uField, 0);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.readPixels(0, 0, 16, 16, gl.RGBA, gl.UNSIGNED_BYTE, this.pixels);
@@ -633,7 +666,7 @@ export class RDEngine {
     const n = 256;
     runtime.stats.meanU = sumU / n;
     runtime.stats.meanV = sumV / n;
-    runtime.stats.energy = Math.min(1, sumV / (n * 0.22));
+    runtime.stats.energy = Math.min(1, sumV / (n * 0.08));
     runtime.stats.cx = mass > 1e-5 ? cx / mass / 15 : 0.5;
     runtime.stats.cy = mass > 1e-5 ? 1 - cy / mass / 15 : 0.5;
     runtime.stats.edge = Math.min(1, edge / 40);

@@ -282,21 +282,21 @@ export function ControlDock({
           <div className="flex flex-col gap-5">
             <ToggleRow
               label="Tilt & motion"
-              hint="Off until you want it. Resting tilt is ignored; a small lean drifts the field. Shake to seed."
+              hint="The chassis is the other antenna. Lean for brightness, roll for chorus, spin for vibrato. Resting hold is ignored."
               checked={gyroOn}
               onCheckedChange={onToggleGyro}
             />
             <ToggleRow
               label="Microphone"
-              hint="Voice and room tone inoculate the field and the drone."
+              hint="Voice and room tone frequency-modulate the lead and inoculate the field."
               checked={micOn}
               onCheckedChange={onToggleMic}
             />
             <p className="text-xs leading-relaxed text-muted">
-              On a phone this device is the instrument: every finger plants a
-              colony. After a locked loop, paint to grow the next generation
-              from it. Fullscreen it or capture the window in TouchDesigner
-              for projection.
+              On an iPhone this is a spatial instrument: 3-axis gyro, user
+              acceleration, compass, finger pressure and contact size. Each
+              finger is a theremin voice — height is pitch, left/right is pan.
+              Move the pointer on a laptop the same way, no click required.
             </p>
             <div className="rounded-md bg-bg-subtle p-3">
               <p className="text-xs text-muted">Open on another phone</p>
@@ -323,7 +323,7 @@ export function ControlDock({
           <div className="flex flex-col gap-5">
             <ToggleRow
               label="Voice of the field"
-              hint="Drone, noise, and impulses follow energy and edge."
+              hint="Lead voices follow your hands. The pad follows the chemistry. Tilt opens the filter."
               checked={audioOn}
               onCheckedChange={(on) => patch({ audioOn: on })}
             />
@@ -343,9 +343,10 @@ export function ControlDock({
               onCheckedChange={(on) => patch({ muted: on })}
             />
             <p className="text-xs text-muted">
-              Audio unlocks on enter. Locking a loop freezes this voice; the
-              live drone steps to a new interval so the next generation can
-              sing on top. If a tab sleeps, tap anywhere to wake it.
+              Up the glass is higher pitch, across is stereo. Press harder
+              (or a fatter contact) for more harmonic. Locking a loop freezes
+              this voicing; the live lead steps to a new interval. If a tab
+              sleeps, tap anywhere to wake it.
             </p>
           </div>
         )}

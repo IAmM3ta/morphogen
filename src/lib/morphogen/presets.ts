@@ -126,25 +126,28 @@ export const DEFAULT_PARAMS: SimParams = {
   du: DEFAULT_PRESET.du,
   dv: DEFAULT_PRESET.dv,
   speed: 0.95,
-  brushSize: 0.07,
-  brushStrength: 0.78,
+  brushSize: 0.055,
+  brushStrength: 0.82,
   imageMix: 0.35,
   imageMode: "inoculate",
   paletteId: DEFAULT_PRESET.paletteId,
-  glow: 1.05,
-  vignette: 0.16,
+  glow: 1.15,
+  vignette: 0.14,
   steps: 3,
 };
 
 export const MAX_BRUSHES = 8;
 
 export type Brush = {
+  id: number;
   x: number;
   y: number;
   px: number;
   py: number;
   size: number;
   strength: number;
+  pressure: number;
+  radius: number;
 };
 
 export type FieldStats = {
@@ -168,4 +171,16 @@ export function emptyStats(): FieldStats {
     edge: 0,
     grid: new Float32Array(256),
   };
+}
+
+export function pickSimMaxSide(): number {
+  if (typeof window === "undefined") return 1440;
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const w = window.innerWidth || 1280;
+  const h = window.innerHeight || 720;
+  const longPx = Math.max(w, h) * dpr;
+  const mobile =
+    window.matchMedia("(max-width: 640px)").matches || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  if (mobile) return Math.max(960, Math.min(1600, Math.round(longPx * 0.78)));
+  return Math.max(1440, Math.min(2160, Math.round(longPx * 0.92)));
 }

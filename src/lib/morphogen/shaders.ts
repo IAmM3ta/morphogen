@@ -46,7 +46,7 @@ vec2 lap9(vec2 uv, vec2 px) {
   vec2 ne = texture(uPrev, uv + vec2(px.x, px.y)).rg;
   vec2 nw = texture(uPrev, uv + vec2(-px.x, px.y)).rg;
   vec2 se = texture(uPrev, uv + vec2(px.x, -px.y)).rg;
-  vec2 sw = texture(uPrev, uv + vec2(px.x, -px.y)).rg;
+  vec2 sw = texture(uPrev, uv + vec2(-px.x, -px.y)).rg;
   return (n + s + e + w) * 0.2 + (ne + nw + se + sw) * 0.05 - c;
 }
 
@@ -68,8 +68,7 @@ float finger(int i, vec2 uv, vec2 res) {
 void main() {
   vec2 uv = vUv;
   vec2 px = 1.0 / uResolution;
-  // Tiny rest-relative drift only. Fingers never blow a wind tunnel.
-  vec2 sampleUv = fract(uv - uAdvect * px * 0.35);
+  vec2 sampleUv = fract(uv - uAdvect * px * 0.28);
   vec2 chem = texture(uPrev, sampleUv).rg;
   vec2 lap = lap9(sampleUv, px);
   float u = chem.r;
@@ -90,14 +89,11 @@ void main() {
     finger(6, uv, uResolution) +
     finger(7, uv, uResolution);
   s = clamp(s, 0.0, 1.0);
-  // Plant a Pearson seed under each fingertip — mix, never accumulate.
   u = mix(u, 0.50, s * 0.55);
   v = mix(v, 0.28, s * 0.70);
 
   if (uHasLock > 0.5) {
     vec2 locked = texture(uLock, uv).rg;
-    // Grow off the frozen generation only where a finger is, plus a brief
-    // bloom at the lock point. Never stream the whole lock back into live.
     float plant = s * 0.62 * uLockGrow;
     v = mix(v, max(v, locked.g), plant);
     u = mix(u, mix(u, locked.r, 0.6), plant);
@@ -151,37 +147,32 @@ float blob(vec2 uv, vec2 c, float r, vec2 res) {
   vec2 d = (uv - c) * res;
   float rad = r * min(res.x, res.y);
   float t = length(d) / max(rad, 1.0);
-  return 1.0 - smoothstep(0.62, 1.0, t);
+  return 1.0 - smoothstep(0.55, 1.0, t);
 }
 
 void main() {
   vec2 uv = vUv;
   vec2 res = uResolution;
   float n = hash(uv * 73.1 + uTime);
+  float n2 = hash(uv * 191.7 + 2.3);
   float u = 1.0;
   float v = 0.0;
 
-  // Pearson disks (U≈0.50, V≈0.25). Several so mitosis has neighbors.
-  vec2 c0 = vec2(0.50, 0.52);
-  vec2 c1 = vec2(0.37, 0.44);
-  vec2 c2 = vec2(0.64, 0.58);
-  vec2 c3 = vec2(0.48, 0.68);
-  vec2 c4 = vec2(0.58, 0.38);
-  vec2 c5 = vec2(0.32, 0.60);
-  vec2 c6 = vec2(0.68, 0.42);
   float ink = 0.0;
-  ink = max(ink, blob(uv, c0, 0.070, res));
-  ink = max(ink, blob(uv, c1, 0.048, res));
-  ink = max(ink, blob(uv, c2, 0.046, res));
-  ink = max(ink, blob(uv, c3, 0.042, res));
-  ink = max(ink, blob(uv, c4, 0.040, res));
-  ink = max(ink, blob(uv, c5, 0.038, res));
-  ink = max(ink, blob(uv, c6, 0.036, res));
-  v = ink * 0.26;
+  ink = max(ink, blob(uv, vec2(0.50, 0.52), 0.055, res));
+  ink = max(ink, blob(uv, vec2(0.38, 0.44), 0.038, res));
+  ink = max(ink, blob(uv, vec2(0.63, 0.58), 0.034, res));
+  ink = max(ink, blob(uv, vec2(0.47, 0.68), 0.030, res));
+  ink = max(ink, blob(uv, vec2(0.60, 0.36), 0.028, res));
+  ink = max(ink, blob(uv, vec2(0.31, 0.60), 0.026, res));
+  ink = max(ink, blob(uv, vec2(0.70, 0.42), 0.024, res));
+  ink = max(ink, blob(uv, vec2(0.42, 0.32), 0.022, res));
+  ink = max(ink, blob(uv, vec2(0.55, 0.78), 0.020, res));
+  v = ink * (0.26 + n2 * 0.08);
   u = mix(1.0, 0.50, ink);
 
-  if (n > 0.994) {
-    v = max(v, 0.22);
+  if (n > 0.991) {
+    v = max(v, 0.24);
     u = min(u, 0.72);
   }
 
@@ -214,6 +205,7 @@ uniform float uLockCount;
 uniform float uGlow;
 uniform float uVignette;
 uniform float uFlash;
+uniform vec4 uSense;
 in vec2 vUv;
 out vec4 fragColor;
 
@@ -225,8 +217,7 @@ vec3 paletteStops(float t, vec3 c0, vec3 c1, vec3 c2, vec3 c3) {
   return mix(c2, c3, (t - a) / a);
 }
 
-vec3 colorize(sampler2D field, vec3 c0, vec3 c1, vec3 c2, vec3 c3, float glowAmt) {
-  vec2 uv = vUv;
+vec3 colorize(sampler2D field, vec3 c0, vec3 c1, vec3 c2, vec3 c3, float glowAmt, vec2 uv) {
   vec2 px = 1.0 / uResolution;
   vec2 chem = texture(field, uv).rg;
   float u = chem.r;
@@ -235,40 +226,49 @@ vec3 colorize(sampler2D field, vec3 c0, vec3 c1, vec3 c2, vec3 c3, float glowAmt
   float vS = texture(field, uv - vec2(0.0, px.y)).g;
   float vE = texture(field, uv + vec2(px.x, 0.0)).g;
   float vW = texture(field, uv - vec2(px.x, 0.0)).g;
-  float edge = abs(vN - vS) + abs(vE - vW);
-  float glowV = v * 0.4 + vN * 0.15 + vS * 0.15 + vE * 0.15 + vW * 0.15;
-  float t = smoothstep(0.018, 0.55, v);
+  float vNE = texture(field, uv + px).g;
+  float vNW = texture(field, uv + vec2(-px.x, px.y)).g;
+  float edge = abs(vN - vS) + abs(vE - vW) + 0.5 * (abs(vNE - v) + abs(vNW - v));
+  float glowV = v * 0.34 + (vN + vS + vE + vW) * 0.14 + (vNE + vNW) * 0.05;
+  float t = smoothstep(0.016, 0.52, v);
   vec3 col = paletteStops(t, c0, c1, c2, c3);
-  col += paletteStops(min(1.0, t + 0.25), c0, c1, c2, c3) * edge * glowAmt * 3.6;
-  col += paletteStops(smoothstep(0.0, 0.8, glowV), c0, c1, c2, c3) * glowAmt * 0.18;
+  col += paletteStops(min(1.0, t + 0.22), c0, c1, c2, c3) * edge * glowAmt * 3.4;
+  col += paletteStops(smoothstep(0.0, 0.8, glowV), c0, c1, c2, c3) * glowAmt * 0.2;
   col += c0 * (u * 0.08);
   return col;
 }
 
 void main() {
-  vec3 live = colorize(uField, uC0, uC1, uC2, uC3, uGlow);
-  vec3 col = live;
-  // Locked loops are quiet memories, not a second opaque field.
+  vec2 uv = vUv;
+  vec2 px = 1.0 / uResolution;
+  float aberr = uSense.x * 1.6 * px.x;
+  vec3 live = colorize(uField, uC0, uC1, uC2, uC3, uGlow, uv);
+  vec3 liveR = colorize(uField, uC0, uC1, uC2, uC3, uGlow * 0.85, uv + vec2(aberr, 0.0));
+  vec3 liveB = colorize(uField, uC0, uC1, uC2, uC3, uGlow * 0.85, uv - vec2(aberr, 0.0));
+  vec3 col = vec3(liveR.r, live.g, liveB.b);
+
   if (uLockCount > 0.5) {
-    col += colorize(uLock0, uLP[0], uLP[1], uLP[2], uLP[3], uGlow * 0.55) * 0.16;
+    col += colorize(uLock0, uLP[0], uLP[1], uLP[2], uLP[3], uGlow * 0.55, uv) * 0.16;
   }
   if (uLockCount > 1.5) {
-    col += colorize(uLock1, uLP[4], uLP[5], uLP[6], uLP[7], uGlow * 0.6) * 0.20;
+    col += colorize(uLock1, uLP[4], uLP[5], uLP[6], uLP[7], uGlow * 0.6, uv) * 0.20;
   }
   if (uLockCount > 2.5) {
-    col += colorize(uLock2, uLP[8], uLP[9], uLP[10], uLP[11], uGlow * 0.65) * 0.24;
+    col += colorize(uLock2, uLP[8], uLP[9], uLP[10], uLP[11], uGlow * 0.65, uv) * 0.24;
   }
   if (uLockCount > 3.5) {
-    col += colorize(uLock3, uLP[12], uLP[13], uLP[14], uLP[15], uGlow * 0.7) * 0.28;
+    col += colorize(uLock3, uLP[12], uLP[13], uLP[14], uLP[15], uGlow * 0.7, uv) * 0.28;
   }
 
   vec2 q = vUv * 2.0 - 1.0;
   float vig = 1.0 - dot(q, q) * uVignette;
   col *= vig;
   col += vec3(uFlash) * 0.1;
+  col += vec3(0.04, 0.07, 0.09) * uSense.w * 0.12;
+  col += vec3(uSense.z) * 0.03;
 
   float g = fract(sin(dot(vUv * 1.3 + fract(uTime * 0.07), vec2(12.9898, 78.233))) * 43758.5453);
-  col += (g - 0.5) * 0.01;
+  col += (g - 0.5) * (0.008 + uSense.z * 0.01);
 
   fragColor = vec4(max(col, vec3(0.0)), 1.0);
 }

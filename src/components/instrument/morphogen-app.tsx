@@ -21,7 +21,7 @@ import { MidiOut, type MidiDevice } from "@/lib/morphogen/midi-out";
 import { TdClient, type TdStatus } from "@/lib/morphogen/td-client";
 import { attachSensors, localPointerBrushes, requestSensorPermission } from "@/lib/morphogen/sensors";
 import { extractPaletteFromImage } from "@/lib/morphogen/extract-palette";
-import { PRESETS, MAX_BRUSHES, type Brush } from "@/lib/morphogen/presets";
+import { PRESETS, MAX_BRUSHES, pickSimMaxSide, type Brush } from "@/lib/morphogen/presets";
 import { runtime } from "@/lib/morphogen/runtime";
 import { useInstrument } from "@/lib/morphogen/store";
 import { cn } from "@/lib/utils";
@@ -68,6 +68,8 @@ export function MorphogenApp() {
   const [midiDevices, setMidiDevices] = useState<MidiDevice[]>([]);
   const [isFs, setIsFs] = useState(false);
   const [lockCount, setLockCount] = useState(0);
+  const [hz, setHz] = useState(0);
+  const [voices, setVoices] = useState(0);
   const [charge, setCharge] = useState({ v: 0, x: 0.5, y: 0.5 });
   const [pulse, setPulse] = useState<{ x: number; y: number; id: number } | null>(null);
 
@@ -127,8 +129,7 @@ export function MorphogenApp() {
     if (!canvas) return;
     let engine: RDEngine;
     try {
-      const mobile = window.matchMedia("(max-width: 640px)").matches;
-      engine = new RDEngine(canvas, mobile ? 480 : 640);
+      engine = new RDEngine(canvas, pickSimMaxSide());
     } catch (err) {
       setGlError(err instanceof Error ? err.message : "WebGL2 unavailable");
       return;
@@ -137,18 +138,26 @@ export function MorphogenApp() {
     engine.onFrame = (_dt, stats) => {
       audioRef.current?.tick();
       setEnergy((e) => (Math.abs(e - stats.energy) > 0.02 ? stats.energy : e));
+      const a = audioRef.current;
+      if (a) {
+        setHz((h) => (Math.abs(h - a.lastHz) > 1.5 ? a.lastHz : h));
+        setVoices(a.voiceCount);
+      }
     };
     engine.start();
     const probe = () => ({
       energy: runtime.stats.energy,
       meanV: runtime.stats.meanV,
-      brushes: runtime.brushes.length,
+      brushes: runtime.brushes.map((b) => ({ id: b.id, x: +b.x.toFixed(3), y: +b.y.toFixed(3) })),
       locks: engine.lockCount,
       feed: runtime.params.feed,
       kill: runtime.params.kill,
       sim: { w: engine.simW, h: engine.simH },
       gyro: useInstrument.getState().gyroOn,
       preset: useInstrument.getState().presetId,
+      hz: audioRef.current?.lastHz ?? 0,
+      voices: audioRef.current?.voiceCount ?? 0,
+      antenna: runtime.antenna.on,
     });
     (window as unknown as { __morphogen: typeof probe }).__morphogen = probe;
     return () => {
@@ -230,7 +239,17 @@ export function MorphogenApp() {
     return attachSensors((mag) => {
       runtime.brushes = [
         ...runtime.brushes,
-        { x: 0.5, y: 0.5, px: 0.5, py: 0.5, size: 0.07 + mag * 0.08, strength: 0.18 + mag * 0.2 },
+        {
+          id: -2,
+          x: 0.5,
+          y: 0.5,
+          px: 0.5,
+          py: 0.5,
+          size: 0.07 + mag * 0.08,
+          strength: 0.18 + mag * 0.2,
+          pressure: 0.7,
+          radius: 0.6,
+        },
       ].slice(0, MAX_BRUSHES);
     });
   }, [gyroOn, started]);
@@ -312,7 +331,7 @@ export function MorphogenApp() {
     (async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 720 } },
+          video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
           audio: false,
         });
         if (cancelled) {
@@ -354,7 +373,10 @@ export function MorphogenApp() {
       const ok = await audio.connectMic();
       if (!ok) toast("Microphone permission was declined");
     }
-    if (useInstrument.getState().gyroOn) {
+    const gyro = useInstrument.getState().gyroOn;
+    if (gyro) void requestSensorPermission();
+    else {
+      patch({ gyroOn: true });
       void requestSensorPermission();
     }
     const midi = new MidiOut();
@@ -470,6 +492,7 @@ export function MorphogenApp() {
               <p className="font-mono text-[10px] tabular-nums text-muted">
                 F {params.feed.toFixed(4)} · K {params.kill.toFixed(4)} · E {energy.toFixed(2)}
                 {lockCount > 0 ? ` · LOOP ${lockCount}` : ""}
+                {voices > 0 ? ` · ${Math.round(hz)} Hz · ${voices}v` : ""}
               </p>
             </div>
             <div className="pointer-events-auto flex gap-1">

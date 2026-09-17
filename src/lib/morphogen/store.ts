@@ -53,11 +53,11 @@ export const useInstrument = create<InstrumentState>()(
       panelOpen: false,
       presetId: DEFAULT_PRESET.id,
       params: { ...DEFAULT_PARAMS },
-      gyroOn: false,
+      gyroOn: true,
       micOn: false,
       cameraOn: false,
       audioOn: true,
-      volume: 0.55,
+      volume: 0.7,
       muted: false,
       tdUrl: "ws://127.0.0.1:9980",
       tdGrid: true,
@@ -93,7 +93,7 @@ export const useInstrument = create<InstrumentState>()(
       patch: (partial) => set(partial),
     }),
     {
-      name: "morphogen-v3",
+      name: "morphogen-v4",
       partialize: (s) => ({
         params: s.params,
         presetId: s.presetId,

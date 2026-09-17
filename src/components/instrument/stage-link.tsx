@@ -32,7 +32,17 @@ export function StageLink({
       if (!msg || msg.t !== "s") return;
       onBrushes(
         from,
-        (msg.br ?? []).map((b) => ({ x: b.x, y: b.y, px: b.x, py: b.y, size: b.s, strength: b.k })),
+        (msg.br ?? []).map((b, i) => ({
+          id: i,
+          x: b.x,
+          y: b.y,
+          px: b.x,
+          py: b.y,
+          size: b.s,
+          strength: b.k,
+          pressure: 0.55,
+          radius: 0.45,
+        })),
       );
       onFlow(msg.fx ?? 0, msg.fy ?? 0);
       if (msg.shake && msg.shake > 0) onShake(msg.shake);

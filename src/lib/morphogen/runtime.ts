@@ -1,11 +1,13 @@
 import {
   DEFAULT_PARAMS,
+  DEFAULT_WAVEFORM,
   emptyStats,
   paletteById,
   type Brush,
   type FieldStats,
   type Palette,
   type SimParams,
+  type WaveformId,
 } from "./presets";
 
 export type Antenna = {
@@ -62,6 +64,8 @@ export type Runtime = {
   lockCount: number;
   morph: MorphJob | null;
   liveStops: Palette["stops"] | null;
+  waveform: WaveformId;
+  historyDepth: number;
 };
 
 export const runtime: Runtime = {
@@ -86,6 +90,8 @@ export const runtime: Runtime = {
   lockCount: 0,
   morph: null,
   liveStops: null,
+  waveform: DEFAULT_WAVEFORM,
+  historyDepth: 0,
 };
 
 export function resetRuntimeParams(partial: Partial<SimParams>) {

@@ -96,6 +96,23 @@ export const PRESETS: SimPreset[] = [
 
 export const DEFAULT_PRESET = PRESETS[0]!;
 
+export const WAVEFORMS = [
+  { id: "sine", name: "Sine", tag: "SIN", blurb: "Pure theremin" },
+  { id: "triangle", name: "Triangle", tag: "TRI", blurb: "Soft odd harmonics" },
+  { id: "sawtooth", name: "Saw", tag: "SAW", blurb: "Bright ramp" },
+  { id: "square", name: "Square", tag: "SQR", blurb: "Hollow pulse" },
+  { id: "pulse", name: "Pulse", tag: "PLS", blurb: "Narrow duty" },
+  { id: "spectrum", name: "Spectrum", tag: "SPEC", blurb: "Field as partials" },
+] as const;
+
+export type WaveformId = (typeof WAVEFORMS)[number]["id"];
+
+export const DEFAULT_WAVEFORM: WaveformId = "sine";
+
+export function waveformById(id: string): (typeof WAVEFORMS)[number] {
+  return WAVEFORMS.find((w) => w.id === id) ?? WAVEFORMS[0]!;
+}
+
 export function paletteById(id: string): Palette {
   return PALETTES.find((p) => p.id === id) ?? PALETTES[0]!;
 }

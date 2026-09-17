@@ -1,5 +1,5 @@
 import { runtime } from "./runtime";
-import type { Brush } from "./presets";
+import { DEFAULT_WAVEFORM, type Brush, type WaveformId } from "./presets";
 
 function ramp(param: AudioParam, value: number, now: number, t = 0.05) {
   param.setTargetAtTime(value, now, t);
@@ -33,6 +33,54 @@ function snapHz(hz: number, amount: number): number {
   return hz * (1 - amount) + snapped * amount;
 }
 
+function pulseWave(ctx: AudioContext, duty = 0.22, n = 64): PeriodicWave {
+  const real = new Float32Array(n);
+  const imag = new Float32Array(n);
+  real[0] = 2 * duty - 1;
+  for (let k = 1; k < n; k++) {
+    imag[k] = (2 / (k * Math.PI)) * Math.sin(k * Math.PI * duty);
+  }
+  return ctx.createPeriodicWave(real, imag);
+}
+
+function spectrumWave(ctx: AudioContext, grid: Float32Array, energy: number, edge: number): PeriodicWave {
+  const n = 48;
+  const real = new Float32Array(n);
+  const imag = new Float32Array(n);
+  for (let k = 1; k < n; k++) {
+    const gi = Math.min(255, Math.floor((k / (n - 1)) * 255));
+    const g = grid[gi] ?? 0;
+    const odd = k % 2 === 1 ? 1 : 0.4 + edge * 0.5;
+    imag[k] = (0.1 + g * 1.35) * (1 / Math.pow(k, 0.72)) * odd * (0.4 + energy);
+  }
+  return ctx.createPeriodicWave(real, imag);
+}
+
+const LOUD: Record<WaveformId, number> = {
+  sine: 1,
+  triangle: 0.92,
+  sawtooth: 0.55,
+  square: 0.48,
+  pulse: 0.52,
+  spectrum: 0.72,
+};
+
+const CUT: Record<WaveformId, number> = {
+  sine: 1.12,
+  triangle: 1,
+  sawtooth: 0.62,
+  square: 0.55,
+  pulse: 0.6,
+  spectrum: 0.86,
+};
+
+function applyOscShape(osc: OscillatorNode, wave: WaveformId, pulse: PeriodicWave | null, spec: PeriodicWave | null) {
+  if (wave === "pulse" && pulse) osc.setPeriodicWave(pulse);
+  else if (wave === "spectrum" && spec) osc.setPeriodicWave(spec);
+  else if (wave === "sine" || wave === "triangle" || wave === "sawtooth" || wave === "square") osc.type = wave;
+  else osc.type = "sine";
+}
+
 type LiveVoice = {
   id: number;
   osc: OscillatorNode;
@@ -41,10 +89,15 @@ type LiveVoice = {
   sub: OscillatorNode;
   fm: OscillatorNode;
   fmGain: GainNode;
+  oscG: GainNode;
+  detG: GainNode;
+  harmG: GainNode;
+  subG: GainNode;
   mix: GainNode;
   filter: BiquadFilterNode;
   pan: StereoPannerNode;
   gate: GainNode;
+  wave: WaveformId;
 };
 
 type FrozenVoice = {
@@ -86,6 +139,9 @@ export class AudioEngine {
   private liveMul = 1;
   private noiseBuf: AudioBuffer | null = null;
   private capture: MediaStreamAudioDestinationNode | null = null;
+  private pulse: PeriodicWave | null = null;
+  private spec: PeriodicWave | null = null;
+  private specTick = 0;
   volume = 0.7;
   muted = false;
   enabled = false;
@@ -192,6 +248,17 @@ export class AudioEngine {
     this.analyser.fftSize = 128;
     this.analyser.smoothingTimeConstant = 0.8;
 
+    try {
+      this.pulse = pulseWave(ctx);
+    } catch {
+      this.pulse = null;
+    }
+    try {
+      this.spec = spectrumWave(ctx, runtime.stats.grid, 0.2, 0.1);
+    } catch {
+      this.spec = null;
+    }
+
     ramp(this.master.gain, this.muted ? 0 : this.volume * this.volume, ctx.currentTime, 0.08);
   }
 
@@ -269,6 +336,26 @@ export class AudioEngine {
     };
   }
 
+  private applyWave(v: LiveVoice, wave: WaveformId) {
+    applyOscShape(v.osc, wave, this.pulse, this.spec);
+    const detWave = wave === "triangle" ? "triangle" : "sine";
+    applyOscShape(v.detune, detWave, this.pulse, this.spec);
+    v.harm.type = wave === "sine" ? "triangle" : "sine";
+    v.wave = wave;
+    const now = this.ctx?.currentTime ?? 0;
+    const oscMix = wave === "sawtooth" || wave === "square" || wave === "pulse" ? 0.34 : 0.42;
+    const detMix = wave === "sine" || wave === "triangle" ? 0.28 : 0.12;
+    const harmMix = wave === "sine" ? 0.12 : wave === "spectrum" ? 0.08 : 0.05;
+    ramp(v.oscG.gain, oscMix, now, 0.04);
+    ramp(v.detG.gain, detMix, now, 0.04);
+    ramp(v.harmG.gain, harmMix, now, 0.04);
+  }
+
+  setWaveform(id: WaveformId) {
+    runtime.waveform = id;
+    for (const v of this.live.values()) this.applyWave(v, id);
+  }
+
   private allocVoice(id: number): LiveVoice {
     const ctx = this.ctx!;
     const mix = ctx.createGain();
@@ -333,7 +420,25 @@ export class AudioEngine {
     sub.start();
     fm.start();
 
-    const v: LiveVoice = { id, osc, detune, harm, sub, fm, fmGain, mix, filter, pan, gate };
+    const v: LiveVoice = {
+      id,
+      osc,
+      detune,
+      harm,
+      sub,
+      fm,
+      fmGain,
+      oscG,
+      detG,
+      harmG,
+      subG,
+      mix,
+      filter,
+      pan,
+      gate,
+      wave: DEFAULT_WAVEFORM,
+    };
+    this.applyWave(v, runtime.waveform);
     this.live.set(id, v);
     return v;
   }
@@ -367,14 +472,18 @@ export class AudioEngine {
   }
 
   private driveVoice(v: LiveVoice, x: number, y: number, pressure: number, radius: number, now: number) {
+    const wave = runtime.waveform;
+    if (v.wave !== wave) this.applyWave(v, wave);
     const sense = runtime.sense;
     const hz = snapHz(yToHz(y, sense.pitch), 0.28) * this.liveMul;
     this.lastHz = hz;
     const amp =
       (0.1 + pressure * 0.55 + radius * 0.18) *
       (0.72 + Math.max(0, 1 - y) * 0.18) *
-      (0.85 + sense.gforce * 0.04);
-    const cutoff = 700 + pressure * 2200 + (1 - y) * 900 + sense.pitch * 400 + runtime.stats.edge * 500;
+      (0.85 + sense.gforce * 0.04) *
+      LOUD[wave];
+    const cutoff =
+      (700 + pressure * 2200 + (1 - y) * 900 + sense.pitch * 400 + runtime.stats.edge * 500) * CUT[wave];
     const vib = 3.2 + sense.spin * 8 + Math.abs(sense.roll) * 2;
     const fmAmt = 2 + sense.spin * 22 + pressure * 8 + runtime.mic * 18;
 
@@ -412,6 +521,16 @@ export class AudioEngine {
     const edge = s.edge;
     const sense = runtime.sense;
     const mic = this.readMic();
+
+    if (runtime.waveform === "spectrum") {
+      this.specTick = (this.specTick + 1) % 8;
+      if (this.specTick === 0) {
+        this.spec = spectrumWave(ctx, s.grid, energy, edge);
+        for (const voice of this.live.values()) {
+          if (voice.wave === "spectrum") voice.osc.setPeriodicWave(this.spec);
+        }
+      }
+    }
 
     const hands: Brush[] = runtime.brushes.slice();
     if (hands.length === 0 && runtime.antenna.on) {
@@ -498,9 +617,11 @@ export class AudioEngine {
       this.harm.frequency.value,
     ];
     const osc: OscillatorNode[] = [];
+    const wave = runtime.waveform;
     for (let i = 0; i < 3; i++) {
       const o = ctx.createOscillator();
-      o.type = i === 2 ? "triangle" : "sine";
+      if (i === 2) o.type = "triangle";
+      else applyOscShape(o, wave, this.pulse, this.spec);
       o.frequency.value = freqs[i]!;
       const og = ctx.createGain();
       og.gain.value = i === 2 ? 0.24 : 0.2;

@@ -1,4 +1,5 @@
 import { Slider } from "@/components/ui/slider";
+import { beginGesture, endGesture } from "@/lib/morphogen/history";
 
 export function ParamSlider({
   label,
@@ -18,7 +19,14 @@ export function ParamSlider({
   onChange: (n: number) => void;
 }) {
   return (
-    <label className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1">
+    <label
+      className="grid grid-cols-[1fr_auto] items-center gap-x-3 gap-y-1"
+      onPointerDown={beginGesture}
+      onPointerUp={endGesture}
+      onPointerCancel={endGesture}
+      onFocus={beginGesture}
+      onBlur={endGesture}
+    >
       <span className="text-xs tracking-wide text-muted">{label}</span>
       <span className="font-mono text-xs tabular-nums text-fg">{format(value)}</span>
       <Slider

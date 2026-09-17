@@ -18,10 +18,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ParamSlider } from "./param-slider";
-import { PALETTES, PRESETS, type ImageMode } from "@/lib/morphogen/presets";
+import { PALETTES, PRESETS, WAVEFORMS, type ImageMode } from "@/lib/morphogen/presets";
 import { MIDI_MAP, TD_CALLBACKS } from "@/lib/morphogen/td-script";
 import { useInstrument, type ImageSlot } from "@/lib/morphogen/store";
 import { runtime } from "@/lib/morphogen/runtime";
+import { maybeCheckpoint } from "@/lib/morphogen/history";
 import type { TdStatus } from "@/lib/morphogen/td-client";
 import type { MidiDevice } from "@/lib/morphogen/midi-out";
 import { cn } from "@/lib/utils";
@@ -61,6 +62,8 @@ export function ControlDock({
   onDefaults,
   onRecord,
   recording,
+  onUndo,
+  canUndo,
 }: {
   tab: TabId;
   onTab: (t: TabId) => void;
@@ -85,6 +88,8 @@ export function ControlDock({
   onDefaults: () => void;
   onRecord: () => void;
   recording: boolean;
+  onUndo: () => void;
+  canUndo: boolean;
 }) {
   const {
     params,
@@ -92,6 +97,8 @@ export function ControlDock({
     setImageMode,
     applyPreset,
     presetId,
+    waveform,
+    setWaveform,
     images,
     activeImageId,
     gyroOn,
@@ -152,8 +159,8 @@ export function ControlDock({
                 Double-tap and hold to freeze this generation as a memory —
                 sound and a quiet overlay. The living field keeps evolving.
                 Paint after a lock to grow new colonies from it. Four layers
-                deep. Z releases the last; shift+Z clears. R resets the field,
-                shift+R restores defaults, C records.
+                deep. Z releases the last; shift+Z clears. U or ⌘Z undoes.
+                R resets, shift+R restores defaults, C records.
               </p>
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" className="flex-1" onClick={onLock}>
@@ -164,22 +171,27 @@ export function ControlDock({
                 </Button>
               </div>
               <div className="mt-2 flex gap-2">
+                <Button variant="ghost" size="sm" className="flex-1" onClick={onUndo} disabled={!canUndo}>
+                  <Undo2 /> Undo
+                </Button>
                 <Button variant="ghost" size="sm" className="flex-1" onClick={onReset}>
                   <RotateCcw /> Reset
                 </Button>
+              </div>
+              <div className="mt-2 flex gap-2">
                 <Button variant="ghost" size="sm" className="flex-1" onClick={onDefaults}>
-                  <Undo2 /> Defaults
+                  Defaults
+                </Button>
+                <Button
+                  variant={recording ? "secondary" : "ghost"}
+                  size="sm"
+                  className="flex-1"
+                  onClick={onRecord}
+                >
+                  {recording ? <Square /> : <Circle />}
+                  {recording ? "Stop" : "Record"}
                 </Button>
               </div>
-              <Button
-                variant={recording ? "secondary" : "ghost"}
-                size="sm"
-                className="mt-2 w-full"
-                onClick={onRecord}
-              >
-                {recording ? <Square /> : <Circle />}
-                {recording ? "Stop recording" : "Record session"}
-              </Button>
               {lockCount > 1 && (
                 <button
                   type="button"
@@ -281,6 +293,7 @@ export function ControlDock({
                 size="sm"
                 className="flex-1"
                 onClick={() => {
+                  maybeCheckpoint();
                   runtime.seedNonce += 1;
                 }}
               >
@@ -377,6 +390,31 @@ export function ControlDock({
               this voicing; the live lead steps to a new interval. If a tab
               sleeps, tap anywhere to wake it.
             </p>
+            <div>
+              <p className="mb-2 text-xs text-muted">Waveform</p>
+              <p className="mb-2 text-xs leading-relaxed text-muted">
+                Shape of the live theremin. Spectrum reads the field as
+                harmonic partials — the chemistry becomes the timbre.
+              </p>
+              <div className="grid grid-cols-2 gap-1.5">
+                {WAVEFORMS.map((w) => (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => setWaveform(w.id)}
+                    className={cn(
+                      "rounded-sm px-2.5 py-2 text-left shadow-[var(--shadow-border)] transition-colors duration-150",
+                      waveform === w.id ? "bg-fg text-bg" : "bg-transparent text-fg hover:bg-fg/6",
+                    )}
+                  >
+                    <span className="block text-xs font-medium">{w.name}</span>
+                    <span className={cn("block text-[10px]", waveform === w.id ? "text-bg/70" : "text-faint")}>
+                      {w.blurb}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 

@@ -167,6 +167,8 @@ export class RDEngine {
   private dispBrushLoc: WebGLUniformLocation | null = null;
   private brushData = new Float32Array(MAX_BRUSHES * 4);
   private trailData = new Float32Array(MAX_BRUSHES * 4);
+  private history: Target[] = [];
+  private readonly historyMax = 8;
   simW: number;
   simH: number;
   private maxSide: number;
@@ -292,6 +294,7 @@ export class RDEngine {
     this.deleteTarget(this.simB);
     this.deleteTarget(this.statsTarget);
     for (const lock of this.locks) this.deleteTarget(lock);
+    this.clearFieldHistory();
     if (this.imageTex) gl.deleteTexture(this.imageTex);
     gl.deleteTexture(this.dummyTex);
   }
@@ -454,6 +457,7 @@ export class RDEngine {
     this.lockCount = 0;
     this.lockStart = 0;
     runtime.lockCount = 0;
+    this.clearFieldHistory();
     if (aspectShift > 0.08 || force) {
       gl.deleteTexture(oldTex);
       gl.deleteFramebuffer(oldFbo);
@@ -506,6 +510,36 @@ export class RDEngine {
     this.lockCount = 0;
     this.lockStart = 0;
     runtime.lockCount = 0;
+  }
+
+  checkpoint() {
+    const gl = this.gl;
+    let slot: Target;
+    if (this.history.length >= this.historyMax) {
+      slot = this.history.shift()!;
+      if (slot.w !== this.simW || slot.h !== this.simH) {
+        this.deleteTarget(slot);
+        slot = makeTarget(gl, this.simW, this.simH, this.texInternal, this.texFormat, this.texType, this.texFilter);
+      }
+    } else {
+      slot = makeTarget(gl, this.simW, this.simH, this.texInternal, this.texFormat, this.texType, this.texFilter);
+    }
+    this.blit(this.simA.tex, slot);
+    this.history.push(slot);
+  }
+
+  undo(): boolean {
+    const slot = this.history.pop();
+    if (!slot) return false;
+    if (slot.w === this.simW && slot.h === this.simH) this.blit(slot.tex, this.simA);
+    this.deleteTarget(slot);
+    this.flash = 0.4;
+    return true;
+  }
+
+  clearFieldHistory() {
+    for (const t of this.history) this.deleteTarget(t);
+    this.history = [];
   }
 
   private newestLock(): Target | null {

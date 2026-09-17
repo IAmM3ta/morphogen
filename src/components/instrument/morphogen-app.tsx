@@ -24,10 +24,18 @@ import { MidiOut, type MidiDevice } from "@/lib/morphogen/midi-out";
 import { TdClient, type TdStatus } from "@/lib/morphogen/td-client";
 import { attachSensors, localPointerBrushes, requestSensorPermission } from "@/lib/morphogen/sensors";
 import { extractPaletteFromImage } from "@/lib/morphogen/extract-palette";
-import { PRESETS, MAX_BRUSHES, pickSimMaxSide, type Brush } from "@/lib/morphogen/presets";
+import { PRESETS, MAX_BRUSHES, pickSimMaxSide, waveformById, type Brush } from "@/lib/morphogen/presets";
 import { runtime } from "@/lib/morphogen/runtime";
 import { useInstrument } from "@/lib/morphogen/store";
 import { SessionRecorder, downloadBlob } from "@/lib/morphogen/recorder";
+import {
+  bindHistory,
+  clearHistory,
+  finishUndo,
+  maybeCheckpoint,
+  subscribeHistory,
+  undo as popUndo,
+} from "@/lib/morphogen/history";
 import { cn } from "@/lib/utils";
 
 type TabId = "field" | "image" | "sense" | "sound" | "sync";
@@ -60,6 +68,7 @@ export function MorphogenApp() {
   const resetRef = useRef<() => void>(() => {});
   const defaultsRef = useRef<() => void>(() => {});
   const recordRef = useRef<() => void>(() => {});
+  const undoRef = useRef<() => void>(() => {});
   const lastLockAt = useRef(0);
   const embers = useRef<Ember[]>([]);
   const haloMap = useRef(new Map<number, Halo>());
@@ -82,6 +91,8 @@ export function MorphogenApp() {
   const patch = useInstrument((s) => s.patch);
   const applyPreset = useInstrument((s) => s.applyPreset);
   const restoreDefaults = useInstrument((s) => s.restoreDefaults);
+  const waveform = useInstrument((s) => s.waveform);
+  const applySnapshot = useInstrument((s) => s.applySnapshot);
 
   const [tab, setTab] = useState<TabId>("field");
   const [paused, setPaused] = useState(false);
@@ -100,6 +111,7 @@ export function MorphogenApp() {
   const [bursts, setBursts] = useState<Burst[]>([]);
   const [recording, setRecording] = useState(false);
   const [recElapsed, setRecElapsed] = useState(0);
+  const [canUndo, setCanUndo] = useState(false);
 
   const flushHalos = useCallback(() => {
     if (haloRaf.current) return;
@@ -125,6 +137,7 @@ export function MorphogenApp() {
     const now = performance.now();
     if (now - lastLockAt.current < 180) return;
     lastLockAt.current = now;
+    maybeCheckpoint();
     const n = engineRef.current?.lockLayer(x, y) ?? 0;
     audioRef.current?.lockLoop();
     setLockCount(n);
@@ -152,6 +165,7 @@ export function MorphogenApp() {
   }, []);
 
   const resetField = useCallback(() => {
+    maybeCheckpoint();
     runtime.seedNonce += 1;
     clearAllLocks();
     if (engineRef.current) engineRef.current.flash = 0.7;
@@ -164,6 +178,26 @@ export function MorphogenApp() {
     if (engineRef.current) engineRef.current.flash = 0.85;
     audioRef.current?.tap(0.12);
   }, [restoreDefaults, clearAllLocks]);
+
+  const undoLast = useCallback(() => {
+    const snap = popUndo();
+    if (!snap) return;
+    embers.current = [];
+    haloMap.current.clear();
+    flushHalos();
+    applySnapshot(snap);
+    audioRef.current?.setWaveform(snap.waveform);
+    const engine = engineRef.current;
+    if (engine) {
+      while (engine.lockCount > snap.lockCount) {
+        engine.popLock();
+        audioRef.current?.popLock();
+      }
+      setLockCount(engine.lockCount);
+    }
+    finishUndo();
+    audioRef.current?.tap(0.08);
+  }, [applySnapshot, flushHalos]);
 
   const toggleRecord = useCallback(() => {
     const rec = recorderRef.current;
@@ -201,10 +235,13 @@ export function MorphogenApp() {
   resetRef.current = resetField;
   defaultsRef.current = onDefaults;
   recordRef.current = toggleRecord;
+  undoRef.current = undoLast;
 
   useEffect(() => {
     const sync = () => {
-      Object.assign(runtime.params, useInstrument.getState().params);
+      const s = useInstrument.getState();
+      Object.assign(runtime.params, s.params);
+      runtime.waveform = s.waveform;
     };
     sync();
     return useInstrument.persist.onFinishHydration(sync);
@@ -220,6 +257,8 @@ export function MorphogenApp() {
     document.addEventListener("fullscreenchange", onFs);
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
+
+  useEffect(() => subscribeHistory((n) => setCanUndo(n > 0)), []);
 
   useEffect(() => {
     if (!recording) return;
@@ -240,6 +279,19 @@ export function MorphogenApp() {
       return;
     }
     engineRef.current = engine;
+    bindHistory({
+      capture: () => {
+        const s = useInstrument.getState();
+        return {
+          params: { ...s.params },
+          presetId: s.presetId,
+          waveform: s.waveform,
+          lockCount: engine.lockCount,
+        };
+      },
+      checkpointField: () => engine.checkpoint(),
+      restoreField: () => engine.undo(),
+    });
     engine.onFrame = (_dt, stats) => {
       audioRef.current?.tick();
       setEnergy((e) => (Math.abs(e - stats.energy) > 0.02 ? stats.energy : e));
@@ -265,10 +317,14 @@ export function MorphogenApp() {
       antenna: runtime.antenna.on,
       recording: recorderRef.current.recording,
       morphing: Boolean(runtime.morph),
+      waveform: runtime.waveform,
+      history: runtime.historyDepth,
     });
     (window as unknown as { __morphogen: typeof probe }).__morphogen = probe;
     return () => {
       delete (window as unknown as { __morphogen?: typeof probe }).__morphogen;
+      bindHistory(null);
+      clearHistory();
       recorderRef.current.stop();
       engine.destroy();
       engineRef.current = null;
@@ -291,6 +347,7 @@ export function MorphogenApp() {
       (v, x, y) => setCharge({ v, x, y }),
       (evt) => {
         if (evt.type === "down") {
+          if (localBrushes.current.length <= 1) maybeCheckpoint();
           haloMap.current.set(evt.id, {
             id: evt.id,
             x: evt.x,
@@ -441,6 +498,11 @@ export function MorphogenApp() {
   }, [audioOn, volume, muted]);
 
   useEffect(() => {
+    runtime.waveform = waveform;
+    audioRef.current?.setWaveform(waveform);
+  }, [waveform]);
+
+  useEffect(() => {
     const onVis = () => {
       if (document.visibilityState === "visible") audioRef.current?.resume();
     };
@@ -464,6 +526,12 @@ export function MorphogenApp() {
         else resetRef.current();
       } else if (e.key === "c" || e.key === "C") {
         recordRef.current();
+      } else if (e.key === "u" || e.key === "U") {
+        e.preventDefault();
+        undoRef.current();
+      } else if ((e.key === "z" || e.key === "Z") && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        undoRef.current();
       } else if (e.key === "l" || e.key === "L") {
         performLockRef.current();
       } else if ((e.key === "z" || e.key === "Z") && !e.metaKey && !e.ctrlKey) {
@@ -541,15 +609,20 @@ export function MorphogenApp() {
   }, [cameraOn, patch]);
 
   const enter = useCallback(async () => {
-    const audio = new AudioEngine();
-    audio.unlock();
-    audioRef.current = audio;
-    audio.setVolume(useInstrument.getState().volume);
     runtime.started = true;
     patch({ started: true });
+    try {
+      const audio = new AudioEngine();
+      audio.unlock();
+      audioRef.current = audio;
+      audio.setVolume(useInstrument.getState().volume);
+      audio.setWaveform(useInstrument.getState().waveform);
+    } catch {
+      toast("Audio could not start — tap again to retry");
+    }
 
-    if (useInstrument.getState().micOn) {
-      const ok = await audio.connectMic();
+    if (useInstrument.getState().micOn && audioRef.current) {
+      const ok = await audioRef.current.connectMic();
       if (!ok) toast("Microphone permission was declined");
     }
     const gyro = useInstrument.getState().gyroOn;
@@ -700,6 +773,7 @@ export function MorphogenApp() {
               </p>
               <p className="font-mono text-[10px] tabular-nums text-muted">
                 F {params.feed.toFixed(4)} · K {params.kill.toFixed(4)} · E {energy.toFixed(2)}
+                {` · ${waveformById(waveform).tag}`}
                 {lockCount > 0 ? ` · LOOP ${lockCount}` : ""}
                 {voices > 0 ? ` · ${Math.round(hz)} Hz · ${voices}v` : ""}
               </p>
@@ -717,19 +791,20 @@ export function MorphogenApp() {
                 variant="ghost"
                 size="icon-sm"
                 className="hidden sm:inline-flex"
-                onClick={resetField}
-                aria-label="Reset field"
+                onClick={undoLast}
+                disabled={!canUndo}
+                aria-label="Undo"
               >
-                <RotateCcw />
+                <Undo2 />
               </Button>
               <Button
                 variant="ghost"
                 size="icon-sm"
                 className="hidden sm:inline-flex"
-                onClick={onDefaults}
-                aria-label="Restore defaults"
+                onClick={resetField}
+                aria-label="Reset field"
               >
-                <Undo2 />
+                <RotateCcw />
               </Button>
               <Button
                 variant={recording ? "secondary" : "ghost"}
@@ -800,6 +875,8 @@ export function MorphogenApp() {
             onDefaults={onDefaults}
             onRecord={toggleRecord}
             recording={recording}
+            onUndo={undoLast}
+            canUndo={canUndo}
           />
         </>
       )}
@@ -851,11 +928,17 @@ export function MorphogenApp() {
           data-ui
           className="pointer-events-auto absolute right-3 bottom-[max(0.85rem,env(safe-area-inset-bottom))] z-20 flex gap-1 sm:hidden"
         >
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={undoLast}
+            disabled={!canUndo}
+            aria-label="Undo"
+          >
+            <Undo2 />
+          </Button>
           <Button variant="ghost" size="icon-sm" onClick={resetField} aria-label="Reset field">
             <RotateCcw />
-          </Button>
-          <Button variant="ghost" size="icon-sm" onClick={onDefaults} aria-label="Restore defaults">
-            <Undo2 />
           </Button>
           <Button
             variant={recording ? "secondary" : "ghost"}

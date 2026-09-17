@@ -125,15 +125,15 @@ export const DEFAULT_PARAMS: SimParams = {
   kill: DEFAULT_PRESET.kill,
   du: DEFAULT_PRESET.du,
   dv: DEFAULT_PRESET.dv,
-  speed: 0.95,
-  brushSize: 0.055,
-  brushStrength: 0.82,
+  speed: 1.16,
+  brushSize: 0.072,
+  brushStrength: 1,
   imageMix: 0.35,
   imageMode: "inoculate",
   paletteId: DEFAULT_PRESET.paletteId,
-  glow: 1.15,
+  glow: 1.28,
   vignette: 0.14,
-  steps: 3,
+  steps: 6,
 };
 
 export const MAX_BRUSHES = 8;

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Circle,
   Eye,
   EyeOff,
   Layers,
@@ -9,6 +10,8 @@ import {
   Play,
   RotateCcw,
   SlidersHorizontal,
+  Square,
+  Undo2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,9 +27,20 @@ import { extractPaletteFromImage } from "@/lib/morphogen/extract-palette";
 import { PRESETS, MAX_BRUSHES, pickSimMaxSide, type Brush } from "@/lib/morphogen/presets";
 import { runtime } from "@/lib/morphogen/runtime";
 import { useInstrument } from "@/lib/morphogen/store";
+import { SessionRecorder, downloadBlob } from "@/lib/morphogen/recorder";
 import { cn } from "@/lib/utils";
 
 type TabId = "field" | "image" | "sense" | "sound" | "sync";
+
+type Halo = { id: number; x: number; y: number; pressure: number };
+type Burst = { id: number; x: number; y: number; kind: "ripple" | "ember"; born: number };
+type Ember = Brush & { born: number; life: number };
+
+function formatRec(seconds: number) {
+  const s = Math.max(0, Math.floor(seconds));
+  const m = Math.floor(s / 60);
+  return `${m}:${String(s % 60).padStart(2, "0")}`;
+}
 
 export function MorphogenApp() {
   const canvasWrapRef = useRef<HTMLDivElement>(null);
@@ -36,13 +50,22 @@ export function MorphogenApp() {
   const audioRef = useRef<AudioEngine | null>(null);
   const midiRef = useRef<MidiOut | null>(null);
   const tdRef = useRef<TdClient | null>(null);
+  const recorderRef = useRef(new SessionRecorder());
   const cameraStream = useRef<MediaStream | null>(null);
   const localBrushes = useRef<Brush[]>([]);
   const remoteBrushes = useRef<Map<string, Brush[]>>(new Map());
   const remoteFlow = useRef({ x: 0, y: 0, n: 0 });
   const imageEl = useRef<HTMLImageElement | null>(null);
   const performLockRef = useRef<(x?: number, y?: number) => void>(() => {});
+  const resetRef = useRef<() => void>(() => {});
+  const defaultsRef = useRef<() => void>(() => {});
+  const recordRef = useRef<() => void>(() => {});
   const lastLockAt = useRef(0);
+  const embers = useRef<Ember[]>([]);
+  const haloMap = useRef(new Map<number, Halo>());
+  const haloRaf = useRef(0);
+  const lastRipple = useRef(new Map<number, number>());
+  const burstSeq = useRef(1);
 
   const started = useInstrument((s) => s.started);
   const uiHidden = useInstrument((s) => s.uiHidden);
@@ -58,6 +81,7 @@ export function MorphogenApp() {
   const activeImageId = useInstrument((s) => s.activeImageId);
   const patch = useInstrument((s) => s.patch);
   const applyPreset = useInstrument((s) => s.applyPreset);
+  const restoreDefaults = useInstrument((s) => s.restoreDefaults);
 
   const [tab, setTab] = useState<TabId>("field");
   const [paused, setPaused] = useState(false);
@@ -72,6 +96,30 @@ export function MorphogenApp() {
   const [voices, setVoices] = useState(0);
   const [charge, setCharge] = useState({ v: 0, x: 0.5, y: 0.5 });
   const [pulse, setPulse] = useState<{ x: number; y: number; id: number } | null>(null);
+  const [halos, setHalos] = useState<Halo[]>([]);
+  const [bursts, setBursts] = useState<Burst[]>([]);
+  const [recording, setRecording] = useState(false);
+  const [recElapsed, setRecElapsed] = useState(0);
+
+  const flushHalos = useCallback(() => {
+    if (haloRaf.current) return;
+    haloRaf.current = requestAnimationFrame(() => {
+      haloRaf.current = 0;
+      setHalos([...haloMap.current.values()]);
+    });
+  }, []);
+
+  const spawnBurst = useCallback((x: number, y: number, kind: Burst["kind"]) => {
+    const id = burstSeq.current++;
+    const born = performance.now();
+    setBursts((list) => [...list.slice(-14), { id, x, y, kind, born }]);
+    window.setTimeout(
+      () => {
+        setBursts((list) => list.filter((b) => b.id !== id));
+      },
+      kind === "ember" ? 1100 : 720,
+    );
+  }, []);
 
   const performLock = useCallback((x = 0.5, y = 0.5) => {
     const now = performance.now();
@@ -103,7 +151,56 @@ export function MorphogenApp() {
     setLockCount(0);
   }, []);
 
+  const resetField = useCallback(() => {
+    runtime.seedNonce += 1;
+    clearAllLocks();
+    if (engineRef.current) engineRef.current.flash = 0.7;
+    audioRef.current?.tap(0.1);
+  }, [clearAllLocks]);
+
+  const onDefaults = useCallback(() => {
+    restoreDefaults();
+    clearAllLocks();
+    if (engineRef.current) engineRef.current.flash = 0.85;
+    audioRef.current?.tap(0.12);
+  }, [restoreDefaults, clearAllLocks]);
+
+  const toggleRecord = useCallback(() => {
+    const rec = recorderRef.current;
+    if (rec.recording) {
+      rec.stop();
+      return;
+    }
+    const canvas = canvasRef.current;
+    if (!canvas) {
+      toast("Nothing to record yet");
+      return;
+    }
+    rec.onError = (msg) => {
+      setRecording(false);
+      toast(msg);
+    };
+    rec.onStop = (blob, name) => {
+      setRecording(false);
+      setRecElapsed(0);
+      if (blob.size < 32) {
+        toast("Recording was empty");
+        return;
+      }
+      downloadBlob(blob, name);
+      toast("Recording saved");
+    };
+    const ok = rec.start(canvas, audioRef.current?.captureStream() ?? null);
+    if (ok) {
+      setRecording(true);
+      setRecElapsed(0);
+    }
+  }, []);
+
   performLockRef.current = performLock;
+  resetRef.current = resetField;
+  defaultsRef.current = onDefaults;
+  recordRef.current = toggleRecord;
 
   useEffect(() => {
     const sync = () => {
@@ -123,6 +220,14 @@ export function MorphogenApp() {
     document.addEventListener("fullscreenchange", onFs);
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
+
+  useEffect(() => {
+    if (!recording) return;
+    const id = window.setInterval(() => {
+      setRecElapsed(recorderRef.current.elapsed);
+    }, 250);
+    return () => window.clearInterval(id);
+  }, [recording]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -158,10 +263,13 @@ export function MorphogenApp() {
       hz: audioRef.current?.lastHz ?? 0,
       voices: audioRef.current?.voiceCount ?? 0,
       antenna: runtime.antenna.on,
+      recording: recorderRef.current.recording,
+      morphing: Boolean(runtime.morph),
     });
     (window as unknown as { __morphogen: typeof probe }).__morphogen = probe;
     return () => {
       delete (window as unknown as { __morphogen?: typeof probe }).__morphogen;
+      recorderRef.current.stop();
       engine.destroy();
       engineRef.current = null;
     };
@@ -181,6 +289,58 @@ export function MorphogenApp() {
       },
       (x, y) => performLockRef.current(x, y),
       (v, x, y) => setCharge({ v, x, y }),
+      (evt) => {
+        if (evt.type === "down") {
+          haloMap.current.set(evt.id, {
+            id: evt.id,
+            x: evt.x,
+            y: evt.y,
+            pressure: evt.pressure,
+          });
+          embers.current = embers.current.filter((e) => e.id !== evt.id);
+          spawnBurst(evt.x, evt.y, "ripple");
+          lastRipple.current.set(evt.id, performance.now());
+          audioRef.current?.tap(0.11 + evt.pressure * 0.12);
+          try {
+            navigator.vibrate?.(8);
+          } catch {
+            /* no haptics */
+          }
+          flushHalos();
+        } else if (evt.type === "move") {
+          haloMap.current.set(evt.id, {
+            id: evt.id,
+            x: evt.x,
+            y: evt.y,
+            pressure: evt.pressure,
+          });
+          const last = lastRipple.current.get(evt.id) ?? 0;
+          if (performance.now() - last > 160) {
+            spawnBurst(evt.x, evt.y, "ripple");
+            lastRipple.current.set(evt.id, performance.now());
+          }
+          flushHalos();
+        } else {
+          const live = localBrushes.current.find((b) => b.id === evt.id);
+          embers.current.push({
+            id: evt.id,
+            x: evt.x,
+            y: evt.y,
+            px: live?.px ?? evt.x,
+            py: live?.py ?? evt.y,
+            size: live?.size ?? 0.07,
+            strength: (live?.strength ?? 0.8) * 0.7,
+            pressure: evt.pressure * 0.65,
+            radius: evt.radius,
+            born: performance.now(),
+            life: 1400,
+          });
+          haloMap.current.delete(evt.id);
+          lastRipple.current.delete(evt.id);
+          spawnBurst(evt.x, evt.y, "ember");
+          flushHalos();
+        }
+      },
     );
     const onDrop = (e: DragEvent) => {
       e.preventDefault();
@@ -205,14 +365,33 @@ export function MorphogenApp() {
       wrap.removeEventListener("drop", onDrop);
       wrap.removeEventListener("dragover", onDragOver);
     };
-  }, []);
+  }, [flushHalos, spawnBurst]);
 
   useEffect(() => {
     let raf = 0;
     const loop = () => {
+      const now = performance.now();
+      embers.current = embers.current.filter((e) => now - e.born < e.life);
+      const liveIds = new Set(localBrushes.current.map((b) => b.id));
+      const emberBrushes: Brush[] = [];
+      for (const e of embers.current) {
+        if (liveIds.has(e.id)) continue;
+        const t = 1 - (now - e.born) / e.life;
+        emberBrushes.push({
+          id: e.id,
+          x: e.x,
+          y: e.y,
+          px: e.px,
+          py: e.py,
+          size: e.size * (0.85 + t * 0.25),
+          strength: e.strength * t,
+          pressure: e.pressure * t,
+          radius: e.radius,
+        });
+      }
       const remotes: Brush[] = [];
       remoteBrushes.current.forEach((list) => remotes.push(...list));
-      runtime.brushes = [...localBrushes.current, ...remotes].slice(0, MAX_BRUSHES);
+      runtime.brushes = [...localBrushes.current, ...emberBrushes, ...remotes].slice(0, MAX_BRUSHES);
       if (remoteFlow.current.n > 0) {
         runtime.flowX += remoteFlow.current.x;
         runtime.flowY += remoteFlow.current.y;
@@ -281,7 +460,10 @@ export function MorphogenApp() {
       } else if (e.key === "f" || e.key === "F") {
         void toggleFullscreen();
       } else if (e.key === "r" || e.key === "R") {
-        runtime.seedNonce += 1;
+        if (e.shiftKey) defaultsRef.current();
+        else resetRef.current();
+      } else if (e.key === "c" || e.key === "C") {
+        recordRef.current();
       } else if (e.key === "l" || e.key === "L") {
         performLockRef.current();
       } else if ((e.key === "z" || e.key === "Z") && !e.metaKey && !e.ctrlKey) {
@@ -292,10 +474,7 @@ export function MorphogenApp() {
         patch({ panelOpen: false, uiHidden: false });
       } else if (e.key >= "1" && e.key <= "9") {
         const preset = PRESETS[Number(e.key) - 1];
-        if (preset) {
-          applyPreset(preset.id);
-          runtime.seedNonce += 1;
-        }
+        if (preset) applyPreset(preset.id);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -451,6 +630,24 @@ export function MorphogenApp() {
       <div ref={canvasWrapRef} className="absolute inset-0 touch-none" style={{ touchAction: "none" }}>
         <canvas ref={canvasRef} className="block h-full w-full" />
         <video ref={videoRef} className="hidden" playsInline muted />
+        {halos.map((h) => (
+          <div
+            key={h.id}
+            className="finger-halo pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
+            style={{
+              left: `${h.x * 100}%`,
+              top: `${h.y * 100}%`,
+              ["--press" as string]: String(h.pressure),
+            }}
+          />
+        ))}
+        {bursts.map((b) => (
+          <div
+            key={b.id}
+            className={cn("pointer-events-none absolute z-10", b.kind === "ember" ? "finger-ember" : "finger-ripple")}
+            style={{ left: `${b.x * 100}%`, top: `${b.y * 100}%` }}
+          />
+        ))}
         {charge.v > 0.02 && (
           <div
             className="lock-charge pointer-events-none absolute z-10 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full"
@@ -478,6 +675,18 @@ export function MorphogenApp() {
       )}
 
       {!started && !glError && <StartGate onEnter={() => void enter()} />}
+
+      {started && recording && (
+        <div
+          data-ui
+          className="pointer-events-none absolute top-[max(0.55rem,env(safe-area-inset-top))] left-1/2 z-30 -translate-x-1/2"
+        >
+          <div className="flex items-center gap-2 rounded-full bg-bg-elevated/90 px-3 py-1.5 shadow-[var(--shadow-border)]">
+            <span className="rec-pulse block size-2 rounded-full bg-destructive" />
+            <span className="font-mono text-xs tabular-nums text-fg">REC {formatRec(recElapsed)}</span>
+          </div>
+        </div>
+      )}
 
       {started && !uiHidden && (
         <>
@@ -507,12 +716,29 @@ export function MorphogenApp() {
               <Button
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => {
-                  runtime.seedNonce += 1;
-                }}
-                aria-label="Reseed"
+                className="hidden sm:inline-flex"
+                onClick={resetField}
+                aria-label="Reset field"
               >
                 <RotateCcw />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="hidden sm:inline-flex"
+                onClick={onDefaults}
+                aria-label="Restore defaults"
+              >
+                <Undo2 />
+              </Button>
+              <Button
+                variant={recording ? "secondary" : "ghost"}
+                size="icon-sm"
+                className="hidden sm:inline-flex"
+                onClick={toggleRecord}
+                aria-label={recording ? "Stop recording" : "Record session"}
+              >
+                {recording ? <Square /> : <Circle />}
               </Button>
               <Button
                 variant="ghost"
@@ -570,6 +796,10 @@ export function MorphogenApp() {
             onPop={() => popTo(lockCount - 1)}
             onClearLocks={clearAllLocks}
             lockCount={lockCount}
+            onReset={resetField}
+            onDefaults={onDefaults}
+            onRecord={toggleRecord}
+            recording={recording}
           />
         </>
       )}
@@ -613,6 +843,28 @@ export function MorphogenApp() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {started && !uiHidden && !panelOpen && (
+        <div
+          data-ui
+          className="pointer-events-auto absolute right-3 bottom-[max(0.85rem,env(safe-area-inset-bottom))] z-20 flex gap-1 sm:hidden"
+        >
+          <Button variant="ghost" size="icon-sm" onClick={resetField} aria-label="Reset field">
+            <RotateCcw />
+          </Button>
+          <Button variant="ghost" size="icon-sm" onClick={onDefaults} aria-label="Restore defaults">
+            <Undo2 />
+          </Button>
+          <Button
+            variant={recording ? "secondary" : "ghost"}
+            size="icon-sm"
+            onClick={toggleRecord}
+            aria-label={recording ? "Stop recording" : "Record session"}
+          >
+            {recording ? <Square /> : <Circle />}
+          </Button>
         </div>
       )}
 

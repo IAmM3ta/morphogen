@@ -175,12 +175,24 @@ type Finger = {
   radius: number;
 };
 
+export type ContactKind = "down" | "move" | "up";
+
+export type ContactEvent = {
+  type: ContactKind;
+  id: number;
+  x: number;
+  y: number;
+  pressure: number;
+  radius: number;
+};
+
 export function localPointerBrushes(
   canvas: HTMLElement,
   getSize: () => { size: number; strength: number },
   onChange?: (brushes: Brush[]) => void,
   onLock?: (x: number, y: number) => void,
   onCharge?: (charge: number, x: number, y: number) => void,
+  onContact?: (evt: ContactEvent) => void,
 ): () => void {
   const fingers = new Map<number, Finger>();
   const DOUBLE_MS = 420;
@@ -236,6 +248,10 @@ export function localPointerBrushes(
     };
   };
 
+  const emit = (type: ContactKind, f: Finger) => {
+    onContact?.({ type, id: f.id, x: f.x, y: f.y, pressure: f.pressure, radius: f.radius });
+  };
+
   const startPaint = (f: Finger) => {
     if (f.painting) return;
     f.painting = true;
@@ -246,6 +262,7 @@ export function localPointerBrushes(
     }
     onCharge?.(0, 0, 0);
     sync();
+    emit("down", f);
   };
 
   const cancelPendingLocks = () => {
@@ -308,6 +325,7 @@ export function localPointerBrushes(
       requestAnimationFrame(tick);
     } else {
       sync();
+      emit("down", f);
     }
   };
 
@@ -335,19 +353,25 @@ export function localPointerBrushes(
 
     const moved = Math.hypot(px - f.sx, py - f.sy);
     if (f.lock && !f.locked && !f.painting && moved > TAP_MOVE) startPaint(f);
-    else if (f.painting) sync();
+    else if (f.painting) {
+      sync();
+      emit("move", f);
+    }
   };
 
   const end = (id: number, clientX: number, clientY: number) => {
     const f = fingers.get(id);
     if (!f) return;
     if (f.hold != null) window.clearTimeout(f.hold);
+    const { x, y, px, py } = fromClient(clientX, clientY);
+    f.x = x;
+    f.y = y;
     if (!f.painting && !f.locked) {
       const elapsed = performance.now() - f.t;
-      const { px, py } = fromClient(clientX, clientY);
       const moved = Math.hypot(px - f.sx, py - f.sy);
       if (elapsed < 280 && moved < TAP_MOVE) lastTap = { t: performance.now(), x: px, y: py };
     }
+    if (f.painting) emit("up", f);
     fingers.delete(id);
     onCharge?.(0, 0, 0);
     sync();

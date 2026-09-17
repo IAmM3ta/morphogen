@@ -3,12 +3,15 @@ import {
   Aperture,
   AudioLines,
   Camera,
+  Circle,
   Copy,
   ImagePlus,
   Radio,
   RotateCcw,
   Smartphone,
   SlidersHorizontal,
+  Square,
+  Undo2,
   Upload,
   X,
 } from "lucide-react";
@@ -54,6 +57,10 @@ export function ControlDock({
   onPop,
   onClearLocks,
   lockCount,
+  onReset,
+  onDefaults,
+  onRecord,
+  recording,
 }: {
   tab: TabId;
   onTab: (t: TabId) => void;
@@ -74,6 +81,10 @@ export function ControlDock({
   onPop: () => void;
   onClearLocks: () => void;
   lockCount: number;
+  onReset: () => void;
+  onDefaults: () => void;
+  onRecord: () => void;
+  recording: boolean;
 }) {
   const {
     params,
@@ -141,7 +152,8 @@ export function ControlDock({
                 Double-tap and hold to freeze this generation as a memory —
                 sound and a quiet overlay. The living field keeps evolving.
                 Paint after a lock to grow new colonies from it. Four layers
-                deep. Z releases the last; shift+Z clears.
+                deep. Z releases the last; shift+Z clears. R resets the field,
+                shift+R restores defaults, C records.
               </p>
               <div className="flex gap-2">
                 <Button variant="secondary" size="sm" className="flex-1" onClick={onLock}>
@@ -151,6 +163,23 @@ export function ControlDock({
                   Release
                 </Button>
               </div>
+              <div className="mt-2 flex gap-2">
+                <Button variant="ghost" size="sm" className="flex-1" onClick={onReset}>
+                  <RotateCcw /> Reset
+                </Button>
+                <Button variant="ghost" size="sm" className="flex-1" onClick={onDefaults}>
+                  <Undo2 /> Defaults
+                </Button>
+              </div>
+              <Button
+                variant={recording ? "secondary" : "ghost"}
+                size="sm"
+                className="mt-2 w-full"
+                onClick={onRecord}
+              >
+                {recording ? <Square /> : <Circle />}
+                {recording ? "Stop recording" : "Record session"}
+              </Button>
               {lockCount > 1 && (
                 <button
                   type="button"
@@ -163,15 +192,15 @@ export function ControlDock({
             </div>
             <div>
               <p className="mb-2 text-xs text-muted">Species</p>
+              <p className="mb-2 text-xs leading-relaxed text-muted">
+                Morphs the living chemistry in place. The field is not reset.
+              </p>
               <div className="grid grid-cols-2 gap-1.5">
                 {PRESETS.map((p) => (
                   <button
                     key={p.id}
                     type="button"
-                    onClick={() => {
-                      applyPreset(p.id);
-                      runtime.seedNonce += 1;
-                    }}
+                    onClick={() => applyPreset(p.id)}
                     className={cn(
                       "rounded-sm px-2.5 py-2 text-left shadow-[var(--shadow-border)] transition-colors duration-150",
                       presetId === p.id ? "bg-fg text-bg" : "bg-transparent text-fg hover:bg-fg/6",

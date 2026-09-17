@@ -9,6 +9,8 @@ A **theremin made of chemistry**. 4K-class Gray–Scott reaction-diffusion you p
 3. **The chassis is the other antenna.** Lean for brightness, roll for chorus, spin for vibrato. Press (or a fatter contact) for more harmonic.
 4. On a laptop, just move the pointer — no click required. Click or rest fingers to plant colonies in the field.
 5. Double-tap and hold to **lock a loop**. `L` locks, `Z` releases, `Shift+Z` clears.
+6. Species buttons **morph chemistry in place** — they do not reseed. `1`–`9` pick a species.
+7. `R` resets the field, `Shift+R` restores defaults, `C` records the session (picture + sound).
 
 ## Run locally
 

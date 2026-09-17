@@ -60,9 +60,15 @@ float gauss(vec2 uv, vec2 c, float radius, vec2 res) {
 float finger(int i, vec2 uv, vec2 res) {
   vec4 b = uBrush[i];
   if (b.w <= 0.0001) return 0.0;
-  float g0 = gauss(uv, b.xy, b.z, res);
-  float g1 = gauss(uv, uTrail[i].xy, b.z, res);
-  return b.w * max(g0, g1 * 0.88);
+  vec2 d0 = (uv - b.xy) * res;
+  vec2 d1 = (uv - uTrail[i].xy) * res;
+  float rad = max(b.z, 0.004) * min(res.x, res.y);
+  float t0 = length(d0) / rad;
+  float t1 = length(d1) / rad;
+  float disk = exp(-t0 * t0 * 1.8);
+  float ring = exp(-((t0 - 0.58) * (t0 - 0.58)) * 7.5);
+  float trail = exp(-t1 * t1 * 1.9);
+  return b.w * max(max(disk * 0.85, ring * 1.15), trail * 0.9);
 }
 
 void main() {
@@ -73,11 +79,6 @@ void main() {
   vec2 lap = lap9(sampleUv, px);
   float u = chem.r;
   float v = chem.g;
-  float uvv = u * v * v;
-  float du = uDu * lap.x - uvv + uFeed * (1.0 - u);
-  float dv = uDv * lap.y + uvv - (uFeed + uKill) * v;
-  u += du * uDt;
-  v += dv * uDt;
 
   float s =
     finger(0, uv, uResolution) +
@@ -89,8 +90,15 @@ void main() {
     finger(6, uv, uResolution) +
     finger(7, uv, uResolution);
   s = clamp(s, 0.0, 1.0);
-  u = mix(u, 0.50, s * 0.55);
-  v = mix(v, 0.28, s * 0.70);
+
+  float uvv = u * v * v * (1.0 + s * 2.1);
+  float du = uDu * lap.x - uvv + uFeed * (1.0 - u);
+  float dv = uDv * lap.y + uvv - (uFeed + uKill) * v;
+  u += du * uDt * (1.0 + s * 0.7);
+  v += dv * uDt * (1.0 + s * 0.7);
+
+  u = mix(u, 0.48, s * 0.9);
+  v = mix(v, 0.33, s * 0.94);
 
   if (uHasLock > 0.5) {
     vec2 locked = texture(uLock, uv).rg;
@@ -206,6 +214,7 @@ uniform float uGlow;
 uniform float uVignette;
 uniform float uFlash;
 uniform vec4 uSense;
+uniform vec4 uBrush[8];
 in vec2 vUv;
 out vec4 fragColor;
 
@@ -231,9 +240,10 @@ vec3 colorize(sampler2D field, vec3 c0, vec3 c1, vec3 c2, vec3 c3, float glowAmt
   float edge = abs(vN - vS) + abs(vE - vW) + 0.5 * (abs(vNE - v) + abs(vNW - v));
   float glowV = v * 0.34 + (vN + vS + vE + vW) * 0.14 + (vNE + vNW) * 0.05;
   float t = smoothstep(0.016, 0.52, v);
-  vec3 col = paletteStops(t, c0, c1, c2, c3);
-  col += paletteStops(min(1.0, t + 0.22), c0, c1, c2, c3) * edge * glowAmt * 3.4;
-  col += paletteStops(smoothstep(0.0, 0.8, glowV), c0, c1, c2, c3) * glowAmt * 0.2;
+  float breathe = 0.84 + 0.16 * sin(uTime * 2.6 + v * 7.0 + uv.x * 3.0);
+  vec3 col = paletteStops(t, c0, c1, c2, c3) * breathe;
+  col += paletteStops(min(1.0, t + 0.22), c0, c1, c2, c3) * edge * glowAmt * 3.8;
+  col += paletteStops(smoothstep(0.0, 0.8, glowV), c0, c1, c2, c3) * glowAmt * 0.22;
   col += c0 * (u * 0.08);
   return col;
 }
@@ -266,6 +276,23 @@ void main() {
   col += vec3(uFlash) * 0.1;
   col += vec3(0.04, 0.07, 0.09) * uSense.w * 0.12;
   col += vec3(uSense.z) * 0.03;
+
+  float touch = 0.0;
+  float rings = 0.0;
+  for (int i = 0; i < 8; i++) {
+    vec4 b = uBrush[i];
+    if (b.w <= 0.0001) continue;
+    vec2 d = (uv - b.xy) * uResolution;
+    float rad = max(b.z, 0.004) * min(uResolution.x, uResolution.y);
+    float t = length(d) / rad;
+    touch += b.w * exp(-t * t * 1.35);
+    float ringT = t - (0.72 + 0.18 * sin(uTime * 9.0 + float(i)));
+    rings += b.w * exp(-ringT * ringT * 16.0);
+  }
+  touch = clamp(touch, 0.0, 1.6);
+  vec3 spark = paletteStops(0.86, uC0, uC1, uC2, uC3);
+  col += spark * touch * (0.72 + 0.28 * sin(uTime * 18.0));
+  col += spark * rings * 0.9;
 
   float g = fract(sin(dot(vUv * 1.3 + fract(uTime * 0.07), vec2(12.9898, 78.233))) * 43758.5453);
   col += (g - 0.5) * (0.008 + uSense.z * 0.01);

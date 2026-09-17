@@ -3,11 +3,12 @@ import { persist } from "zustand/middleware";
 import {
   DEFAULT_PARAMS,
   DEFAULT_PRESET,
+  paletteById,
   presetById,
   type ImageMode,
   type SimParams,
 } from "./presets";
-import { resetRuntimeParams, runtime } from "./runtime";
+import { beginPresetMorph, resetRuntimeParams, runtime } from "./runtime";
 
 export type ImageSlot = {
   id: string;
@@ -36,6 +37,7 @@ export type InstrumentState = {
   images: ImageSlot[];
   activeImageId: string | null;
   applyPreset: (id: string) => void;
+  restoreDefaults: () => void;
   setParam: <K extends keyof SimParams>(key: K, value: SimParams[K]) => void;
   setImageMode: (mode: ImageMode) => void;
   patch: (partial: Partial<InstrumentState>) => void;
@@ -69,6 +71,14 @@ export const useInstrument = create<InstrumentState>()(
       activeImageId: null,
       applyPreset: (id) => {
         const preset = presetById(id);
+        const pal = paletteById(preset.paletteId);
+        beginPresetMorph({
+          feed: preset.feed,
+          kill: preset.kill,
+          du: preset.du,
+          dv: preset.dv,
+          stops: pal.stops,
+        });
         const params: SimParams = {
           ...get().params,
           feed: preset.feed,
@@ -77,8 +87,15 @@ export const useInstrument = create<InstrumentState>()(
           dv: preset.dv,
           paletteId: preset.paletteId,
         };
-        pushParams(params);
         set({ presetId: id, params });
+      },
+      restoreDefaults: () => {
+        const params = { ...DEFAULT_PARAMS };
+        resetRuntimeParams(params);
+        runtime.morph = null;
+        runtime.liveStops = paletteById(DEFAULT_PRESET.paletteId).stops;
+        runtime.seedNonce += 1;
+        set({ params, presetId: DEFAULT_PRESET.id });
       },
       setParam: (key, value) => {
         const params = { ...get().params, [key]: value };
@@ -93,7 +110,7 @@ export const useInstrument = create<InstrumentState>()(
       patch: (partial) => set(partial),
     }),
     {
-      name: "morphogen-v4",
+      name: "morphogen-v5",
       partialize: (s) => ({
         params: s.params,
         presetId: s.presetId,

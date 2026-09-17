@@ -85,6 +85,7 @@ export class AudioEngine {
   private live = new Map<number, LiveVoice>();
   private liveMul = 1;
   private noiseBuf: AudioBuffer | null = null;
+  private capture: MediaStreamAudioDestinationNode | null = null;
   volume = 0.7;
   muted = false;
   enabled = false;
@@ -139,6 +140,8 @@ export class AudioEngine {
     this.tiltFilter.connect(this.compressor);
     this.compressor.connect(this.master);
     this.master.connect(ctx.destination);
+    this.capture = ctx.createMediaStreamDestination();
+    this.master.connect(this.capture);
 
     this.droneGain = ctx.createGain();
     this.droneGain.gain.value = 0;
@@ -190,6 +193,10 @@ export class AudioEngine {
     this.analyser.smoothingTimeConstant = 0.8;
 
     ramp(this.master.gain, this.muted ? 0 : this.volume * this.volume, ctx.currentTime, 0.08);
+  }
+
+  captureStream(): MediaStream | null {
+    return this.capture?.stream ?? null;
   }
 
   setVolume(v: number) {
@@ -558,6 +565,11 @@ export class AudioEngine {
     } catch {
       /* already stopped */
     }
+  }
+
+  tap(amp = 0.14) {
+    if (!this.ctx) return;
+    this.impulse(this.ctx.currentTime, amp);
   }
 
   private impulse(now: number, amp: number) {

@@ -1,6 +1,6 @@
 import { DISPLAY_FRAG, SEED_FRAG, SIM_FRAG, STATS_FRAG, VERT } from "./shaders";
 import { MAX_BRUSHES, paletteById, type Brush, type FieldStats, type Palette } from "./presets";
-import { runtime } from "./runtime";
+import { runtime, tickMorph } from "./runtime";
 
 type GL = WebGL2RenderingContext;
 
@@ -126,6 +126,7 @@ const DISPLAY_UNIFORMS = [
   "uFlash",
   "uLockCount",
   "uSense",
+  "uBrush[0]",
 ];
 
 const EMPTY: Brush = {
@@ -163,6 +164,7 @@ export class RDEngine {
   private lpLoc: WebGLUniformLocation | null = null;
   private brushLoc: WebGLUniformLocation | null = null;
   private trailLoc: WebGLUniformLocation | null = null;
+  private dispBrushLoc: WebGLUniformLocation | null = null;
   private brushData = new Float32Array(MAX_BRUSHES * 4);
   private trailData = new Float32Array(MAX_BRUSHES * 4);
   simW: number;
@@ -242,6 +244,8 @@ export class RDEngine {
       this.simProg.uniforms["uBrush[0]"] ?? gl.getUniformLocation(this.simProg.prog, "uBrush");
     this.trailLoc =
       this.simProg.uniforms["uTrail[0]"] ?? gl.getUniformLocation(this.simProg.prog, "uTrail");
+    this.dispBrushLoc =
+      this.displayProg.uniforms["uBrush[0]"] ?? gl.getUniformLocation(this.displayProg.prog, "uBrush");
 
     const quad = gl.createBuffer();
     if (!quad) throw new Error("Failed to create buffer");
@@ -386,7 +390,20 @@ export class RDEngine {
   }
 
   private packBrushes() {
-    const brushes = runtime.brushes;
+    const brushes = runtime.brushes.slice();
+    if (brushes.length === 0 && runtime.antenna.on) {
+      brushes.push({
+        id: -1,
+        x: runtime.antenna.x,
+        y: runtime.antenna.y,
+        px: runtime.antenna.x,
+        py: runtime.antenna.y,
+        size: 0.05,
+        strength: 0.55 + runtime.antenna.pressure * 0.35,
+        pressure: runtime.antenna.pressure,
+        radius: 0.45,
+      });
+    }
     for (let i = 0; i < MAX_BRUSHES; i++) {
       const b = brushes[i] ?? EMPTY;
       const o = i * 4;
@@ -450,6 +467,9 @@ export class RDEngine {
 
   currentPalette(): Palette {
     const params = runtime.params;
+    if (runtime.liveStops) {
+      return { id: "live", name: "Live", stops: runtime.liveStops };
+    }
     return params.paletteId === "image" && runtime.customPalette
       ? runtime.customPalette
       : paletteById(params.paletteId);
@@ -508,6 +528,7 @@ export class RDEngine {
 
     if (runtime.seedNonce !== this.seedSeen) this.seed();
     if (runtime.scatterNonce !== this.scatterSeen) this.scatterSeen = runtime.scatterNonce;
+    tickMorph(dt);
     this.fitSim();
 
     const gl = this.gl;
@@ -615,6 +636,8 @@ export class RDEngine {
     gl.uniform1f(du.uVignette, params.vignette);
     gl.uniform1f(du.uFlash, this.flash);
     gl.uniform4f(du.uSense, runtime.sense.roll, runtime.sense.pitch, runtime.sense.spin, runtime.sense.pressure);
+    this.packBrushes();
+    if (this.dispBrushLoc) gl.uniform4fv(this.dispBrushLoc, this.brushData);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);

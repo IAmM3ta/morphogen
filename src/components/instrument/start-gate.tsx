@@ -14,8 +14,9 @@ export function StartGate({ onEnter }: { onEnter: () => void }) {
         </h1>
         <p className="mt-5 max-w-md text-sm leading-relaxed text-muted">
           A living chemical field you play like a theremin. Height is pitch.
-          Each finger is a voice. The phone’s body — tilt, roll, spin, press —
-          is the other antenna. Double-tap and hold to lock a loop.
+          Each finger is a voice — colonies bloom under contact. Species morph
+          in place; the field is not reset. Double-tap and hold to lock a loop.
+          Record, reset, or restore defaults from the transport.
         </p>
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
           <Button size="lg" onClick={onEnter} className="min-h-12 px-6">

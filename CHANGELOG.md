@@ -7,6 +7,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- Compiled release packages (Vercel prebuilt zip + source archive + SHA256SUMS)
+  attached to GitHub Releases. `npm run package` rebuilds them. A Release
+  workflow compiles the same archives whenever a GitHub release is published.
+
 ## [0.1.0] — 2026-09-17
 
 First public cut. A Gray–Scott audiovisual instrument: VisualPDE-class field,

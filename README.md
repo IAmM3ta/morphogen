@@ -4,6 +4,25 @@ A **theremin made of chemistry**. 4K-class Gray–Scott reaction-diffusion you p
 
 **[Changelog](CHANGELOG.md)** · **[Releases](https://github.com/IAmM3ta/morphogen/releases)** · current **[v0.1.0](https://github.com/IAmM3ta/morphogen/releases/tag/v0.1.0)**
 
+## Download
+
+Compiled packages live on the [v0.1.0 release](https://github.com/IAmM3ta/morphogen/releases/tag/v0.1.0):
+
+| File | What it is |
+| --- | --- |
+| `morphogen-0.1.0-vercel.zip` | Production build (Vercel Build Output API — static assets + Node 22 server) |
+| `morphogen-0.1.0-src.zip` | Source tree at the tag |
+| `SHA256SUMS` | Checksums |
+
+Deploy the compiled package with [Vercel](https://vercel.com):
+
+```bash
+unzip morphogen-0.1.0-vercel.zip -d .vercel/output
+npx vercel deploy --prebuilt
+```
+
+Or from source: `npm install && npm run build && npm run preview`.
+
 ## Play
 
 1. Open the app and tap **Enter**.

@@ -553,8 +553,8 @@ export class RDEngine {
     const imageMode = params.imageMode === "develop" ? 0 : params.imageMode === "inoculate" ? 1 : 2;
 
     if (!runtime.paused) {
-      const inner = Math.max(6, Math.min(28, params.steps | 0));
-      const simDt = Math.max(0.45, Math.min(1.05, params.speed));
+      const inner = Math.max(4, Math.min(40, params.steps | 0));
+      const simDt = Math.max(0.35, Math.min(1.2, params.speed));
       for (let step = 0; step < inner; step++) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.simB.fbo);
         gl.viewport(0, 0, this.simW, this.simH);

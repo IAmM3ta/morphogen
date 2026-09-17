@@ -54,6 +54,8 @@ function pushParams(params: SimParams) {
   resetRuntimeParams(params);
 }
 
+const CHEM_KEYS = new Set<keyof SimParams>(["feed", "kill", "du", "dv"]);
+
 export const useInstrument = create<InstrumentState>()(
   persist(
     (set, get) => ({
@@ -113,7 +115,8 @@ export const useInstrument = create<InstrumentState>()(
         maybeCheckpoint();
         const params = { ...get().params, [key]: value };
         pushParams(params);
-        set({ params, presetId: key === "feed" || key === "kill" ? "custom" : get().presetId });
+        if (CHEM_KEYS.has(key)) runtime.morph = null;
+        set({ params, presetId: CHEM_KEYS.has(key) ? "custom" : get().presetId });
       },
       setWaveform: (id) => {
         if (get().waveform === id && !isRestoring()) return;
@@ -158,13 +161,3 @@ export const useInstrument = create<InstrumentState>()(
     },
   ),
 );
-
-export function ensureRoomCode(): string {
-  const existing = useInstrument.getState().roomCode;
-  if (existing) return existing;
-  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  let code = "";
-  for (let i = 0; i < 4; i++) code += alphabet[Math.floor(Math.random() * alphabet.length)];
-  useInstrument.setState({ roomCode: code, role: "stage" });
-  return code;
-}

@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   Aperture,
   AudioLines,
@@ -18,7 +18,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ParamSlider } from "./param-slider";
-import { PALETTES, PRESETS, WAVEFORMS, type ImageMode } from "@/lib/morphogen/presets";
+import { PALETTES, PRESETS, WAVEFORMS, type ImageMode, type SimParams } from "@/lib/morphogen/presets";
 import { MIDI_MAP, TD_CALLBACKS } from "@/lib/morphogen/td-script";
 import { useInstrument, type ImageSlot } from "@/lib/morphogen/store";
 import { runtime } from "@/lib/morphogen/runtime";
@@ -152,155 +152,22 @@ export function ControlDock({
       </nav>
       <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-5">
         {tab === "field" && (
-          <div className="flex flex-col gap-5">
-            <div>
-              <p className="mb-2 text-xs text-muted">Loop lock</p>
-              <p className="mb-3 text-xs leading-relaxed text-muted">
-                Double-tap and hold to freeze this generation as a memory —
-                sound and a quiet overlay. The living field keeps evolving.
-                Paint after a lock to grow new colonies from it. Four layers
-                deep. Z releases the last; shift+Z clears. U or ⌘Z undoes.
-                R resets, shift+R restores defaults, C records.
-              </p>
-              <div className="flex gap-2">
-                <Button variant="secondary" size="sm" className="flex-1" onClick={onLock}>
-                  Lock loop
-                </Button>
-                <Button variant="ghost" size="sm" onClick={onPop} disabled={lockCount === 0}>
-                  Release
-                </Button>
-              </div>
-              <div className="mt-2 flex gap-2">
-                <Button variant="ghost" size="sm" className="flex-1" onClick={onUndo} disabled={!canUndo}>
-                  <Undo2 /> Undo
-                </Button>
-                <Button variant="ghost" size="sm" className="flex-1" onClick={onReset}>
-                  <RotateCcw /> Reset
-                </Button>
-              </div>
-              <div className="mt-2 flex gap-2">
-                <Button variant="ghost" size="sm" className="flex-1" onClick={onDefaults}>
-                  Defaults
-                </Button>
-                <Button
-                  variant={recording ? "secondary" : "ghost"}
-                  size="sm"
-                  className="flex-1"
-                  onClick={onRecord}
-                >
-                  {recording ? <Square /> : <Circle />}
-                  {recording ? "Stop" : "Record"}
-                </Button>
-              </div>
-              {lockCount > 1 && (
-                <button
-                  type="button"
-                  className="mt-2 text-xs text-faint hover:text-muted"
-                  onClick={onClearLocks}
-                >
-                  Clear all loops
-                </button>
-              )}
-            </div>
-            <div>
-              <p className="mb-2 text-xs text-muted">Species</p>
-              <p className="mb-2 text-xs leading-relaxed text-muted">
-                Morphs the living chemistry in place. The field is not reset.
-              </p>
-              <div className="grid grid-cols-2 gap-1.5">
-                {PRESETS.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => applyPreset(p.id)}
-                    className={cn(
-                      "rounded-sm px-2.5 py-2 text-left shadow-[var(--shadow-border)] transition-colors duration-150",
-                      presetId === p.id ? "bg-fg text-bg" : "bg-transparent text-fg hover:bg-fg/6",
-                    )}
-                  >
-                    <span className="block text-xs font-medium">{p.name}</span>
-                    <span className={cn("block text-[10px]", presetId === p.id ? "text-bg/70" : "text-faint")}>
-                      {p.blurb}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <ParamSlider
-              label="Feed"
-              value={params.feed}
-              min={0.01}
-              max={0.09}
-              step={0.0005}
-              format={(n) => n.toFixed(4)}
-              onChange={(n) => setParam("feed", n)}
-            />
-            <ParamSlider
-              label="Kill"
-              value={params.kill}
-              min={0.04}
-              max={0.07}
-              step={0.0005}
-              format={(n) => n.toFixed(4)}
-              onChange={(n) => setParam("kill", n)}
-            />
-            <ParamSlider
-              label="Speed"
-              value={params.speed}
-              min={0.3}
-              max={1.8}
-              step={0.05}
-              format={(n) => n.toFixed(2)}
-              onChange={(n) => setParam("speed", n)}
-            />
-            <ParamSlider
-              label="Brush"
-              value={params.brushSize}
-              min={0.01}
-              max={0.07}
-              step={0.002}
-              format={(n) => n.toFixed(3)}
-              onChange={(n) => setParam("brushSize", n)}
-            />
-            <div>
-              <p className="mb-2 text-xs text-muted">Look</p>
-              <div className="flex flex-wrap gap-1.5">
-                {PALETTES.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    title={p.name}
-                    onClick={() => setParam("paletteId", p.id)}
-                    className={cn(
-                      "size-7 overflow-hidden rounded-full shadow-[var(--shadow-border)]",
-                      params.paletteId === p.id && "ring-2 ring-fg",
-                    )}
-                    aria-label={p.name}
-                  >
-                    <span
-                      className="block h-full w-full"
-                      style={{
-                        background: `linear-gradient(135deg, rgb(${p.stops[1].map((c) => Math.round(c * 255)).join(",")}), rgb(${p.stops[3].map((c) => Math.round(c * 255)).join(",")}))`,
-                      }}
-                    />
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                className="flex-1"
-                onClick={() => {
-                  maybeCheckpoint();
-                  runtime.seedNonce += 1;
-                }}
-              >
-                <RotateCcw /> Reseed
-              </Button>
-            </div>
-          </div>
+          <FieldTab
+            params={params}
+            presetId={presetId}
+            lockCount={lockCount}
+            recording={recording}
+            canUndo={canUndo}
+            setParam={setParam}
+            applyPreset={applyPreset}
+            onLock={onLock}
+            onPop={onPop}
+            onClearLocks={onClearLocks}
+            onUndo={onUndo}
+            onReset={onReset}
+            onDefaults={onDefaults}
+            onRecord={onRecord}
+          />
         )}
 
         {tab === "image" && (
@@ -433,6 +300,305 @@ export function ControlDock({
         )}
       </div>
     </aside>
+  );
+}
+
+function FieldTab({
+  params,
+  presetId,
+  lockCount,
+  recording,
+  canUndo,
+  setParam,
+  applyPreset,
+  onLock,
+  onPop,
+  onClearLocks,
+  onUndo,
+  onReset,
+  onDefaults,
+  onRecord,
+}: {
+  params: SimParams;
+  presetId: string;
+  lockCount: number;
+  recording: boolean;
+  canUndo: boolean;
+  setParam: <K extends keyof SimParams>(key: K, value: SimParams[K]) => void;
+  applyPreset: (id: string) => void;
+  onLock: () => void;
+  onPop: () => void;
+  onClearLocks: () => void;
+  onUndo: () => void;
+  onReset: () => void;
+  onDefaults: () => void;
+  onRecord: () => void;
+}) {
+  const [term, setTerm] = useState<PdeTerm>(null);
+  const fmt4 = (n: number) => n.toFixed(4);
+  const fmt3 = (n: number) => n.toFixed(3);
+  const fmt2 = (n: number) => n.toFixed(2);
+
+  return (
+    <div className="flex flex-col gap-5">
+      <section>
+        <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Equations</p>
+        <p className="mb-2 text-xs leading-relaxed text-muted">
+          Pearson Gray–Scott. Touch a coefficient to bind the slider.
+        </p>
+        <GrayScottPde active={term} onPick={setTerm} />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <p className="text-xs tracking-[0.18em] text-muted uppercase">Parameters</p>
+        <ParamSlider
+          label="Feed"
+          symbol="F"
+          value={params.feed}
+          min={0.01}
+          max={0.09}
+          step={0.0005}
+          format={fmt4}
+          onChange={(n) => setParam("feed", n)}
+          onActive={(on) => {
+            if (on) setTerm("F");
+          }}
+        />
+        <ParamSlider
+          label="Kill"
+          symbol="k"
+          value={params.kill}
+          min={0.03}
+          max={0.08}
+          step={0.0005}
+          format={fmt4}
+          onChange={(n) => setParam("kill", n)}
+          onActive={(on) => {
+            if (on) setTerm("k");
+          }}
+        />
+        <ParamSlider
+          label="Diffusion U"
+          symbol="Dᵤ"
+          value={params.du}
+          min={0.08}
+          max={0.36}
+          step={0.005}
+          format={fmt3}
+          onChange={(n) => setParam("du", n)}
+          onActive={(on) => {
+            if (on) setTerm("Du");
+          }}
+        />
+        <ParamSlider
+          label="Diffusion V"
+          symbol="Dᵥ"
+          value={params.dv}
+          min={0.04}
+          max={0.2}
+          step={0.005}
+          format={fmt3}
+          onChange={(n) => setParam("dv", n)}
+          onActive={(on) => {
+            if (on) setTerm("Dv");
+          }}
+        />
+      </section>
+
+      <section>
+        <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Species</p>
+        <p className="mb-2 text-xs leading-relaxed text-muted">
+          Named (F, k, Dᵤ, Dᵥ) packs. Morphs in place — the field is not reset.
+        </p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {PRESETS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              onClick={() => applyPreset(p.id)}
+              className={cn(
+                "rounded-sm px-2.5 py-2 text-left shadow-[var(--shadow-border)] transition-colors duration-150",
+                presetId === p.id ? "bg-fg text-bg" : "bg-transparent text-fg hover:bg-fg/6",
+              )}
+            >
+              <span className="block text-xs font-medium">{p.name}</span>
+              <span className={cn("block text-xs", presetId === p.id ? "text-bg/70" : "text-faint")}>
+                F {p.feed.toFixed(3)} · k {p.kill.toFixed(3)}
+              </span>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <p className="text-xs tracking-[0.18em] text-muted uppercase">Brush</p>
+        <p className="text-xs leading-relaxed text-muted">
+          Disk · species <em>v</em> = 1, <em>u</em> = ½. Paints initial conditions, not a mark on the glass.
+        </p>
+        <ParamSlider
+          label="Radius"
+          symbol="R"
+          value={params.brushSize}
+          min={0.01}
+          max={0.07}
+          step={0.002}
+          format={fmt3}
+          onChange={(n) => setParam("brushSize", n)}
+        />
+        <ParamSlider
+          label="Value"
+          symbol="B"
+          value={params.brushStrength}
+          min={0.15}
+          max={1}
+          step={0.01}
+          format={fmt2}
+          onChange={(n) => setParam("brushStrength", n)}
+        />
+      </section>
+
+      <section className="flex flex-col gap-3">
+        <p className="text-xs tracking-[0.18em] text-muted uppercase">Time</p>
+        <ParamSlider
+          label="Steps / frame"
+          symbol="N"
+          value={params.steps}
+          min={4}
+          max={40}
+          step={1}
+          format={(n) => String(Math.round(n))}
+          onChange={(n) => setParam("steps", Math.round(n))}
+        />
+        <ParamSlider
+          label="Timestep"
+          symbol="Δt"
+          value={params.speed}
+          min={0.35}
+          max={1.2}
+          step={0.05}
+          format={fmt2}
+          onChange={(n) => setParam("speed", n)}
+        />
+      </section>
+
+      <section>
+        <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Views</p>
+        <p className="mb-2 text-xs leading-relaxed text-muted">Colour map of <em>v</em>, with hillshade from ∇v.</p>
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {PALETTES.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              title={p.name}
+              onClick={() => setParam("paletteId", p.id)}
+              className={cn(
+                "size-7 overflow-hidden rounded-full shadow-[var(--shadow-border)]",
+                params.paletteId === p.id && "ring-2 ring-fg",
+              )}
+              aria-label={p.name}
+            >
+              <span
+                className="block h-full w-full"
+                style={{
+                  background: `linear-gradient(135deg, rgb(${p.stops[1].map((c) => Math.round(c * 255)).join(",")}), rgb(${p.stops[3].map((c) => Math.round(c * 255)).join(",")}))`,
+                }}
+              />
+            </button>
+          ))}
+        </div>
+        <ParamSlider
+          label="Lighting"
+          symbol="L"
+          value={params.glow}
+          min={0.2}
+          max={2}
+          step={0.05}
+          format={fmt2}
+          onChange={(n) => setParam("glow", n)}
+        />
+        <Button
+          variant="secondary"
+          size="sm"
+          className="mt-3 w-full"
+          onClick={() => {
+            maybeCheckpoint();
+            runtime.seedNonce += 1;
+          }}
+        >
+          <RotateCcw /> Reseed
+        </Button>
+      </section>
+
+      <section>
+        <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Loop</p>
+        <p className="mb-3 text-xs leading-relaxed text-muted">
+          Double-tap and hold to freeze this generation. Further motion grows off it. Four layers.
+        </p>
+        <div className="flex gap-2">
+          <Button variant="secondary" size="sm" className="flex-1" onClick={onLock}>
+            Lock loop
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onPop} disabled={lockCount === 0}>
+            Release
+          </Button>
+        </div>
+        <div className="mt-2 flex gap-2">
+          <Button variant="ghost" size="sm" className="flex-1" onClick={onUndo} disabled={!canUndo}>
+            <Undo2 /> Undo
+          </Button>
+          <Button variant="ghost" size="sm" className="flex-1" onClick={onReset}>
+            <RotateCcw /> Reset
+          </Button>
+        </div>
+        <div className="mt-2 flex gap-2">
+          <Button variant="ghost" size="sm" className="flex-1" onClick={onDefaults}>
+            Defaults
+          </Button>
+          <Button
+            variant={recording ? "secondary" : "ghost"}
+            size="sm"
+            className="flex-1"
+            onClick={onRecord}
+          >
+            {recording ? <Square /> : <Circle />}
+            {recording ? "Stop" : "Record"}
+          </Button>
+        </div>
+        {lockCount > 1 && (
+          <button type="button" className="mt-2 text-xs text-faint hover:text-muted" onClick={onClearLocks}>
+            Clear all loops
+          </button>
+        )}
+      </section>
+    </div>
+  );
+}
+
+type PdeTerm = "F" | "k" | "Du" | "Dv" | null;
+
+function GrayScottPde({ active, onPick }: { active: PdeTerm; onPick: (t: PdeTerm) => void }) {
+  const t = (id: Exclude<PdeTerm, null>, label: ReactNode) => (
+    <button
+      type="button"
+      className="pde-term"
+      data-on={active === id}
+      data-pde-term={id}
+      aria-pressed={active === id}
+      onClick={() => onPick(active === id ? null : id)}
+    >
+      {label}
+    </button>
+  );
+
+  return (
+    <div className="pde rounded-md bg-bg-subtle px-3 py-2.5">
+      <p>
+        ∂<em>u</em>/∂t = {t("Du", <>D<sub>u</sub></>)} ∇²<em>u</em> − <em>uv</em>² + {t("F", "F")}(1−<em>u</em>)
+      </p>
+      <p>
+        ∂<em>v</em>/∂t = {t("Dv", <>D<sub>v</sub></>)} ∇²<em>v</em> + <em>uv</em>² − ({t("F", "F")}+{t("k", "k")})<em>v</em>
+      </p>
+    </div>
   );
 }
 

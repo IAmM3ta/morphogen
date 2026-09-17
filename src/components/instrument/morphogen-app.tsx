@@ -274,6 +274,10 @@ export function MorphogenApp() {
       locks: engine.lockCount,
       feed: runtime.params.feed,
       kill: runtime.params.kill,
+      du: runtime.params.du,
+      dv: runtime.params.dv,
+      steps: runtime.params.steps,
+      speed: runtime.params.speed,
       sim: { w: engine.simW, h: engine.simH },
       gyro: useInstrument.getState().gyroOn,
       sense: { ...runtime.sense },
@@ -640,7 +644,7 @@ export function MorphogenApp() {
                 <Wordmark variant="hud" />
               </p>
               <p className="font-mono text-[10px] tracking-[0.12em] tabular-nums text-muted">
-                F {params.feed.toFixed(4)} · K {params.kill.toFixed(4)} · E {energy.toFixed(2)}
+                F {params.feed.toFixed(4)} · k {params.kill.toFixed(4)} · E {energy.toFixed(2)}
                 {` · ${waveformById(waveform).tag}`}
                 {lockCount > 0 ? ` · LOOP ${lockCount}` : ""}
                 {voices > 0 ? ` · ${Math.round(hz)} Hz · ${voices}v` : ""}

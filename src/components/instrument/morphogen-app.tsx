@@ -40,8 +40,6 @@ import { cn } from "@/lib/utils";
 
 type TabId = "field" | "image" | "sense" | "sound" | "sync";
 
-type Halo = { id: number; x: number; y: number; pressure: number };
-type Burst = { id: number; x: number; y: number; kind: "ripple" | "ember"; born: number };
 type Ember = Brush & { born: number; life: number };
 
 function formatRec(seconds: number) {
@@ -71,10 +69,6 @@ export function MorphogenApp() {
   const undoRef = useRef<() => void>(() => {});
   const lastLockAt = useRef(0);
   const embers = useRef<Ember[]>([]);
-  const haloMap = useRef(new Map<number, Halo>());
-  const haloRaf = useRef(0);
-  const lastRipple = useRef(new Map<number, number>());
-  const burstSeq = useRef(1);
 
   const started = useInstrument((s) => s.started);
   const uiHidden = useInstrument((s) => s.uiHidden);
@@ -107,31 +101,9 @@ export function MorphogenApp() {
   const [voices, setVoices] = useState(0);
   const [charge, setCharge] = useState({ v: 0, x: 0.5, y: 0.5 });
   const [pulse, setPulse] = useState<{ x: number; y: number; id: number } | null>(null);
-  const [halos, setHalos] = useState<Halo[]>([]);
-  const [bursts, setBursts] = useState<Burst[]>([]);
   const [recording, setRecording] = useState(false);
   const [recElapsed, setRecElapsed] = useState(0);
   const [canUndo, setCanUndo] = useState(false);
-
-  const flushHalos = useCallback(() => {
-    if (haloRaf.current) return;
-    haloRaf.current = requestAnimationFrame(() => {
-      haloRaf.current = 0;
-      setHalos([...haloMap.current.values()]);
-    });
-  }, []);
-
-  const spawnBurst = useCallback((x: number, y: number, kind: Burst["kind"]) => {
-    const id = burstSeq.current++;
-    const born = performance.now();
-    setBursts((list) => [...list.slice(-14), { id, x, y, kind, born }]);
-    window.setTimeout(
-      () => {
-        setBursts((list) => list.filter((b) => b.id !== id));
-      },
-      kind === "ember" ? 1100 : 720,
-    );
-  }, []);
 
   const performLock = useCallback((x = 0.5, y = 0.5) => {
     const now = performance.now();
@@ -169,22 +141,18 @@ export function MorphogenApp() {
     runtime.seedNonce += 1;
     clearAllLocks();
     if (engineRef.current) engineRef.current.flash = 0.7;
-    audioRef.current?.tap(0.1);
   }, [clearAllLocks]);
 
   const onDefaults = useCallback(() => {
     restoreDefaults();
     clearAllLocks();
     if (engineRef.current) engineRef.current.flash = 0.85;
-    audioRef.current?.tap(0.12);
   }, [restoreDefaults, clearAllLocks]);
 
   const undoLast = useCallback(() => {
     const snap = popUndo();
     if (!snap) return;
     embers.current = [];
-    haloMap.current.clear();
-    flushHalos();
     applySnapshot(snap);
     audioRef.current?.setWaveform(snap.waveform);
     const engine = engineRef.current;
@@ -196,8 +164,7 @@ export function MorphogenApp() {
       setLockCount(engine.lockCount);
     }
     finishUndo();
-    audioRef.current?.tap(0.08);
-  }, [applySnapshot, flushHalos]);
+  }, [applySnapshot]);
 
   const toggleRecord = useCallback(() => {
     const rec = recorderRef.current;
@@ -348,36 +315,8 @@ export function MorphogenApp() {
       (evt) => {
         if (evt.type === "down") {
           if (localBrushes.current.length <= 1) maybeCheckpoint();
-          haloMap.current.set(evt.id, {
-            id: evt.id,
-            x: evt.x,
-            y: evt.y,
-            pressure: evt.pressure,
-          });
           embers.current = embers.current.filter((e) => e.id !== evt.id);
-          spawnBurst(evt.x, evt.y, "ripple");
-          lastRipple.current.set(evt.id, performance.now());
-          audioRef.current?.tap(0.11 + evt.pressure * 0.12);
-          try {
-            navigator.vibrate?.(8);
-          } catch {
-            /* no haptics */
-          }
-          flushHalos();
-        } else if (evt.type === "move") {
-          haloMap.current.set(evt.id, {
-            id: evt.id,
-            x: evt.x,
-            y: evt.y,
-            pressure: evt.pressure,
-          });
-          const last = lastRipple.current.get(evt.id) ?? 0;
-          if (performance.now() - last > 160) {
-            spawnBurst(evt.x, evt.y, "ripple");
-            lastRipple.current.set(evt.id, performance.now());
-          }
-          flushHalos();
-        } else {
+        } else if (evt.type === "up") {
           const live = localBrushes.current.find((b) => b.id === evt.id);
           embers.current.push({
             id: evt.id,
@@ -392,10 +331,6 @@ export function MorphogenApp() {
             born: performance.now(),
             life: 1400,
           });
-          haloMap.current.delete(evt.id);
-          lastRipple.current.delete(evt.id);
-          spawnBurst(evt.x, evt.y, "ember");
-          flushHalos();
         }
       },
     );
@@ -422,7 +357,7 @@ export function MorphogenApp() {
       wrap.removeEventListener("drop", onDrop);
       wrap.removeEventListener("dragover", onDragOver);
     };
-  }, [flushHalos, spawnBurst]);
+  }, []);
 
   useEffect(() => {
     let raf = 0;
@@ -703,24 +638,6 @@ export function MorphogenApp() {
       <div ref={canvasWrapRef} className="absolute inset-0 touch-none" style={{ touchAction: "none" }}>
         <canvas ref={canvasRef} className="block h-full w-full" />
         <video ref={videoRef} className="hidden" playsInline muted />
-        {halos.map((h) => (
-          <div
-            key={h.id}
-            className="finger-halo pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-1/2"
-            style={{
-              left: `${h.x * 100}%`,
-              top: `${h.y * 100}%`,
-              ["--press" as string]: String(h.pressure),
-            }}
-          />
-        ))}
-        {bursts.map((b) => (
-          <div
-            key={b.id}
-            className={cn("pointer-events-none absolute z-10", b.kind === "ember" ? "finger-ember" : "finger-ripple")}
-            style={{ left: `${b.x * 100}%`, top: `${b.y * 100}%` }}
-          />
-        ))}
         {charge.v > 0.02 && (
           <div
             className="lock-charge pointer-events-none absolute z-10 size-16 -translate-x-1/2 -translate-y-1/2 rounded-full"
@@ -736,7 +653,7 @@ export function MorphogenApp() {
             className="pointer-events-none absolute z-10 size-0"
             style={{ left: `${pulse.x * 100}%`, top: `${pulse.y * 100}%` }}
           >
-            <span className="lock-pulse absolute block size-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-fg/55" />
+            <span className="lock-pulse absolute block size-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-fg/40" />
           </div>
         )}
       </div>
@@ -771,7 +688,7 @@ export function MorphogenApp() {
               <p className="text-lg text-fg">
                 <Wordmark variant="hud" />
               </p>
-              <p className="font-mono text-[10px] tabular-nums text-muted">
+              <p className="font-mono text-[10px] tracking-[0.12em] tabular-nums text-muted">
                 F {params.feed.toFixed(4)} · K {params.kill.toFixed(4)} · E {energy.toFixed(2)}
                 {` · ${waveformById(waveform).tag}`}
                 {lockCount > 0 ? ` · LOOP ${lockCount}` : ""}

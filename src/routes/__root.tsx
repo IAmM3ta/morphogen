@@ -17,11 +17,11 @@ export const Route = createRootRoute({
       { title: APP_NAME },
       { name: "application-name", content: APP_NAME },
       { name: "apple-mobile-web-app-title", content: APP_NAME },
-      { name: "theme-color", content: "#090a0b" },
+      { name: "theme-color", content: "#07080a" },
       {
         name: "description",
         content:
-          "A living reaction-diffusion audiovisual instrument. Play it with photographs, phone sensors, and TouchDesigner.",
+          "A living reaction-diffusion audiovisual instrument. The Hum is always on — Schumann resonances as a sine pad. Play it with photographs, phone sensors, and TouchDesigner.",
       },
     ],
     links: [
@@ -33,7 +33,7 @@ export const Route = createRootRoute({
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,200..700&family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Anybody:wdth,wght@50..150,200..700&family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap",
       },
     ],
   }),

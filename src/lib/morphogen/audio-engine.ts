@@ -8,28 +8,35 @@ function ramp(param: AudioParam, value: number, now: number, t = 0.05) {
 /** Live voice interval above frozen layers: unison, fifth, octave, fourth. */
 const LIVE_INTERVAL = [1, 1.5, 2, 4 / 3, 5 / 4];
 
-/** Dorian-ish pentatonic gravity so the theremin still sings in key. */
-const PENTA = [0, 2, 3, 5, 7, 9, 10];
+/**
+ * Earth-ionosphere cavity fundamental (Schumann).
+ * Audible "Hum" body lives on ×4 / ×8; phones hear ×16 / ×32.
+ */
+export const SCHUMANN = 7.83;
+
+/** Cavity modes plus the colloquial Hum octaves. All ratios of 7.83 Hz. */
+const HUM_PARTIALS: { hz: number; amp: number }[] = [
+  { hz: 7.83, amp: 0.018 },
+  { hz: 14.3, amp: 0.022 },
+  { hz: 20.8, amp: 0.024 },
+  { hz: 27.3, amp: 0.028 },
+  { hz: 31.32, amp: 0.12 },
+  { hz: 31.38, amp: 0.07 },
+  { hz: 33.8, amp: 0.02 },
+  { hz: 39.3, amp: 0.018 },
+  { hz: 62.64, amp: 0.09 },
+  { hz: 125.28, amp: 0.045 },
+  { hz: 250.56, amp: 0.02 },
+];
 
 function yToHz(y: number, pitchTilt: number): number {
   const ny = Math.max(0, Math.min(1, 1 - y + pitchTilt * 0.06));
-  return 82.41 * Math.pow(2, ny * 3.15);
+  return SCHUMANN * (8 + ny * 64);
 }
 
 function snapHz(hz: number, amount: number): number {
-  const midi = 69 + 12 * Math.log2(Math.max(20, hz) / 440);
-  const oct = Math.floor(midi / 12);
-  const deg = midi - oct * 12;
-  let best = PENTA[0]!;
-  let bestD = 99;
-  for (const p of PENTA) {
-    const d = Math.abs(deg - p);
-    if (d < bestD) {
-      bestD = d;
-      best = p;
-    }
-  }
-  const snapped = 440 * Math.pow(2, (oct * 12 + best - 69) / 12);
+  const n = Math.max(4, Math.round(hz / SCHUMANN));
+  const snapped = SCHUMANN * n;
   return hz * (1 - amount) + snapped * amount;
 }
 
@@ -57,7 +64,7 @@ function spectrumWave(ctx: AudioContext, grid: Float32Array, energy: number, edg
 }
 
 const LOUD: Record<WaveformId, number> = {
-  sine: 1,
+  sine: 0.86,
   triangle: 0.92,
   sawtooth: 0.55,
   square: 0.48,
@@ -66,7 +73,7 @@ const LOUD: Record<WaveformId, number> = {
 };
 
 const CUT: Record<WaveformId, number> = {
-  sine: 1.12,
+  sine: 0.82,
   triangle: 1,
   sawtooth: 0.62,
   square: 0.55,
@@ -80,6 +87,13 @@ function applyOscShape(osc: OscillatorNode, wave: WaveformId, pulse: PeriodicWav
   else if (wave === "sine" || wave === "triangle" || wave === "sawtooth" || wave === "square") osc.type = wave;
   else osc.type = "sine";
 }
+
+type HumPartial = {
+  osc: OscillatorNode;
+  gain: GainNode;
+  hz: number;
+  amp: number;
+};
 
 type LiveVoice = {
   id: number;
@@ -115,25 +129,21 @@ export class AudioEngine {
   private bus: GainNode | null = null;
   private compressor: DynamicsCompressorNode | null = null;
   private tiltFilter: BiquadFilterNode | null = null;
-  private drone1: OscillatorNode | null = null;
-  private drone2: OscillatorNode | null = null;
-  private harm: OscillatorNode | null = null;
+  private hum: HumPartial[] = [];
+  private humBus: GainNode | null = null;
+  private lfo: OscillatorNode | null = null;
+  private lfoGain: GainNode | null = null;
   private noise: AudioBufferSourceNode | null = null;
   private noiseFilter: BiquadFilterNode | null = null;
-  private droneGain: GainNode | null = null;
-  private harmGain: GainNode | null = null;
   private noiseGain: GainNode | null = null;
   private delay: DelayNode | null = null;
   private delayGain: GainNode | null = null;
   private echo: DelayNode | null = null;
   private echoGain: GainNode | null = null;
-  private clickGain: GainNode | null = null;
   private analyser: AnalyserNode | null = null;
   private micSource: MediaStreamAudioSourceNode | null = null;
   private micStream: MediaStream | null = null;
   private fft = new Float32Array(64);
-  private lastImpulse = 0;
-  private lastEnergy = 0;
   private frozen: FrozenVoice[] = [];
   private live = new Map<number, LiveVoice>();
   private liveMul = 1;
@@ -167,8 +177,8 @@ export class AudioEngine {
 
     this.tiltFilter = ctx.createBiquadFilter();
     this.tiltFilter.type = "lowpass";
-    this.tiltFilter.frequency.value = 2400;
-    this.tiltFilter.Q.value = 0.85;
+    this.tiltFilter.frequency.value = 1800;
+    this.tiltFilter.Q.value = 0.7;
 
     this.compressor = ctx.createDynamicsCompressor();
     this.compressor.threshold.value = -18;
@@ -178,13 +188,13 @@ export class AudioEngine {
     this.compressor.release.value = 0.16;
 
     this.delay = ctx.createDelay(1.4);
-    this.delay.delayTime.value = 0.34;
+    this.delay.delayTime.value = 0.42;
     this.delayGain = ctx.createGain();
-    this.delayGain.gain.value = 0.32;
+    this.delayGain.gain.value = 0.22;
     this.echo = ctx.createDelay(0.4);
-    this.echo.delayTime.value = 0.11;
+    this.echo.delayTime.value = 0.14;
     this.echoGain = ctx.createGain();
-    this.echoGain.gain.value = 0.18;
+    this.echoGain.gain.value = 0.1;
 
     this.bus.connect(this.tiltFilter);
     this.tiltFilter.connect(this.delay);
@@ -199,28 +209,29 @@ export class AudioEngine {
     this.capture = ctx.createMediaStreamDestination();
     this.master.connect(this.capture);
 
-    this.droneGain = ctx.createGain();
-    this.droneGain.gain.value = 0;
-    this.droneGain.connect(this.bus);
-    this.drone1 = ctx.createOscillator();
-    this.drone1.type = "sine";
-    this.drone1.frequency.value = 55;
-    this.drone1.connect(this.droneGain);
-    this.drone1.start();
-    this.drone2 = ctx.createOscillator();
-    this.drone2.type = "sine";
-    this.drone2.frequency.value = 55.4;
-    this.drone2.connect(this.droneGain);
-    this.drone2.start();
+    this.humBus = ctx.createGain();
+    this.humBus.gain.value = 0;
+    this.humBus.connect(this.bus);
+    this.hum = HUM_PARTIALS.map((p) => {
+      const osc = ctx.createOscillator();
+      osc.type = "sine";
+      osc.frequency.value = p.hz;
+      const gain = ctx.createGain();
+      gain.gain.value = p.amp;
+      osc.connect(gain);
+      gain.connect(this.humBus!);
+      osc.start();
+      return { osc, gain, hz: p.hz, amp: p.amp };
+    });
 
-    this.harmGain = ctx.createGain();
-    this.harmGain.gain.value = 0;
-    this.harmGain.connect(this.bus);
-    this.harm = ctx.createOscillator();
-    this.harm.type = "triangle";
-    this.harm.frequency.value = 220;
-    this.harm.connect(this.harmGain);
-    this.harm.start();
+    this.lfo = ctx.createOscillator();
+    this.lfo.type = "sine";
+    this.lfo.frequency.value = 0.11;
+    this.lfoGain = ctx.createGain();
+    this.lfoGain.gain.value = 0.012;
+    this.lfo.connect(this.lfoGain);
+    this.lfoGain.connect(this.humBus.gain);
+    this.lfo.start();
 
     const n = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const ch = n.getChannelData(0);
@@ -230,19 +241,15 @@ export class AudioEngine {
     this.noise.buffer = n;
     this.noise.loop = true;
     this.noiseFilter = ctx.createBiquadFilter();
-    this.noiseFilter.type = "bandpass";
-    this.noiseFilter.frequency.value = 800;
-    this.noiseFilter.Q.value = 1.4;
+    this.noiseFilter.type = "lowpass";
+    this.noiseFilter.frequency.value = 160;
+    this.noiseFilter.Q.value = 0.5;
     this.noiseGain = ctx.createGain();
     this.noiseGain.gain.value = 0;
     this.noise.connect(this.noiseFilter);
     this.noiseFilter.connect(this.noiseGain);
     this.noiseGain.connect(this.bus);
     this.noise.start();
-
-    this.clickGain = ctx.createGain();
-    this.clickGain.gain.value = 0.9;
-    this.clickGain.connect(this.bus);
 
     this.analyser = ctx.createAnalyser();
     this.analyser.fftSize = 128;
@@ -260,6 +267,7 @@ export class AudioEngine {
     }
 
     ramp(this.master.gain, this.muted ? 0 : this.volume * this.volume, ctx.currentTime, 0.08);
+    ramp(this.humBus.gain, 0.72, ctx.currentTime, 0.4);
   }
 
   captureStream(): MediaStream | null {
@@ -340,12 +348,12 @@ export class AudioEngine {
     applyOscShape(v.osc, wave, this.pulse, this.spec);
     const detWave = wave === "triangle" ? "triangle" : "sine";
     applyOscShape(v.detune, detWave, this.pulse, this.spec);
-    v.harm.type = wave === "sine" ? "triangle" : "sine";
+    v.harm.type = "sine";
     v.wave = wave;
     const now = this.ctx?.currentTime ?? 0;
-    const oscMix = wave === "sawtooth" || wave === "square" || wave === "pulse" ? 0.34 : 0.42;
-    const detMix = wave === "sine" || wave === "triangle" ? 0.28 : 0.12;
-    const harmMix = wave === "sine" ? 0.12 : wave === "spectrum" ? 0.08 : 0.05;
+    const oscMix = wave === "sawtooth" || wave === "square" || wave === "pulse" ? 0.34 : 0.4;
+    const detMix = wave === "sine" ? 0.22 : wave === "triangle" ? 0.28 : 0.12;
+    const harmMix = wave === "sine" ? 0.06 : wave === "spectrum" ? 0.08 : 0.05;
     ramp(v.oscG.gain, oscMix, now, 0.04);
     ramp(v.detG.gain, detMix, now, 0.04);
     ramp(v.harmG.gain, harmMix, now, 0.04);
@@ -362,8 +370,8 @@ export class AudioEngine {
     mix.gain.value = 0.0001;
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.value = 1800;
-    filter.Q.value = 0.9;
+    filter.frequency.value = 1400;
+    filter.Q.value = 0.75;
     const pan = ctx.createStereoPanner();
     pan.pan.value = 0;
     const gate = ctx.createGain();
@@ -375,39 +383,39 @@ export class AudioEngine {
 
     const osc = ctx.createOscillator();
     osc.type = "sine";
-    osc.frequency.value = 220;
+    osc.frequency.value = SCHUMANN * 16;
     const oscG = ctx.createGain();
-    oscG.gain.value = 0.42;
+    oscG.gain.value = 0.4;
     osc.connect(oscG);
     oscG.connect(mix);
 
     const detune = ctx.createOscillator();
     detune.type = "sine";
-    detune.frequency.value = 221;
+    detune.frequency.value = SCHUMANN * 16 * 1.003;
     const detG = ctx.createGain();
-    detG.gain.value = 0.28;
+    detG.gain.value = 0.22;
     detune.connect(detG);
     detG.connect(mix);
 
     const harm = ctx.createOscillator();
-    harm.type = "triangle";
-    harm.frequency.value = 440;
+    harm.type = "sine";
+    harm.frequency.value = SCHUMANN * 32;
     const harmG = ctx.createGain();
-    harmG.gain.value = 0.12;
+    harmG.gain.value = 0.06;
     harm.connect(harmG);
     harmG.connect(mix);
 
     const sub = ctx.createOscillator();
     sub.type = "sine";
-    sub.frequency.value = 110;
+    sub.frequency.value = SCHUMANN * 8;
     const subG = ctx.createGain();
-    subG.gain.value = 0.16;
+    subG.gain.value = 0.18;
     sub.connect(subG);
     subG.connect(mix);
 
     const fm = ctx.createOscillator();
     fm.type = "sine";
-    fm.frequency.value = 5;
+    fm.frequency.value = SCHUMANN;
     const fmGain = ctx.createGain();
     fmGain.gain.value = 0;
     fm.connect(fmGain);
@@ -475,7 +483,8 @@ export class AudioEngine {
     const wave = runtime.waveform;
     if (v.wave !== wave) this.applyWave(v, wave);
     const sense = runtime.sense;
-    const hz = snapHz(yToHz(y, sense.pitch), 0.28) * this.liveMul;
+    const gravity = wave === "sine" ? 0.48 : 0.28;
+    const hz = snapHz(yToHz(y, sense.pitch), gravity) * this.liveMul;
     this.lastHz = hz;
     const amp =
       (0.1 + pressure * 0.55 + radius * 0.18) *
@@ -483,35 +492,23 @@ export class AudioEngine {
       (0.85 + sense.gforce * 0.04) *
       LOUD[wave];
     const cutoff =
-      (700 + pressure * 2200 + (1 - y) * 900 + sense.pitch * 400 + runtime.stats.edge * 500) * CUT[wave];
-    const vib = 3.2 + sense.spin * 8 + Math.abs(sense.roll) * 2;
-    const fmAmt = 2 + sense.spin * 22 + pressure * 8 + runtime.mic * 18;
+      (520 + pressure * 1800 + (1 - y) * 700 + sense.pitch * 280 + runtime.stats.edge * 360) * CUT[wave];
+    const vib = wave === "sine" ? SCHUMANN * (0.5 + sense.spin * 0.4) : 3.2 + sense.spin * 8 + Math.abs(sense.roll) * 2;
+    const fmAmt = wave === "sine" ? 0.35 + sense.spin * 2.2 : 2 + sense.spin * 22 + pressure * 8 + runtime.mic * 18;
 
-    ramp(v.osc.frequency, hz, now, 0.018);
-    ramp(v.detune.frequency, hz * (1.004 + sense.roll * 0.006), now, 0.02);
+    ramp(v.osc.frequency, hz, now, 0.022);
+    ramp(v.detune.frequency, hz * (1.002 + sense.roll * 0.004), now, 0.024);
     ramp(v.harm.frequency, Math.min(2400, hz * 2), now, 0.03);
-    ramp(v.sub.frequency, hz * 0.5, now, 0.03);
+    ramp(v.sub.frequency, snapHz(hz * 0.5, 0.6), now, 0.03);
     ramp(v.fm.frequency, vib, now, 0.05);
     ramp(v.fmGain.gain, fmAmt, now, 0.05);
-    ramp(v.filter.frequency, Math.max(220, Math.min(6200, cutoff)), now, 0.04);
+    ramp(v.filter.frequency, Math.max(180, Math.min(5200, cutoff)), now, 0.04);
     ramp(v.pan.pan, Math.max(-0.9, Math.min(0.9, (x - 0.5) * 1.6 + sense.yaw * 0.15)), now, 0.04);
-    ramp(v.mix.gain, Math.max(0.0001, Math.min(0.55, amp)), now, 0.03);
+    ramp(v.mix.gain, Math.max(0.0001, Math.min(0.5, amp)), now, 0.03);
   }
 
   tick() {
-    if (
-      !this.enabled ||
-      !this.ctx ||
-      !this.drone1 ||
-      !this.drone2 ||
-      !this.harm ||
-      !this.droneGain ||
-      !this.harmGain ||
-      !this.noiseFilter ||
-      !this.noiseGain ||
-      !this.tiltFilter ||
-      !this.delayGain
-    )
+    if (!this.enabled || !this.ctx || !this.humBus || !this.noiseFilter || !this.noiseGain || !this.tiltFilter || !this.delayGain)
       return;
     const ctx = this.ctx;
     const now = ctx.currentTime;
@@ -520,7 +517,7 @@ export class AudioEngine {
     const v = s.meanV;
     const edge = s.edge;
     const sense = runtime.sense;
-    const mic = this.readMic();
+    this.readMic();
 
     if (runtime.waveform === "spectrum") {
       this.specTick = (this.specTick + 1) % 8;
@@ -558,33 +555,26 @@ export class AudioEngine {
     }
     this.voiceCount = this.live.size;
 
-    const lead = this.live.size > 0 ? 0.55 : 1;
-    const base = (41.2 + energy * 14 + (1 - s.cy) * 8 + sense.pitch * 4) * this.liveMul;
-    ramp(this.drone1.frequency, base, now, 0.12);
-    ramp(this.drone2.frequency, base * (1.004 + sense.roll * 0.01), now, 0.12);
-    ramp(this.droneGain.gain, (0.045 + energy * 0.11 + Math.abs(sense.pitch) * 0.03) * lead, now, 0.08);
+    const lead = this.live.size > 0 ? 0.62 : 1;
+    const humLevel = (0.58 + energy * 0.22 + Math.abs(sense.pitch) * 0.04) * lead;
+    ramp(this.humBus.gain, Math.max(0.28, Math.min(0.95, humLevel)), now, 0.18);
 
-    const harmHz = 98 * Math.pow(2, (1 - s.cy) * 1.05 + s.cx * 0.22 + sense.yaw * 0.08) * this.liveMul;
-    ramp(this.harm.frequency, Math.min(720, harmHz), now, 0.1);
-    ramp(this.harmGain.gain, (0.02 + v * 0.08 + edge * 0.05 + mic.mid * 0.04) * lead, now, 0.07);
+    const body = this.hum.find((p) => p.hz === 31.32);
+    if (body) ramp(body.gain.gain, body.amp * (1 + energy * 0.35), now, 0.2);
+    const octave = this.hum.find((p) => p.hz === 125.28);
+    if (octave) ramp(octave.gain.gain, octave.amp * (1 + (1 - s.cy) * 0.4 + v * 0.3), now, 0.16);
 
-    ramp(this.noiseFilter.frequency, 280 + edge * 1600 + energy * 240 + sense.spin * 900, now, 0.07);
-    ramp(this.noiseGain.gain, 0.01 + edge * 0.05 + runtime.mic * 0.1 + sense.spin * 0.04 + runtime.pointerMotion * 0.03, now, 0.06);
+    ramp(this.noiseFilter.frequency, 90 + edge * 220 + energy * 80 + sense.spin * 140, now, 0.1);
+    ramp(this.noiseGain.gain, 0.008 + edge * 0.02 + runtime.mic * 0.04 + sense.spin * 0.015, now, 0.08);
 
-    const tiltCut = 1400 + energy * 1600 + v * 400 + sense.pitch * 900 + this.live.size * 180;
-    ramp(this.tiltFilter.frequency, Math.max(280, Math.min(7800, tiltCut)), now, 0.08);
-    ramp(this.delayGain.gain, 0.24 + energy * 0.14 + Math.abs(sense.roll) * 0.08, now, 0.14);
-    if (this.echoGain) ramp(this.echoGain.gain, 0.12 + sense.spin * 0.16, now, 0.1);
-
-    if (energy - this.lastEnergy > 0.14 && now - this.lastImpulse > 0.5) {
-      this.impulse(now, 0.07 + energy * 0.1);
-      this.lastImpulse = now;
-    }
-    this.lastEnergy = energy;
+    const tiltCut = 900 + energy * 900 + v * 280 + sense.pitch * 500 + this.live.size * 120;
+    ramp(this.tiltFilter.frequency, Math.max(220, Math.min(4200, tiltCut)), now, 0.1);
+    ramp(this.delayGain.gain, 0.16 + energy * 0.1 + Math.abs(sense.roll) * 0.06, now, 0.16);
+    if (this.echoGain) ramp(this.echoGain.gain, 0.08 + sense.spin * 0.1, now, 0.12);
   }
 
   lockLoop(): number {
-    if (!this.ctx || !this.drone1 || !this.harm || !this.master || !this.enabled) return this.frozen.length;
+    if (!this.ctx || !this.master || !this.enabled) return this.frozen.length;
     const ctx = this.ctx;
     const now = ctx.currentTime;
     if (this.frozen.length >= 4) this.releaseVoice(this.frozen.shift()!, now);
@@ -592,17 +582,17 @@ export class AudioEngine {
     const gain = ctx.createGain();
     const n = this.frozen.length + 1;
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.05, 0.2 / n), now + 0.06);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.04, 0.16 / n), now + 0.18);
 
     const filter = ctx.createBiquadFilter();
     filter.type = "lowpass";
-    filter.frequency.value = this.tiltFilter?.frequency.value ?? 1400;
-    filter.Q.value = 0.8;
+    filter.frequency.value = this.tiltFilter?.frequency.value ?? 1200;
+    filter.Q.value = 0.7;
 
     const delay = ctx.createDelay(2);
-    delay.delayTime.value = 0.58 + this.frozen.length * 0.12;
+    delay.delayTime.value = 0.64 + this.frozen.length * 0.12;
     const fb = ctx.createGain();
-    fb.gain.value = 0.8;
+    fb.gain.value = 0.78;
 
     gain.connect(filter);
     filter.connect(delay);
@@ -611,20 +601,16 @@ export class AudioEngine {
     filter.connect(this.master);
     delay.connect(this.master);
 
-    const freqs = [
-      this.lastHz || this.drone1.frequency.value,
-      (this.lastHz || this.drone1.frequency.value) * 1.5,
-      this.harm.frequency.value,
-    ];
+    const root = snapHz(this.lastHz || SCHUMANN * 8, 1);
+    const freqs = [root, root * 2, SCHUMANN * 8, SCHUMANN * 4];
     const osc: OscillatorNode[] = [];
     const wave = runtime.waveform;
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < freqs.length; i++) {
       const o = ctx.createOscillator();
-      if (i === 2) o.type = "triangle";
-      else applyOscShape(o, wave, this.pulse, this.spec);
+      applyOscShape(o, wave === "sine" ? "sine" : wave, this.pulse, this.spec);
       o.frequency.value = freqs[i]!;
       const og = ctx.createGain();
-      og.gain.value = i === 2 ? 0.24 : 0.2;
+      og.gain.value = i < 2 ? 0.18 : 0.12;
       o.connect(og);
       og.connect(gain);
       o.start(now);
@@ -635,15 +621,14 @@ export class AudioEngine {
     if (this.noiseBuf) noise.buffer = this.noiseBuf;
     noise.loop = true;
     const ng = ctx.createGain();
-    ng.gain.value = 0.05 + runtime.stats.edge * 0.08;
+    ng.gain.value = 0.03 + runtime.stats.edge * 0.04;
     noise.connect(ng);
     ng.connect(filter);
     noise.start(now);
 
     this.frozen.push({ osc, noise, gain, filter, delay, fb });
     this.liveMul = LIVE_INTERVAL[Math.min(this.frozen.length, LIVE_INTERVAL.length - 1)]!;
-    if (this.delayGain) ramp(this.delayGain.gain, 0.48, now, 0.04);
-    this.impulse(now, 0.2);
+    if (this.delayGain) ramp(this.delayGain.gain, 0.36, now, 0.08);
     return this.frozen.length;
   }
 
@@ -688,28 +673,8 @@ export class AudioEngine {
     }
   }
 
-  tap(amp = 0.14) {
-    if (!this.ctx) return;
-    this.impulse(this.ctx.currentTime, amp);
-  }
-
-  private impulse(now: number, amp: number) {
-    if (!this.ctx || !this.clickGain) return;
-    const osc = this.ctx.createOscillator();
-    osc.type = "sine";
-    osc.frequency.value = this.lastHz * 0.5 || 90;
-    const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0.0001, now);
-    g.gain.exponentialRampToValueAtTime(Math.max(0.001, amp), now + 0.008);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
-    osc.connect(g);
-    g.connect(this.clickGain);
-    osc.start(now);
-    osc.stop(now + 0.2);
-    osc.onended = () => {
-      osc.disconnect();
-      g.disconnect();
-    };
+  tap(_amp = 0.14) {
+    /* The Hum has no attack click. Kept as a no-op for call sites. */
   }
 
   dispose() {
@@ -717,9 +682,8 @@ export class AudioEngine {
     this.clearLocks();
     for (const id of [...this.live.keys()]) this.releaseLive(id);
     try {
-      this.drone1?.stop();
-      this.drone2?.stop();
-      this.harm?.stop();
+      for (const p of this.hum) p.osc.stop();
+      this.lfo?.stop();
       this.noise?.stop();
     } catch {
       /* already stopped */

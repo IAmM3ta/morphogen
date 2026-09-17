@@ -126,7 +126,6 @@ const DISPLAY_UNIFORMS = [
   "uFlash",
   "uLockCount",
   "uSense",
-  "uBrush[0]",
 ];
 
 const EMPTY: Brush = {
@@ -164,7 +163,6 @@ export class RDEngine {
   private lpLoc: WebGLUniformLocation | null = null;
   private brushLoc: WebGLUniformLocation | null = null;
   private trailLoc: WebGLUniformLocation | null = null;
-  private dispBrushLoc: WebGLUniformLocation | null = null;
   private brushData = new Float32Array(MAX_BRUSHES * 4);
   private trailData = new Float32Array(MAX_BRUSHES * 4);
   private history: Target[] = [];
@@ -246,8 +244,6 @@ export class RDEngine {
       this.simProg.uniforms["uBrush[0]"] ?? gl.getUniformLocation(this.simProg.prog, "uBrush");
     this.trailLoc =
       this.simProg.uniforms["uTrail[0]"] ?? gl.getUniformLocation(this.simProg.prog, "uTrail");
-    this.dispBrushLoc =
-      this.displayProg.uniforms["uBrush[0]"] ?? gl.getUniformLocation(this.displayProg.prog, "uBrush");
 
     const quad = gl.createBuffer();
     if (!quad) throw new Error("Failed to create buffer");
@@ -670,8 +666,6 @@ export class RDEngine {
     gl.uniform1f(du.uVignette, params.vignette);
     gl.uniform1f(du.uFlash, this.flash);
     gl.uniform4f(du.uSense, runtime.sense.roll, runtime.sense.pitch, runtime.sense.spin, runtime.sense.pressure);
-    this.packBrushes();
-    if (this.dispBrushLoc) gl.uniform4fv(this.dispBrushLoc, this.brushData);
     gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
     gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);

@@ -97,7 +97,7 @@ export const PRESETS: SimPreset[] = [
 export const DEFAULT_PRESET = PRESETS[0]!;
 
 export const WAVEFORMS = [
-  { id: "sine", name: "Sine", tag: "SIN", blurb: "Pure theremin" },
+  { id: "sine", name: "Sine", tag: "HUM", blurb: "The Hum · Schumann" },
   { id: "triangle", name: "Triangle", tag: "TRI", blurb: "Soft odd harmonics" },
   { id: "sawtooth", name: "Saw", tag: "SAW", blurb: "Bright ramp" },
   { id: "square", name: "Square", tag: "SQR", blurb: "Hollow pulse" },

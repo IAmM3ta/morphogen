@@ -123,7 +123,7 @@ export function ControlDock({
       className="pointer-events-auto absolute inset-x-3 bottom-3 z-30 flex max-h-[min(62dvh,560px)] flex-col overflow-hidden rounded-xl bg-bg-elevated/92 shadow-[var(--shadow-border)] sm:inset-x-auto sm:right-3 sm:top-3 sm:bottom-3 sm:w-80 sm:max-h-none"
     >
       <header className="flex items-center justify-between px-4 pt-3 pb-2">
-        <p className="text-xs tracking-[0.18em] text-muted uppercase">Console</p>
+        <p className="text-xs tracking-[0.28em] text-muted uppercase">Console</p>
         <Button variant="faint" size="icon-sm" onClick={() => patch({ panelOpen: false })} aria-label="Close">
           <X />
         </Button>
@@ -365,7 +365,7 @@ export function ControlDock({
           <div className="flex flex-col gap-5">
             <ToggleRow
               label="Voice of the field"
-              hint="Lead voices follow your hands. The pad follows the chemistry. Tilt opens the filter."
+              hint="The Hum is always on — Schumann resonances as a sine pad. Live voices follow your hands."
               checked={audioOn}
               onCheckedChange={(on) => patch({ audioOn: on })}
             />
@@ -385,16 +385,15 @@ export function ControlDock({
               onCheckedChange={(on) => patch({ muted: on })}
             />
             <p className="text-xs text-muted">
-              Up the glass is higher pitch, across is stereo. Press harder
-              (or a fatter contact) for more harmonic. Locking a loop freezes
-              this voicing; the live lead steps to a new interval. If a tab
-              sleeps, tap anywhere to wake it.
+              Up the glass is higher pitch, across is stereo. Sine locks to
+              the cavity. Press harder for more harmonic. Locking a loop
+              freezes this voicing. If a tab sleeps, tap anywhere to wake it.
             </p>
             <div>
-              <p className="mb-2 text-xs text-muted">Waveform</p>
+              <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Waveform</p>
               <p className="mb-2 text-xs leading-relaxed text-muted">
-                Shape of the live theremin. Spectrum reads the field as
-                harmonic partials — the chemistry becomes the timbre.
+                Sine is The Hum. Spectrum reads the field as harmonic
+                partials — the chemistry becomes the timbre.
               </p>
               <div className="grid grid-cols-2 gap-1.5">
                 {WAVEFORMS.map((w) => (

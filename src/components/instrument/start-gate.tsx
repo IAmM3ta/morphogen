@@ -4,26 +4,27 @@ import { Wordmark } from "./wordmark";
 export function StartGate({ onEnter }: { onEnter: () => void }) {
   return (
     <div
-      className="absolute inset-0 z-20 flex flex-col justify-end bg-bg/72 px-5 pb-10 pt-[max(3rem,env(safe-area-inset-top))] sm:justify-center sm:px-12"
+      className="absolute inset-0 z-20 flex flex-col justify-end bg-bg/78 px-5 pb-10 pt-[max(3rem,env(safe-area-inset-top))] sm:justify-center sm:px-12"
       data-ui
     >
       <div className="mx-auto w-full max-w-lg">
-        <p className="text-xs tracking-[0.22em] text-muted uppercase">Theremin · reaction-diffusion</p>
-        <h1 className="mt-3 max-w-full text-wordmark text-fg">
+        <p className="text-xs tracking-[0.38em] text-muted uppercase">Earth cavity · 7.83 Hz</p>
+        <h1 className="mt-4 max-w-full text-wordmark text-fg">
           <Wordmark variant="hero" />
         </h1>
-        <p className="mt-5 max-w-md text-sm leading-relaxed text-muted">
-          A living chemical field you play like a theremin. Height is pitch.
-          Each finger is a voice — colonies bloom under contact. Pick a
-          waveform in Sound. Species morph in place. Undo the last change.
-          Double-tap and hold to lock a loop.
+        <div className="mt-6 h-px w-16 bg-fg/35" />
+        <p className="mt-6 max-w-md text-sm leading-relaxed text-muted">
+          A living chemical field. The Hum is always on — Schumann resonances
+          as a sine pad. Height is pitch. Fingers leave no marks; colonies
+          bloom only in the chemistry. Species morph in place. Double-tap and
+          hold to lock a loop.
         </p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Button size="lg" onClick={onEnter} className="min-h-12 px-6">
-            Enter the field
+        <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
+          <Button size="lg" onClick={onEnter} className="min-h-12 px-8 tracking-[0.14em] uppercase">
+            Enter
           </Button>
-          <p className="text-xs text-faint sm:ml-2">
-            First gesture unlocks audio, motion, and the voices.
+          <p className="text-xs tracking-wide text-faint sm:ml-3">
+            First gesture unlocks audio and motion.
           </p>
         </div>
       </div>

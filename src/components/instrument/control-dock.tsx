@@ -254,13 +254,13 @@ export function ControlDock({
               onChange={(n) => setParam("speed", n)}
             />
             <ParamSlider
-              label="Field coupling"
-              value={params.brushStrength}
-              min={0}
-              max={0.6}
-              step={0.02}
-              format={(n) => `${Math.round(n * 100)}%`}
-              onChange={(n) => setParam("brushStrength", n)}
+              label="Brush"
+              value={params.brushSize}
+              min={0.01}
+              max={0.07}
+              step={0.002}
+              format={(n) => n.toFixed(3)}
+              onChange={(n) => setParam("brushSize", n)}
             />
             <div>
               <p className="mb-2 text-xs text-muted">Look</p>

@@ -370,9 +370,9 @@ export class RDEngine {
         }
       }
     };
-    for (const [cx, cy, r] of spots) paint(cx, cy, r, 0.28);
-    for (let s = 0; s < 40; s++) {
-      paint(0.15 + Math.random() * 0.7, 0.15 + Math.random() * 0.7, 0.008 + Math.random() * 0.01, 0.22);
+    for (const [cx, cy, r] of spots) paint(cx, cy, r, 1);
+    for (let s = 0; s < 72; s++) {
+      paint(0.08 + Math.random() * 0.84, 0.08 + Math.random() * 0.84, 0.01 + Math.random() * 0.018, 0.95);
     }
     gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -553,14 +553,9 @@ export class RDEngine {
     const imageMode = params.imageMode === "develop" ? 0 : params.imageMode === "inoculate" ? 1 : 2;
 
     if (!runtime.paused) {
-      this.acc += dt;
-      const stepDt = 1 / 30;
-      const simDt = Math.max(0.55, Math.min(1.15, params.speed));
-      const maxSteps = Math.max(1, Math.min(6, params.steps | 0));
-      let steps = 0;
-      while (this.acc >= stepDt && steps < maxSteps) {
-        this.acc -= stepDt;
-        steps++;
+      const inner = Math.max(6, Math.min(28, params.steps | 0));
+      const simDt = Math.max(0.45, Math.min(1.05, params.speed));
+      for (let step = 0; step < inner; step++) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.simB.fbo);
         gl.viewport(0, 0, this.simW, this.simH);
         gl.useProgram(this.simProg.prog);
@@ -602,7 +597,6 @@ export class RDEngine {
         this.simA = this.simB;
         this.simB = tmp;
       }
-      if (this.acc > stepDt * 4) this.acc = 0;
     }
 
     const dpr = Math.min(3, window.devicePixelRatio || 1);

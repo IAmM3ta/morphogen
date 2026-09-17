@@ -61,13 +61,9 @@ float finger(int i, vec2 uv, vec2 res) {
   vec4 b = uBrush[i];
   if (b.w <= 0.0001) return 0.0;
   vec2 d0 = (uv - b.xy) * res;
-  vec2 d1 = (uv - uTrail[i].xy) * res;
-  float rad = max(b.z, 0.004) * min(res.x, res.y);
+  float rad = max(b.z, 0.003) * min(res.x, res.y);
   float t0 = length(d0) / rad;
-  float t1 = length(d1) / rad;
-  float disk = exp(-t0 * t0 * 2.4);
-  float trail = exp(-t1 * t1 * 2.6);
-  return b.w * max(disk, trail * 0.55);
+  return b.w * (1.0 - smoothstep(0.62, 1.0, t0));
 }
 
 void main() {
@@ -90,13 +86,14 @@ void main() {
     finger(7, uv, uResolution);
   s = clamp(s, 0.0, 1.0);
 
-  float uvv = u * v * v * (1.0 + s * 0.45);
+  float uvv = u * v * v;
   float du = uDu * lap.x - uvv + uFeed * (1.0 - u);
   float dv = uDv * lap.y + uvv - (uFeed + uKill) * v;
-  u += du * uDt * (1.0 + s * 0.2);
-  v += dv * uDt * (1.0 + s * 0.2);
+  u += du * uDt;
+  v += dv * uDt;
 
-  v += s * uMotion * 0.0008;
+  u = mix(u, 0.50, s);
+  v = mix(v, 1.0, s);
 
   if (uHasLock > 0.5) {
     vec2 locked = texture(uLock, uv).rg;
@@ -226,22 +223,18 @@ vec3 paletteStops(float t, vec3 c0, vec3 c1, vec3 c2, vec3 c3) {
 vec3 colorize(sampler2D field, vec3 c0, vec3 c1, vec3 c2, vec3 c3, float glowAmt, vec2 uv) {
   vec2 px = 1.0 / uResolution;
   vec2 chem = texture(field, uv).rg;
-  float u = chem.r;
   float v = chem.g;
   float vN = texture(field, uv + vec2(0.0, px.y)).g;
   float vS = texture(field, uv - vec2(0.0, px.y)).g;
   float vE = texture(field, uv + vec2(px.x, 0.0)).g;
   float vW = texture(field, uv - vec2(px.x, 0.0)).g;
-  float vNE = texture(field, uv + px).g;
-  float vNW = texture(field, uv + vec2(-px.x, px.y)).g;
-  float edge = abs(vN - vS) + abs(vE - vW) + 0.5 * (abs(vNE - v) + abs(vNW - v));
-  float glowV = v * 0.34 + (vN + vS + vE + vW) * 0.14 + (vNE + vNW) * 0.05;
-  float t = smoothstep(0.016, 0.52, v);
-  float breathe = 0.90 + 0.10 * sin(uTime * 1.15 + v * 5.0 + uv.x * 2.0);
-  vec3 col = paletteStops(t, c0, c1, c2, c3) * breathe;
-  col += paletteStops(min(1.0, t + 0.22), c0, c1, c2, c3) * edge * glowAmt * 3.8;
-  col += paletteStops(smoothstep(0.0, 0.8, glowV), c0, c1, c2, c3) * glowAmt * 0.22;
-  col += c0 * (u * 0.08);
+  float edge = abs(vN - vS) + abs(vE - vW);
+  float t = smoothstep(0.0, 0.58, v);
+  vec3 col = paletteStops(t, c0, c1, c2, c3);
+  vec3 nrm = normalize(vec3(-(vE - vW) * (2.4 + glowAmt * 2.2), (vN - vS) * (2.4 + glowAmt * 2.2), 0.22));
+  float ndl = max(0.0, dot(nrm, normalize(vec3(-0.38, 0.62, 0.72))));
+  col *= 0.40 + 0.78 * ndl;
+  col += paletteStops(min(1.0, t + 0.16), c0, c1, c2, c3) * edge * (0.28 + glowAmt * 0.22);
   return col;
 }
 
@@ -270,12 +263,7 @@ void main() {
   vec2 q = vUv * 2.0 - 1.0;
   float vig = 1.0 - dot(q, q) * uVignette;
   col *= vig;
-  col += vec3(uFlash) * 0.08;
-  col += vec3(0.04, 0.07, 0.09) * uSense.w * 0.1;
-  col += vec3(uSense.z) * 0.025;
-
-  float g = fract(sin(dot(vUv * 1.3 + fract(uTime * 0.07), vec2(12.9898, 78.233))) * 43758.5453);
-  col += (g - 0.5) * (0.008 + uSense.z * 0.01);
+  col += vec3(uFlash) * 0.06;
 
   fragColor = vec4(max(col, vec3(0.0)), 1.0);
 }

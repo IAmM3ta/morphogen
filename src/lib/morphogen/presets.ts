@@ -79,19 +79,29 @@ export const PALETTES: Palette[] = [
       [0.92, 0.93, 0.93],
     ],
   },
+  {
+    id: "field",
+    name: "Field",
+    stops: [
+      [0.06, 0.04, 0.1],
+      [0.08, 0.4, 0.52],
+      [0.78, 0.84, 0.28],
+      [0.98, 0.95, 0.72],
+    ],
+  },
 ];
 
 export const PRESETS: SimPreset[] = [
-  { id: "mitosis", name: "Mitosis", blurb: "Soft dividing cells", feed: 0.0367, kill: 0.0649, du: 0.16, dv: 0.08, paletteId: "abyss" },
-  { id: "solitons", name: "Solitons", blurb: "Quiet stable spots", feed: 0.0353, kill: 0.0653, du: 0.16, dv: 0.08, paletteId: "spore" },
-  { id: "pulsing", name: "Pulsing", blurb: "Breathing spots", feed: 0.025, kill: 0.06, du: 0.14, dv: 0.07, paletteId: "spore" },
-  { id: "holes", name: "Holes", blurb: "Perforated sheet", feed: 0.039, kill: 0.058, du: 0.16, dv: 0.08, paletteId: "abyss" },
-  { id: "mazes", name: "Mazes", blurb: "Labyrinth walls", feed: 0.029, kill: 0.057, du: 0.16, dv: 0.08, paletteId: "porcelain" },
-  { id: "fingerprint", name: "Fingerprint", blurb: "Ridge fields", feed: 0.026, kill: 0.061, du: 0.16, dv: 0.08, paletteId: "porcelain" },
-  { id: "spirals", name: "Spirals", blurb: "Rotating arms", feed: 0.018, kill: 0.051, du: 0.16, dv: 0.08, paletteId: "ember" },
-  { id: "worms", name: "Worms", blurb: "Wandering filaments", feed: 0.046, kill: 0.063, du: 0.16, dv: 0.08, paletteId: "chlorophyll" },
-  { id: "coral", name: "Coral", blurb: "Branching reefs", feed: 0.0545, kill: 0.062, du: 0.16, dv: 0.08, paletteId: "abyss" },
-  { id: "uskate", name: "Skate", blurb: "U-skate world", feed: 0.062, kill: 0.0609, du: 0.16, dv: 0.08, paletteId: "ember" },
+  { id: "mitosis", name: "Mitosis", blurb: "Soft dividing cells", feed: 0.037, kill: 0.06, du: 0.21, dv: 0.105, paletteId: "field" },
+  { id: "solitons", name: "Solitons", blurb: "Quiet stable spots", feed: 0.0353, kill: 0.0653, du: 0.21, dv: 0.105, paletteId: "spore" },
+  { id: "pulsing", name: "Pulsing", blurb: "Breathing spots", feed: 0.025, kill: 0.06, du: 0.18, dv: 0.09, paletteId: "spore" },
+  { id: "holes", name: "Holes", blurb: "Perforated sheet", feed: 0.039, kill: 0.058, du: 0.21, dv: 0.105, paletteId: "abyss" },
+  { id: "mazes", name: "Mazes", blurb: "Labyrinth walls", feed: 0.029, kill: 0.057, du: 0.21, dv: 0.105, paletteId: "porcelain" },
+  { id: "fingerprint", name: "Fingerprint", blurb: "Ridge fields", feed: 0.026, kill: 0.061, du: 0.21, dv: 0.105, paletteId: "porcelain" },
+  { id: "spirals", name: "Spirals", blurb: "Rotating arms", feed: 0.018, kill: 0.051, du: 0.21, dv: 0.105, paletteId: "ember" },
+  { id: "worms", name: "Worms", blurb: "Wandering filaments", feed: 0.046, kill: 0.063, du: 0.21, dv: 0.105, paletteId: "chlorophyll" },
+  { id: "coral", name: "Coral", blurb: "Branching reefs", feed: 0.0545, kill: 0.062, du: 0.21, dv: 0.105, paletteId: "abyss" },
+  { id: "uskate", name: "Skate", blurb: "U-skate world", feed: 0.062, kill: 0.0609, du: 0.21, dv: 0.105, paletteId: "ember" },
 ];
 
 export const DEFAULT_PRESET = PRESETS[0]!;
@@ -142,15 +152,15 @@ export const DEFAULT_PARAMS: SimParams = {
   kill: DEFAULT_PRESET.kill,
   du: DEFAULT_PRESET.du,
   dv: DEFAULT_PRESET.dv,
-  speed: 1.16,
-  brushSize: 0.024,
-  brushStrength: 0.08,
+  speed: 1,
+  brushSize: 0.032,
+  brushStrength: 1,
   imageMix: 0.35,
   imageMode: "inoculate",
   paletteId: DEFAULT_PRESET.paletteId,
-  glow: 1.28,
-  vignette: 0.14,
-  steps: 6,
+  glow: 1,
+  vignette: 0.08,
+  steps: 20,
 };
 
 export const MAX_BRUSHES = 8;

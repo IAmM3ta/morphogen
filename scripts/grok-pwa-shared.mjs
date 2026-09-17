@@ -151,14 +151,23 @@ export function stripInstallParams(url) {
   return rest ? `${path}?${rest}` : path;
 }
 
-export function renderInstallPageHtml(template, { host, url } = {}) {
+export function renderInstallPageHtml(template, { host, url, site, cwd } = {}) {
+  const name = resolveOgTitle(
+    site !== undefined ? site : readOgSite(cwd),
+    DEFAULT_APP_NAME,
+    host,
+  );
   return String(template)
-    .replaceAll("{{APP_NAME}}", escapeHtml(appNameFromHost(host)))
+    .replaceAll("{{APP_NAME}}", escapeHtml(name))
     .replaceAll("{{APP_URL}}", escapeHtml(stripInstallParams(url)));
 }
 
-export function renderWebManifest(hostHeader) {
-  const name = appNameFromHost(hostHeader);
+export function renderWebManifest(hostHeader, site, cwd) {
+  const name = resolveOgTitle(
+    site !== undefined ? site : readOgSite(cwd),
+    DEFAULT_APP_NAME,
+    hostHeader,
+  );
   return JSON.stringify(
     {
       name,

@@ -14,3 +14,4 @@ AGENTS.md
 .env
 .env.*
 !.env.example
+.project_id

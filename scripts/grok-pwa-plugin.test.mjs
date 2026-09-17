@@ -460,7 +460,7 @@ test("rejects hosts that are not plain slugs", () => {
 });
 
 test("renders install page markup", () => {
-  const html = renderInstallPage("wild-race.grok.me", "/?install=1&platform=ios");
+  const html = renderInstallPage("wild-race.grok.me", "/?install=1&platform=ios", {});
   assert.match(html, /Add Wild Race to your/);
   assert.match(html, /\/__grok\/install\/styles\.css/);
   assert.match(html, /href="\/"/);
@@ -474,10 +474,24 @@ test("escapes host-derived values in the install page", () => {
 });
 
 test("renders the manifest with the per-app name", () => {
-  const manifest = JSON.parse(renderWebManifest("wild-race.grok.me"));
+  const manifest = JSON.parse(renderWebManifest("wild-race.grok.me", {}));
   assert.equal(manifest.name, "Wild Race");
   assert.equal(manifest.short_name, "Wild Race");
   assert.equal(manifest.icons[0].src, "/__grok/icon-180.png");
+});
+
+test("site title beats a preview grok.me slug in the manifest", () => {
+  const manifest = JSON.parse(
+    renderWebManifest("cap-granite-lagoon-rocket.grok.me", { title: "Morphogen" }),
+  );
+  assert.equal(manifest.name, "Morphogen");
+  assert.equal(manifest.short_name, "Morphogen");
+});
+
+test("workspace site.json names the live manifest Morphogen", () => {
+  const manifest = JSON.parse(renderWebManifest("cap-granite-lagoon-rocket.grok.me"));
+  assert.equal(manifest.name, "Morphogen");
+  assert.equal(manifest.short_name, "Morphogen");
 });
 
 // Tripwires: the deployed-app path only works if Nitro scans server/ — an

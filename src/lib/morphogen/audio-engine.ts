@@ -30,7 +30,7 @@ const HUM_PARTIALS: { hz: number; amp: number }[] = [
 ];
 
 function yToHz(y: number, pitchTilt: number): number {
-  const ny = Math.max(0, Math.min(1, 1 - y + pitchTilt * 0.06));
+  const ny = Math.max(0, Math.min(1, 1 - y + pitchTilt * 0.42));
   return SCHUMANN * (8 + ny * 64);
 }
 
@@ -131,6 +131,7 @@ export class AudioEngine {
   private tiltFilter: BiquadFilterNode | null = null;
   private hum: HumPartial[] = [];
   private humBus: GainNode | null = null;
+  private humPan: StereoPannerNode | null = null;
   private lfo: OscillatorNode | null = null;
   private lfoGain: GainNode | null = null;
   private noise: AudioBufferSourceNode | null = null;
@@ -211,7 +212,10 @@ export class AudioEngine {
 
     this.humBus = ctx.createGain();
     this.humBus.gain.value = 0;
-    this.humBus.connect(this.bus);
+    this.humPan = ctx.createStereoPanner();
+    this.humPan.pan.value = 0;
+    this.humBus.connect(this.humPan);
+    this.humPan.connect(this.bus);
     this.hum = HUM_PARTIALS.map((p) => {
       const osc = ctx.createOscillator();
       osc.type = "sine";
@@ -483,32 +487,32 @@ export class AudioEngine {
     const wave = runtime.waveform;
     if (v.wave !== wave) this.applyWave(v, wave);
     const sense = runtime.sense;
-    const gravity = wave === "sine" ? 0.48 : 0.28;
+    const gravity = wave === "sine" ? 0.38 : 0.22;
     const hz = snapHz(yToHz(y, sense.pitch), gravity) * this.liveMul;
     this.lastHz = hz;
     const amp =
-      (0.1 + pressure * 0.55 + radius * 0.18) *
-      (0.72 + Math.max(0, 1 - y) * 0.18) *
-      (0.85 + sense.gforce * 0.04) *
+      (0.12 + pressure * 0.5 + radius * 0.12) *
+      (0.78 + Math.max(0, 1 - y) * 0.14) *
+      (0.82 + Math.min(1, sense.gforce) * 0.28) *
       LOUD[wave];
     const cutoff =
-      (520 + pressure * 1800 + (1 - y) * 700 + sense.pitch * 280 + runtime.stats.edge * 360) * CUT[wave];
-    const vib = wave === "sine" ? SCHUMANN * (0.5 + sense.spin * 0.4) : 3.2 + sense.spin * 8 + Math.abs(sense.roll) * 2;
-    const fmAmt = wave === "sine" ? 0.35 + sense.spin * 2.2 : 2 + sense.spin * 22 + pressure * 8 + runtime.mic * 18;
+      (420 + pressure * 2000 + (1 - y) * 800 + (sense.pitch + 1) * 700 + runtime.stats.edge * 280) * CUT[wave];
+    const vib = 4.6 + sense.spin * 7.5 + Math.abs(sense.roll) * 1.4;
+    const fmAmt = 5 + sense.spin * 26 + pressure * 8 + Math.abs(sense.pitch) * 6 + runtime.mic * 14;
 
-    ramp(v.osc.frequency, hz, now, 0.022);
-    ramp(v.detune.frequency, hz * (1.002 + sense.roll * 0.004), now, 0.024);
-    ramp(v.harm.frequency, Math.min(2400, hz * 2), now, 0.03);
-    ramp(v.sub.frequency, snapHz(hz * 0.5, 0.6), now, 0.03);
-    ramp(v.fm.frequency, vib, now, 0.05);
-    ramp(v.fmGain.gain, fmAmt, now, 0.05);
-    ramp(v.filter.frequency, Math.max(180, Math.min(5200, cutoff)), now, 0.04);
-    ramp(v.pan.pan, Math.max(-0.9, Math.min(0.9, (x - 0.5) * 1.6 + sense.yaw * 0.15)), now, 0.04);
-    ramp(v.mix.gain, Math.max(0.0001, Math.min(0.5, amp)), now, 0.03);
+    ramp(v.osc.frequency, hz, now, 0.016);
+    ramp(v.detune.frequency, hz * (1.003 + sense.roll * 0.02), now, 0.018);
+    ramp(v.harm.frequency, Math.min(2400, hz * (2 + Math.max(0, sense.pitch) * 0.15)), now, 0.03);
+    ramp(v.sub.frequency, snapHz(hz * 0.5, 0.55), now, 0.03);
+    ramp(v.fm.frequency, vib, now, 0.04);
+    ramp(v.fmGain.gain, fmAmt, now, 0.04);
+    ramp(v.filter.frequency, Math.max(160, Math.min(5600, cutoff)), now, 0.035);
+    ramp(v.pan.pan, Math.max(-0.92, Math.min(0.92, (x - 0.5) * 1.7 + sense.yaw * 0.35 + sense.roll * 0.2)), now, 0.03);
+    ramp(v.mix.gain, Math.max(0.0001, Math.min(0.52, amp)), now, 0.018);
   }
 
   tick() {
-    if (!this.enabled || !this.ctx || !this.humBus || !this.noiseFilter || !this.noiseGain || !this.tiltFilter || !this.delayGain)
+    if (!this.enabled || !this.ctx || !this.humBus || !this.humPan || !this.lfo || !this.lfoGain || !this.noiseFilter || !this.noiseGain || !this.tiltFilter || !this.delayGain)
       return;
     const ctx = this.ctx;
     const now = ctx.currentTime;
@@ -555,22 +559,32 @@ export class AudioEngine {
     }
     this.voiceCount = this.live.size;
 
-    const lead = this.live.size > 0 ? 0.62 : 1;
-    const humLevel = (0.58 + energy * 0.22 + Math.abs(sense.pitch) * 0.04) * lead;
-    ramp(this.humBus.gain, Math.max(0.28, Math.min(0.95, humLevel)), now, 0.18);
+    const lead = this.live.size > 0 ? 0.55 : 1;
+    const tilt = sense.pitch;
+    const roll = sense.roll;
+    const spin = sense.spin;
+    const gf = Math.min(1.4, sense.gforce);
+    const humLevel = (0.52 + energy * 0.18 + Math.max(0, -tilt) * 0.12 + gf * 0.16) * lead;
+    ramp(this.humBus.gain, Math.max(0.22, Math.min(1.05, humLevel)), now, 0.09);
+    ramp(this.humPan.pan, Math.max(-0.85, Math.min(0.85, roll * 0.72 + sense.yaw * 0.28)), now, 0.07);
+    ramp(this.lfo.frequency, 0.09 + spin * 3.6, now, 0.08);
+    ramp(this.lfoGain.gain, 0.014 + spin * 0.07 + Math.abs(roll) * 0.02, now, 0.1);
 
-    const body = this.hum.find((p) => p.hz === 31.32);
-    if (body) ramp(body.gain.gain, body.amp * (1 + energy * 0.35), now, 0.2);
-    const octave = this.hum.find((p) => p.hz === 125.28);
-    if (octave) ramp(octave.gain.gain, octave.amp * (1 + (1 - s.cy) * 0.4 + v * 0.3), now, 0.16);
+    for (const p of this.hum) {
+      const high = p.hz >= 60;
+      const bright = high ? 1 + Math.max(0, tilt) * 1.4 + gf * 0.5 : 1 + Math.max(0, -tilt) * 0.7;
+      const dark = high ? 1 - Math.max(0, -tilt) * 0.45 : 1;
+      ramp(p.gain.gain, Math.max(0.001, p.amp * bright * dark * (0.85 + energy * 0.3)), now, 0.1);
+      if (p.hz === 31.38) ramp(p.osc.frequency, p.hz + roll * 0.85, now, 0.12);
+    }
 
-    ramp(this.noiseFilter.frequency, 90 + edge * 220 + energy * 80 + sense.spin * 140, now, 0.1);
-    ramp(this.noiseGain.gain, 0.008 + edge * 0.02 + runtime.mic * 0.04 + sense.spin * 0.015, now, 0.08);
+    ramp(this.noiseFilter.frequency, 80 + edge * 260 + energy * 90 + spin * 420 + gf * 180, now, 0.08);
+    ramp(this.noiseGain.gain, 0.006 + edge * 0.018 + spin * 0.05 + gf * 0.04 + runtime.mic * 0.03, now, 0.07);
 
-    const tiltCut = 900 + energy * 900 + v * 280 + sense.pitch * 500 + this.live.size * 120;
-    ramp(this.tiltFilter.frequency, Math.max(220, Math.min(4200, tiltCut)), now, 0.1);
-    ramp(this.delayGain.gain, 0.16 + energy * 0.1 + Math.abs(sense.roll) * 0.06, now, 0.16);
-    if (this.echoGain) ramp(this.echoGain.gain, 0.08 + sense.spin * 0.1, now, 0.12);
+    const tiltCut = 360 + (tilt + 1) * 1100 + energy * 700 + v * 200 + this.live.size * 140 + gf * 400;
+    ramp(this.tiltFilter.frequency, Math.max(180, Math.min(4800, tiltCut)), now, 0.07);
+    ramp(this.delayGain.gain, 0.12 + Math.abs(roll) * 0.32 + energy * 0.08, now, 0.1);
+    if (this.echoGain) ramp(this.echoGain.gain, 0.06 + spin * 0.22 + Math.abs(sense.yaw) * 0.08, now, 0.1);
   }
 
   lockLoop(): number {

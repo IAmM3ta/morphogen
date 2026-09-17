@@ -254,13 +254,13 @@ export function ControlDock({
               onChange={(n) => setParam("speed", n)}
             />
             <ParamSlider
-              label="Brush"
-              value={params.brushSize}
-              min={0.01}
-              max={0.12}
-              step={0.002}
-              format={(n) => n.toFixed(3)}
-              onChange={(n) => setParam("brushSize", n)}
+              label="Field coupling"
+              value={params.brushStrength}
+              min={0}
+              max={0.6}
+              step={0.02}
+              format={(n) => `${Math.round(n * 100)}%`}
+              onChange={(n) => setParam("brushStrength", n)}
             />
             <div>
               <p className="mb-2 text-xs text-muted">Look</p>
@@ -324,7 +324,7 @@ export function ControlDock({
           <div className="flex flex-col gap-5">
             <ToggleRow
               label="Tilt & motion"
-              hint="The chassis is the other antenna. Lean for brightness, roll for chorus, spin for vibrato. Resting hold is ignored."
+              hint="How you hold the phone is the other antenna. Tilt brightens The Hum, roll pans and beats, spin is tremolo. Absolute pose — not a dead rest."
               checked={gyroOn}
               onCheckedChange={onToggleGyro}
             />
@@ -335,10 +335,10 @@ export function ControlDock({
               onCheckedChange={onToggleMic}
             />
             <p className="text-xs leading-relaxed text-muted">
-              On an iPhone this is a spatial instrument: 3-axis gyro, user
-              acceleration, compass, finger pressure and contact size. Each
-              finger is a theremin voice — height is pitch, left/right is pan.
-              Move the pointer on a laptop the same way, no click required.
+              On an iPhone this is a spatial instrument: tilt, roll, compass,
+              acceleration, finger pressure. Each finger is a theremin voice —
+              height is pitch, left/right is pan. Fingers do not paint. Move
+              the pointer on a laptop the same way, no click required.
             </p>
             <div className="rounded-md bg-bg-subtle p-3">
               <p className="text-xs text-muted">Open on another phone</p>

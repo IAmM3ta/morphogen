@@ -389,20 +389,7 @@ export class RDEngine {
   }
 
   private packBrushes() {
-    const brushes = runtime.brushes.slice();
-    if (brushes.length === 0 && runtime.antenna.on) {
-      brushes.push({
-        id: -1,
-        x: runtime.antenna.x,
-        y: runtime.antenna.y,
-        px: runtime.antenna.x,
-        py: runtime.antenna.y,
-        size: 0.05,
-        strength: 0.55 + runtime.antenna.pressure * 0.35,
-        pressure: runtime.antenna.pressure,
-        radius: 0.45,
-      });
-    }
+    const brushes = runtime.brushes;
     for (let i = 0; i < MAX_BRUSHES; i++) {
       const b = brushes[i] ?? EMPTY;
       const o = i * 4;

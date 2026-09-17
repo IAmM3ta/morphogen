@@ -144,7 +144,7 @@ export const useInstrument = create<InstrumentState>()(
       patch: (partial) => set(partial),
     }),
     {
-      name: "morphogen-v7",
+      name: "morphogen-v8",
       partialize: (s) => ({
         params: s.params,
         presetId: s.presetId,

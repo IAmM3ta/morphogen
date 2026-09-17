@@ -14,10 +14,10 @@ export function StartGate({ onEnter }: { onEnter: () => void }) {
         </h1>
         <div className="mt-6 h-px w-16 bg-fg/35" />
         <p className="mt-6 max-w-md text-sm leading-relaxed text-muted">
-          A living chemical field. The Hum is always on — Schumann resonances
-          as a sine pad. Height is pitch. Fingers leave no marks; colonies
-          bloom only in the chemistry. Species morph in place. Double-tap and
-          hold to lock a loop.
+          A living chemical field. The Hum is always on. How you hold the
+          phone is the other antenna — tilt, roll, spin. Height is pitch.
+          Fingers play; they leave no marks. Double-tap and hold to lock a
+          loop.
         </p>
         <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
           <Button size="lg" onClick={onEnter} className="min-h-12 px-8 tracking-[0.14em] uppercase">

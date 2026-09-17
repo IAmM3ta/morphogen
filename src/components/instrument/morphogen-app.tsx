@@ -40,8 +40,6 @@ import { cn } from "@/lib/utils";
 
 type TabId = "field" | "image" | "sense" | "sound" | "sync";
 
-type Ember = Brush & { born: number; life: number };
-
 function formatRec(seconds: number) {
   const s = Math.max(0, Math.floor(seconds));
   const m = Math.floor(s / 60);
@@ -68,7 +66,7 @@ export function MorphogenApp() {
   const recordRef = useRef<() => void>(() => {});
   const undoRef = useRef<() => void>(() => {});
   const lastLockAt = useRef(0);
-  const embers = useRef<Ember[]>([]);
+  const sensorsUnhook = useRef<(() => void) | null>(null);
 
   const started = useInstrument((s) => s.started);
   const uiHidden = useInstrument((s) => s.uiHidden);
@@ -104,6 +102,7 @@ export function MorphogenApp() {
   const [recording, setRecording] = useState(false);
   const [recElapsed, setRecElapsed] = useState(0);
   const [canUndo, setCanUndo] = useState(false);
+  const [senseReady, setSenseReady] = useState(false);
 
   const performLock = useCallback((x = 0.5, y = 0.5) => {
     const now = performance.now();
@@ -152,7 +151,6 @@ export function MorphogenApp() {
   const undoLast = useCallback(() => {
     const snap = popUndo();
     if (!snap) return;
-    embers.current = [];
     applySnapshot(snap);
     audioRef.current?.setWaveform(snap.waveform);
     const engine = engineRef.current;
@@ -278,6 +276,7 @@ export function MorphogenApp() {
       kill: runtime.params.kill,
       sim: { w: engine.simW, h: engine.simH },
       gyro: useInstrument.getState().gyroOn,
+      sense: { ...runtime.sense },
       preset: useInstrument.getState().presetId,
       hz: audioRef.current?.lastHz ?? 0,
       voices: audioRef.current?.voiceCount ?? 0,
@@ -313,25 +312,7 @@ export function MorphogenApp() {
       (x, y) => performLockRef.current(x, y),
       (v, x, y) => setCharge({ v, x, y }),
       (evt) => {
-        if (evt.type === "down") {
-          if (localBrushes.current.length <= 1) maybeCheckpoint();
-          embers.current = embers.current.filter((e) => e.id !== evt.id);
-        } else if (evt.type === "up") {
-          const live = localBrushes.current.find((b) => b.id === evt.id);
-          embers.current.push({
-            id: evt.id,
-            x: evt.x,
-            y: evt.y,
-            px: live?.px ?? evt.x,
-            py: live?.py ?? evt.y,
-            size: live?.size ?? 0.07,
-            strength: (live?.strength ?? 0.8) * 0.7,
-            pressure: evt.pressure * 0.65,
-            radius: evt.radius,
-            born: performance.now(),
-            life: 1400,
-          });
-        }
+        if (evt.type === "down" && localBrushes.current.length <= 1) maybeCheckpoint();
       },
     );
     const onDrop = (e: DragEvent) => {
@@ -362,28 +343,9 @@ export function MorphogenApp() {
   useEffect(() => {
     let raf = 0;
     const loop = () => {
-      const now = performance.now();
-      embers.current = embers.current.filter((e) => now - e.born < e.life);
-      const liveIds = new Set(localBrushes.current.map((b) => b.id));
-      const emberBrushes: Brush[] = [];
-      for (const e of embers.current) {
-        if (liveIds.has(e.id)) continue;
-        const t = 1 - (now - e.born) / e.life;
-        emberBrushes.push({
-          id: e.id,
-          x: e.x,
-          y: e.y,
-          px: e.px,
-          py: e.py,
-          size: e.size * (0.85 + t * 0.25),
-          strength: e.strength * t,
-          pressure: e.pressure * t,
-          radius: e.radius,
-        });
-      }
       const remotes: Brush[] = [];
       remoteBrushes.current.forEach((list) => remotes.push(...list));
-      runtime.brushes = [...localBrushes.current, ...emberBrushes, ...remotes].slice(0, MAX_BRUSHES);
+      runtime.brushes = [...localBrushes.current, ...remotes].slice(0, MAX_BRUSHES);
       if (remoteFlow.current.n > 0) {
         runtime.flowX += remoteFlow.current.x;
         runtime.flowY += remoteFlow.current.y;
@@ -406,24 +368,14 @@ export function MorphogenApp() {
   }, []);
 
   useEffect(() => {
-    if (!gyroOn || !started) return;
-    return attachSensors((mag) => {
-      runtime.brushes = [
-        ...runtime.brushes,
-        {
-          id: -2,
-          x: 0.5,
-          y: 0.5,
-          px: 0.5,
-          py: 0.5,
-          size: 0.07 + mag * 0.08,
-          strength: 0.18 + mag * 0.2,
-          pressure: 0.7,
-          radius: 0.6,
-        },
-      ].slice(0, MAX_BRUSHES);
-    });
-  }, [gyroOn, started]);
+    if (!started || !gyroOn || !senseReady) return;
+    const stop = attachSensors();
+    sensorsUnhook.current = stop;
+    return () => {
+      stop();
+      if (sensorsUnhook.current === stop) sensorsUnhook.current = null;
+    };
+  }, [gyroOn, started, senseReady]);
 
   useEffect(() => {
     const audio = audioRef.current;
@@ -546,6 +498,7 @@ export function MorphogenApp() {
   const enter = useCallback(async () => {
     runtime.started = true;
     patch({ started: true });
+    const sensePromise = requestSensorPermission();
     try {
       const audio = new AudioEngine();
       audio.unlock();
@@ -556,15 +509,13 @@ export function MorphogenApp() {
       toast("Audio could not start — tap again to retry");
     }
 
+    await sensePromise;
+    patch({ gyroOn: true });
+    setSenseReady(true);
+
     if (useInstrument.getState().micOn && audioRef.current) {
       const ok = await audioRef.current.connectMic();
       if (!ok) toast("Microphone permission was declined");
-    }
-    const gyro = useInstrument.getState().gyroOn;
-    if (gyro) void requestSensorPermission();
-    else {
-      patch({ gyroOn: true });
-      void requestSensorPermission();
     }
     const midi = new MidiOut();
     midi.onDevices = setMidiDevices;
@@ -767,7 +718,9 @@ export function MorphogenApp() {
             onToggleCamera={(on) => patch({ cameraOn: on })}
             onToggleGyro={(on) => {
               patch({ gyroOn: on });
-              if (on) void requestSensorPermission();
+              if (on) {
+                void requestSensorPermission().then(() => setSenseReady(true));
+              }
             }}
             cameraOn={cameraOn}
             onAddImage={(files) => {

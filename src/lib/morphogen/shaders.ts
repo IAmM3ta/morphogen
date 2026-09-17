@@ -65,9 +65,9 @@ float finger(int i, vec2 uv, vec2 res) {
   float rad = max(b.z, 0.004) * min(res.x, res.y);
   float t0 = length(d0) / rad;
   float t1 = length(d1) / rad;
-  float disk = exp(-t0 * t0 * 2.0);
-  float trail = exp(-t1 * t1 * 2.1);
-  return b.w * max(disk, trail * 0.82);
+  float disk = exp(-t0 * t0 * 2.4);
+  float trail = exp(-t1 * t1 * 2.6);
+  return b.w * max(disk, trail * 0.55);
 }
 
 void main() {
@@ -90,14 +90,13 @@ void main() {
     finger(7, uv, uResolution);
   s = clamp(s, 0.0, 1.0);
 
-  float uvv = u * v * v * (1.0 + s * 2.1);
+  float uvv = u * v * v * (1.0 + s * 0.45);
   float du = uDu * lap.x - uvv + uFeed * (1.0 - u);
   float dv = uDv * lap.y + uvv - (uFeed + uKill) * v;
-  u += du * uDt * (1.0 + s * 0.7);
-  v += dv * uDt * (1.0 + s * 0.7);
+  u += du * uDt * (1.0 + s * 0.2);
+  v += dv * uDt * (1.0 + s * 0.2);
 
-  u = mix(u, 0.48, s * 0.9);
-  v = mix(v, 0.33, s * 0.94);
+  v += s * uMotion * 0.0008;
 
   if (uHasLock > 0.5) {
     vec2 locked = texture(uLock, uv).rg;

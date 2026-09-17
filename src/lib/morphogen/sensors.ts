@@ -61,13 +61,14 @@ export async function requestSensorPermission(): Promise<boolean> {
   }
 }
 
-export function attachSensors(onShake?: (mag: number) => void): () => void {
+export function attachSensors(): () => void {
   let restG = 0;
   let restB = 0;
   let restA = 0;
   let samples = 0;
   let calibrated = false;
   let spin = 0;
+  let lastMag = 9.81;
 
   const applyOrient = (e: OrientEvent) => {
     const gamma = e.gamma ?? 0;
@@ -79,12 +80,17 @@ export function attachSensors(onShake?: (mag: number) => void): () => void {
     if (typeof e.webkitCompassHeading === "number") sensorSample.heading = e.webkitCompassHeading;
     else sensorSample.heading = alpha;
 
+    // Absolute pose is the other antenna — how you hold the phone is the sound.
+    runtime.sense.roll = Math.max(-1, Math.min(1, gamma / 42));
+    runtime.sense.pitch = Math.max(-1, Math.min(1, (beta - 40) / 52));
+    runtime.sense.heading = sensorSample.heading;
+
     if (!calibrated) {
       restG += gamma;
       restB += beta;
       restA += alpha;
       samples += 1;
-      if (samples >= 12) {
+      if (samples >= 8) {
         restG /= samples;
         restB /= samples;
         restA /= samples;
@@ -92,8 +98,6 @@ export function attachSensors(onShake?: (mag: number) => void): () => void {
       }
       runtime.flowX = 0;
       runtime.flowY = 0;
-      runtime.sense.roll = 0;
-      runtime.sense.pitch = 0;
       runtime.sense.yaw = 0;
       return;
     }
@@ -102,14 +106,11 @@ export function attachSensors(onShake?: (mag: number) => void): () => void {
     let dz = alpha - restA;
     if (dz > 180) dz -= 360;
     if (dz < -180) dz += 360;
-    if (Math.abs(dx) < 4) dx = 0;
-    if (Math.abs(dy) < 4) dy = 0;
-    runtime.sense.roll = Math.max(-1, Math.min(1, dx / 45));
-    runtime.sense.pitch = Math.max(-1, Math.min(1, dy / 50));
-    runtime.sense.yaw = Math.max(-1, Math.min(1, dz / 90));
-    runtime.sense.heading = sensorSample.heading;
-    runtime.flowX = Math.max(-0.28, Math.min(0.28, runtime.sense.roll * 0.22));
-    runtime.flowY = Math.max(-0.28, Math.min(0.28, runtime.sense.pitch * 0.22));
+    if (Math.abs(dx) < 3) dx = 0;
+    if (Math.abs(dy) < 3) dy = 0;
+    runtime.sense.yaw = Math.max(-1, Math.min(1, dz / 80));
+    runtime.flowX = Math.max(-0.22, Math.min(0.22, (dx / 45) * 0.18));
+    runtime.flowY = Math.max(-0.22, Math.min(0.22, (dy / 50) * 0.18));
   };
 
   const onOrient = (e: DeviceOrientationEvent) => applyOrient(e as OrientEvent);
@@ -117,13 +118,13 @@ export function attachSensors(onShake?: (mag: number) => void): () => void {
 
   const onMotion = (e: DeviceMotionEvent) => {
     const g = e.accelerationIncludingGravity;
+    let mag = lastMag;
     if (g) {
       sensorSample.ax = g.x ?? 0;
       sensorSample.ay = g.y ?? 0;
       sensorSample.az = g.z ?? 0;
-      const mag = Math.hypot(g.x ?? 0, g.y ?? 0, g.z ?? 0);
-      runtime.sense.gforce = mag / 9.81;
-      if (mag > 17) onShake?.((mag - 17) / 12);
+      mag = Math.hypot(g.x ?? 0, g.y ?? 0, g.z ?? 0);
+      runtime.sense.gforce = Math.max(0, Math.min(1.8, mag / 9.81 - 0.92));
     }
     const a = e.acceleration;
     if (a) {
@@ -132,14 +133,17 @@ export function attachSensors(onShake?: (mag: number) => void): () => void {
       sensorSample.uz = a.z ?? 0;
     }
     const r = e.rotationRate;
+    let fromRate = 0;
     if (r) {
       sensorSample.gx = r.alpha ?? 0;
       sensorSample.gy = r.beta ?? 0;
       sensorSample.gz = r.gamma ?? 0;
-      const rate = Math.hypot(r.alpha ?? 0, r.beta ?? 0, r.gamma ?? 0);
-      spin = spin * 0.82 + Math.min(1, rate / 280) * 0.18;
-      runtime.sense.spin = spin;
+      fromRate = Math.min(1, Math.hypot(r.alpha ?? 0, r.beta ?? 0, r.gamma ?? 0) / 140);
     }
+    const jerk = Math.min(1, Math.abs(mag - lastMag) / 3.2);
+    lastMag = mag;
+    spin = spin * 0.76 + Math.max(fromRate, jerk) * 0.24;
+    runtime.sense.spin = spin;
   };
 
   window.addEventListener("deviceorientation", onOrient);

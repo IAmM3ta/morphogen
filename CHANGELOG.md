@@ -34,9 +34,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Fixed
 
-- Only the first finger registered on touch screens. iOS Safari
-  `setPointerCapture` plus a pointer-heard gate dropped every extra touch.
-  TouchEvents now own all fingers; PointerEvents keep mouse and pen.
+- Touch contacts froze at the first tap: down lived on TouchEvents while
+  the slide arrived as PointerEvents and was dropped. Both APIs now drive
+  the same finger (ids are aliased), so the inoculum follows the hand.
+  Extra fingers still register. Never `setPointerCapture` on touch.
 
 ## [0.1.0] — 2026-09-17
 

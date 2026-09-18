@@ -5,6 +5,7 @@ import {
   Camera,
   Circle,
   Copy,
+  House,
   ImagePlus,
   Radio,
   RotateCcw,
@@ -64,6 +65,7 @@ export function ControlDock({
   lockCount,
   onReset,
   onDefaults,
+  atDefaults,
   onRecord,
   recording,
   onUndo,
@@ -101,6 +103,7 @@ export function ControlDock({
   lockCount: number;
   onReset: () => void;
   onDefaults: () => void;
+  atDefaults: boolean;
   onRecord: () => void;
   recording: boolean;
   onUndo: () => void;
@@ -192,6 +195,7 @@ export function ControlDock({
             onUndo={onUndo}
             onReset={onReset}
             onDefaults={onDefaults}
+            atDefaults={atDefaults}
             onRecord={onRecord}
             shots={shots}
             onCapture={onCapture}
@@ -260,6 +264,14 @@ export function ControlDock({
 
         {tab === "sound" && (
           <div className="flex flex-col gap-5">
+            <ToggleRow
+              label="Default settings"
+              hint="Sine Hum, C Ionian, factory mix. Clears recorded layers. Home, if you get lost in the noise."
+              checked={atDefaults}
+              onCheckedChange={(on) => {
+                if (on) onDefaults();
+              }}
+            />
             <ToggleRow
               label="Voice of the field"
               hint="The Hum is always on — Schumann resonances as a sine pad. Live voices follow your hands."
@@ -356,6 +368,7 @@ function FieldTab({
   onUndo,
   onReset,
   onDefaults,
+  atDefaults,
   onRecord,
   shots,
   onCapture,
@@ -374,6 +387,7 @@ function FieldTab({
   onUndo: () => void;
   onReset: () => void;
   onDefaults: () => void;
+  atDefaults: boolean;
   onRecord: () => void;
   shots: FieldShot[];
   onCapture: () => void;
@@ -386,6 +400,17 @@ function FieldTab({
 
   return (
     <div className="flex flex-col gap-5">
+      <section>
+        <ToggleRow
+          label="Default settings"
+          hint="Mitosis, The Hum (sine), C Ionian. Clears loops, layers, and locks. Home, if you get lost in the noise."
+          checked={atDefaults}
+          onCheckedChange={(on) => {
+            if (on) onDefaults();
+          }}
+        />
+      </section>
+
       <section>
         <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Equations</p>
         <p className="mb-2 text-xs leading-relaxed text-muted">
@@ -598,8 +623,14 @@ function FieldTab({
           </Button>
         </div>
         <div className="mt-2 flex gap-2">
-          <Button variant="ghost" size="sm" className="flex-1" onClick={onDefaults}>
-            Defaults
+          <Button
+            variant={atDefaults ? "secondary" : "ghost"}
+            size="sm"
+            className="flex-1"
+            onClick={onDefaults}
+            aria-pressed={atDefaults}
+          >
+            <House /> Defaults
           </Button>
           <Button
             variant={recording ? "secondary" : "ghost"}

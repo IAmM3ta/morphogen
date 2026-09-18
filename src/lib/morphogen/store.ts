@@ -143,6 +143,10 @@ export const useInstrument = create<InstrumentState>()(
           keyId: DEFAULT_KEY,
           modeId: DEFAULT_MODE,
           compassKey: true,
+          volume: 0.7,
+          muted: false,
+          audioOn: true,
+          gyroOn: true,
         });
       },
       setParam: (key, value) => {
@@ -254,3 +258,31 @@ export const useInstrument = create<InstrumentState>()(
     },
   ),
 );
+
+/** True when chemistry, key, waveform, and mix sit at factory rest. */
+export function isFactoryInstrument(s: InstrumentState): boolean {
+  const d = DEFAULT_PARAMS;
+  const p = s.params;
+  return (
+    s.presetId === DEFAULT_PRESET.id &&
+    s.waveform === DEFAULT_WAVEFORM &&
+    s.keyId === DEFAULT_KEY &&
+    s.modeId === DEFAULT_MODE &&
+    s.compassKey &&
+    Math.abs(s.volume - 0.7) < 1e-6 &&
+    !s.muted &&
+    s.audioOn &&
+    s.gyroOn &&
+    p.feed === d.feed &&
+    p.kill === d.kill &&
+    p.du === d.du &&
+    p.dv === d.dv &&
+    p.speed === d.speed &&
+    p.brushSize === d.brushSize &&
+    p.brushStrength === d.brushStrength &&
+    p.paletteId === d.paletteId &&
+    p.glow === d.glow &&
+    p.vignette === d.vignette &&
+    p.steps === d.steps
+  );
+}

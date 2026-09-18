@@ -33,7 +33,8 @@ Or from source: `npm install && npm run build && npm run preview`.
 6. Double-tap and hold to **lock a loop**. `L` locks, `Z` releases, `Shift+Z` clears.
 7. Species buttons **morph chemistry in place** — they do not reseed. `1`–`9` pick a species.
 8. **Sound → Waveform** chooses sine (The Hum), triangle, saw, square, pulse, or spectrum (the field as harmonic partials).
-9. `U` or `⌘Z` **undoes** the last change (paint, species, waveform, reset). `R` resets the field, `Shift+R` restores defaults, `C` records the session.
+9. `U` or `⌘Z` **undoes** the last change (paint, species, waveform, reset). `R` resets the field, `Shift+R` or the **Default** toggle restores factory settings (mitosis, The Hum, C Ionian, and clears loops). `C` records the session.
+10. Every finger is a voice. On a phone, two (or more) contacts play at once.
 
 ## Field console
 

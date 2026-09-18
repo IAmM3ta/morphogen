@@ -3,6 +3,7 @@ import {
   Circle,
   Eye,
   EyeOff,
+  House,
   Layers,
   Maximize2,
   Minimize2,
@@ -24,9 +25,9 @@ import { MidiOut, type MidiDevice } from "@/lib/morphogen/midi-out";
 import { TdClient, type TdStatus } from "@/lib/morphogen/td-client";
 import { attachSensors, localPointerBrushes, requestSensorPermission } from "@/lib/morphogen/sensors";
 import { extractPaletteFromImage } from "@/lib/morphogen/extract-palette";
-import { PRESETS, MAX_BRUSHES, pickSimMaxSide, waveformById, type Brush } from "@/lib/morphogen/presets";
+import { PRESETS, MAX_BRUSHES, pickSimMaxSide, waveformById, DEFAULT_WAVEFORM, type Brush } from "@/lib/morphogen/presets";
 import { runtime } from "@/lib/morphogen/runtime";
-import { useInstrument } from "@/lib/morphogen/store";
+import { isFactoryInstrument, useInstrument } from "@/lib/morphogen/store";
 import { SessionRecorder, downloadBlob } from "@/lib/morphogen/recorder";
 import { headingToKey, formatKeyMode } from "@/lib/morphogen/theory";
 import type { LoopClip } from "@/lib/morphogen/loops";
@@ -112,6 +113,8 @@ export function MorphogenApp() {
   const [layerRecording, setLayerRecording] = useState(false);
   const [shots, setShots] = useState<FieldShot[]>([]);
   const [compassLive, setCompassLive] = useState(false);
+  const factory = useInstrument(isFactoryInstrument);
+  const atDefaults = factory && lockCount === 0 && loops.length === 0;
 
   const performLock = useCallback((x = 0.5, y = 0.5) => {
     const now = performance.now();
@@ -154,7 +157,12 @@ export function MorphogenApp() {
   const onDefaults = useCallback(() => {
     restoreDefaults();
     clearAllLocks();
+    audioRef.current?.clearLoops();
+    audioRef.current?.setWaveform(DEFAULT_WAVEFORM);
+    setLoops([]);
+    setLayerRecording(false);
     if (engineRef.current) engineRef.current.flash = 0.85;
+    toast("Default settings");
   }, [restoreDefaults, clearAllLocks]);
 
   const undoLast = useCallback(() => {
@@ -308,6 +316,7 @@ export function MorphogenApp() {
       energy: runtime.stats.energy,
       meanV: runtime.stats.meanV,
       brushes: runtime.brushes.map((b) => ({ id: b.id, x: +b.x.toFixed(3), y: +b.y.toFixed(3) })),
+      fingers: runtime.brushes.length,
       locks: engine.lockCount,
       feed: runtime.params.feed,
       kill: runtime.params.kill,
@@ -330,6 +339,7 @@ export function MorphogenApp() {
       mode: runtime.modeId,
       heading: runtime.sense.heading,
       loops: audioRef.current?.getLoops().length ?? 0,
+      atDefaults: isFactoryInstrument(useInstrument.getState()),
     });
     (window as unknown as { __morphogen: typeof probe }).__morphogen = probe;
     return () => {
@@ -353,6 +363,9 @@ export function MorphogenApp() {
       },
       (b) => {
         localBrushes.current = b;
+        const remotes: Brush[] = [];
+        remoteBrushes.current.forEach((list) => remotes.push(...list));
+        runtime.brushes = [...b, ...remotes].slice(0, MAX_BRUSHES);
       },
       (x, y) => performLockRef.current(x, y),
       (v, x, y) => setCharge({ v, x, y }),
@@ -636,7 +649,7 @@ export function MorphogenApp() {
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-bg text-fg select-none">
       <div ref={canvasWrapRef} className="absolute inset-0 touch-none" style={{ touchAction: "none" }}>
-        <canvas ref={canvasRef} className="block h-full w-full" />
+        <canvas ref={canvasRef} className="block h-full w-full touch-none" />
         <video ref={videoRef} className="hidden" playsInline muted />
         {charge.v > 0.02 && (
           <div
@@ -698,6 +711,17 @@ export function MorphogenApp() {
               </p>
             </div>
             <div className="pointer-events-auto flex gap-1">
+              <Button
+                variant={atDefaults ? "secondary" : "ghost"}
+                size="sm"
+                onClick={onDefaults}
+                aria-pressed={atDefaults}
+                aria-label="Default settings"
+                title="Restore default settings"
+              >
+                <House />
+                Default
+              </Button>
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -794,6 +818,7 @@ export function MorphogenApp() {
             lockCount={lockCount}
             onReset={resetField}
             onDefaults={onDefaults}
+            atDefaults={atDefaults}
             onRecord={toggleRecord}
             recording={recording}
             onUndo={undoLast}

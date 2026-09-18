@@ -9,6 +9,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- Always-visible **Default settings** toggle (header, Field, and Sound). Restores
+  mitosis, The Hum (sine), C Ionian, factory mix, and clears loops, layers, and
+  locks — a way home if you get lost in the noise.
 - Circle-of-fifths **key** and church **mode** (plus blues / suspended) toggles.
   Live pitch quantizes to the scale. The phone compass can walk the key in
   realtime.
@@ -26,6 +29,14 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   live voices bypass the Hum tilt filter so saw/square/pulse cut through.
 - Play surface is an XY pad: **height is pitch**, **across is amplitude**.
   Pan comes from roll.
+- Restore-defaults also resets volume, mute, audio, gyro, key, and recorded
+  layers (Shift+R, or the Default toggle).
+
+### Fixed
+
+- Only the first finger registered on touch screens. iOS Safari
+  `setPointerCapture` plus a pointer-heard gate dropped every extra touch.
+  TouchEvents now own all fingers; PointerEvents keep mouse and pen.
 
 ## [0.1.0] — 2026-09-17
 

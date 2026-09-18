@@ -210,8 +210,10 @@ export function localPointerBrushes(
   const HOLD_MS = 260;
   const TAP_MOVE = 22;
   const DOUBLE_DIST = 64;
+  /** Touch.identifier offset so mouse pointerId (often 1) never collides. */
+  const TOUCH_ID = 1000;
   let lastTap = { t: 0, x: 0, y: 0 };
-  let pointerHeard = false;
+  let touchDown = 0;
 
   const feel = (pressure: number, width: number, height: number) => {
     const p = Number.isFinite(pressure) ? pressure : 0;
@@ -393,7 +395,13 @@ export function localPointerBrushes(
 
   const down = (e: PointerEvent) => {
     if (isUi(e.target)) return;
-    pointerHeard = true;
+    // Touch fingers are owned by TouchEvents. setPointerCapture on iOS
+    // Safari swallows every finger after the first, and a pointerHeard
+    // gate then drops the TouchEvent fallback — one-touch-only.
+    if (e.pointerType === "touch") return;
+    // Compatibility mouse events fire during a real touch. Ignore them
+    // so the first finger is not doubled as pointerId 1.
+    if (touchDown > 0) return;
     e.preventDefault();
     try {
       canvas.setPointerCapture(e.pointerId);
@@ -404,6 +412,7 @@ export function localPointerBrushes(
   };
 
   const onPointerMove = (e: PointerEvent) => {
+    if (e.pointerType === "touch" || touchDown > 0) return;
     if (fingers.has(e.pointerId)) {
       e.preventDefault();
       const extras = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
@@ -430,6 +439,7 @@ export function localPointerBrushes(
   };
 
   const up = (e: PointerEvent) => {
+    if (e.pointerType === "touch") return;
     if (!fingers.has(e.pointerId)) return;
     end(e.pointerId, e.clientX, e.clientY);
     try {
@@ -448,45 +458,46 @@ export function localPointerBrushes(
   const onTouchStart = (e: TouchEvent) => {
     if (isUi(e.target)) return;
     e.preventDefault();
-    if (pointerHeard) return;
+    touchDown += e.changedTouches.length;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches.item(i);
       if (!t) continue;
-      begin(t.identifier + 1000, t.clientX, t.clientY, t.force, t.radiusX * 2, t.radiusY * 2);
+      begin(TOUCH_ID + t.identifier, t.clientX, t.clientY, t.force, t.radiusX * 2, t.radiusY * 2);
     }
   };
 
   const onTouchMove = (e: TouchEvent) => {
     e.preventDefault();
-    if (pointerHeard) return;
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches.item(i);
       if (!t) continue;
-      move(t.identifier + 1000, t.clientX, t.clientY, t.force, t.radiusX * 2, t.radiusY * 2);
+      move(TOUCH_ID + t.identifier, t.clientX, t.clientY, t.force, t.radiusX * 2, t.radiusY * 2);
     }
   };
 
   const onTouchEnd = (e: TouchEvent) => {
     e.preventDefault();
-    if (pointerHeard) return;
+    touchDown = Math.max(0, touchDown - e.changedTouches.length);
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches.item(i);
       if (!t) continue;
-      end(t.identifier + 1000, t.clientX, t.clientY);
+      end(TOUCH_ID + t.identifier, t.clientX, t.clientY);
     }
   };
 
-  const opts: AddEventListenerOptions = { passive: false };
-  canvas.addEventListener("pointerdown", down, opts);
-  canvas.addEventListener("pointermove", onPointerMove, opts);
-  canvas.addEventListener("pointerup", up, opts);
-  canvas.addEventListener("pointercancel", up, opts);
+  const pointerOpts: AddEventListenerOptions = { passive: false };
+  const touchOpts: AddEventListenerOptions = { passive: false, capture: true };
+  canvas.addEventListener("pointerdown", down, pointerOpts);
+  canvas.addEventListener("pointermove", onPointerMove, pointerOpts);
+  canvas.addEventListener("pointerup", up, pointerOpts);
+  canvas.addEventListener("pointercancel", up, pointerOpts);
   canvas.addEventListener("pointerleave", onPointerLeave);
-  canvas.addEventListener("touchstart", onTouchStart, opts);
-  canvas.addEventListener("touchmove", onTouchMove, opts);
-  canvas.addEventListener("touchend", onTouchEnd, opts);
-  canvas.addEventListener("touchcancel", onTouchEnd, opts);
+  canvas.addEventListener("touchstart", onTouchStart, touchOpts);
+  canvas.addEventListener("touchmove", onTouchMove, touchOpts);
+  canvas.addEventListener("touchend", onTouchEnd, touchOpts);
+  canvas.addEventListener("touchcancel", onTouchEnd, touchOpts);
   canvas.style.touchAction = "none";
+  canvas.style.userSelect = "none";
 
   return () => {
     canvas.removeEventListener("pointerdown", down);
@@ -494,10 +505,10 @@ export function localPointerBrushes(
     canvas.removeEventListener("pointerup", up);
     canvas.removeEventListener("pointercancel", up);
     canvas.removeEventListener("pointerleave", onPointerLeave);
-    canvas.removeEventListener("touchstart", onTouchStart);
-    canvas.removeEventListener("touchmove", onTouchMove);
-    canvas.removeEventListener("touchend", onTouchEnd);
-    canvas.removeEventListener("touchcancel", onTouchEnd);
+    canvas.removeEventListener("touchstart", onTouchStart, touchOpts);
+    canvas.removeEventListener("touchmove", onTouchMove, touchOpts);
+    canvas.removeEventListener("touchend", onTouchEnd, touchOpts);
+    canvas.removeEventListener("touchcancel", onTouchEnd, touchOpts);
     for (const f of fingers.values()) {
       if (f.hold != null) window.clearTimeout(f.hold);
     }
@@ -506,3 +517,4 @@ export function localPointerBrushes(
     sync();
   };
 }
+

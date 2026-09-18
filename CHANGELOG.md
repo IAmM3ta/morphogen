@@ -31,6 +31,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   Pan comes from roll.
 - Restore-defaults also resets volume, mute, audio, gyro, key, and recorded
   layers (Shift+R, or the Default toggle).
+- F, k, Default, and Settings sit in a **card under the wordmark** on the
+  phone (and bottom-right on a laptop) so preview chrome cannot cover them.
+  Settings opens the full Field / Sound / Body console.
 
 ### Fixed
 

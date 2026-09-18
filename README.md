@@ -38,7 +38,7 @@ Or from source: `npm install && npm run build && npm run preview`.
 
 ## Field console
 
-Open **Console → Field**. The pane follows [VisualPDE Parameters](https://visualpde.com/user-guide/advanced-options#parameters): a typeset Pearson Gray–Scott equation, then named sliders `name = value in [min, max]`.
+Open **Settings**. On a phone the Field card (F, k, Default, Settings) sits under the wordmark so preview chrome cannot cover it. The full pane follows [VisualPDE Parameters](https://visualpde.com/user-guide/advanced-options#parameters): a typeset Pearson Gray–Scott equation, then named sliders `name = value in [min, max]`.
 
 | Symbol | Meaning |
 | --- | --- |

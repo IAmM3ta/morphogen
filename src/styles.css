@@ -40,6 +40,13 @@
 
   --shadow-border: 0 0 0 1px rgba(236, 232, 220, 0.1);
   --shadow-border-hover: 0 0 0 1px rgba(236, 232, 220, 0.18);
+
+  /* Clear of in-app preview chrome (close / more). The Field strip
+     stacks in document flow under the wordmark — not at the bottom,
+     where the phone preview toolbar covers the glass. */
+  --spacing-hud-t: max(4.75rem, calc(env(safe-area-inset-top) + 3.25rem));
+  --spacing-hud-b: max(7.5rem, calc(env(safe-area-inset-bottom) + 6rem));
+  --spacing-hud-panel: max(8.75rem, calc(env(safe-area-inset-top) + 7rem));
 }
 
 @layer base {

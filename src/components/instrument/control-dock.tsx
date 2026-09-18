@@ -7,6 +7,7 @@ import {
   Copy,
   House,
   ImagePlus,
+  Layers,
   Radio,
   RotateCcw,
   Smartphone,
@@ -144,12 +145,70 @@ export function ControlDock({
   } = useInstrument();
   const fileRef = useRef<HTMLInputElement>(null);
 
-  if (!panelOpen) return null;
+  if (!panelOpen) {
+    const fmt4 = (n: number) => n.toFixed(4);
+    return (
+      <div
+        data-ui
+        className="pointer-events-auto relative z-50 flex w-full flex-col gap-3 rounded-xl bg-bg-elevated px-4 py-3 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:bottom-3 sm:w-80"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <Button
+            variant={lockCount > 0 ? "secondary" : "ghost"}
+            size="icon-sm"
+            onClick={onLock}
+            aria-label="Lock loop"
+          >
+            <Layers />
+          </Button>
+          <p className="text-xs tracking-[0.18em] text-muted uppercase">Field</p>
+          <Button variant="default" size="sm" onClick={() => patch({ panelOpen: true })}>
+            <SlidersHorizontal />
+            Settings
+          </Button>
+        </div>
+        <ParamSlider
+          label="Feed"
+          symbol="F"
+          value={params.feed}
+          min={0.01}
+          max={0.09}
+          step={0.0005}
+          format={fmt4}
+          onChange={(n) => setParam("feed", n)}
+        />
+        <ParamSlider
+          label="Kill"
+          symbol="k"
+          value={params.kill}
+          min={0.03}
+          max={0.08}
+          step={0.0005}
+          format={fmt4}
+          onChange={(n) => setParam("kill", n)}
+        />
+        <div className="flex gap-2">
+          <Button
+            variant={atDefaults ? "secondary" : "ghost"}
+            size="sm"
+            className="flex-1"
+            onClick={onDefaults}
+            aria-pressed={atDefaults}
+          >
+            <House /> Default
+          </Button>
+          <Button variant="ghost" size="sm" className="flex-1" onClick={onReset}>
+            <RotateCcw /> Reset
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <aside
       data-ui
-      className="pointer-events-auto absolute inset-x-3 bottom-3 z-30 flex max-h-[min(62dvh,560px)] flex-col overflow-hidden rounded-xl bg-bg-elevated/92 shadow-[var(--shadow-border)] sm:inset-x-auto sm:right-3 sm:top-3 sm:bottom-3 sm:w-80 sm:max-h-none"
+      className="pointer-events-auto relative z-50 flex max-h-[min(62dvh,34rem)] w-full flex-col overflow-hidden rounded-xl bg-bg-elevated text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:top-hud-t sm:bottom-3 sm:w-80 sm:max-h-none"
     >
       <header className="flex items-center justify-between px-4 pt-3 pb-2">
         <p className="text-xs tracking-[0.28em] text-muted uppercase">Console</p>
@@ -174,6 +233,7 @@ export function ControlDock({
               title={t.label}
             >
               <Icon className="size-4" />
+              <span className="ml-1 hidden text-[10px] tracking-[0.12em] uppercase sm:inline">{t.label}</span>
               <span className="sr-only">{t.label}</span>
             </button>
           );

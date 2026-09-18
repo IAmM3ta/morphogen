@@ -4,13 +4,11 @@ import {
   Eye,
   EyeOff,
   House,
-  Layers,
   Maximize2,
   Minimize2,
   Pause,
   Play,
   RotateCcw,
-  SlidersHorizontal,
   Square,
   Undo2,
 } from "lucide-react";
@@ -74,7 +72,6 @@ export function MorphogenApp() {
 
   const started = useInstrument((s) => s.started);
   const uiHidden = useInstrument((s) => s.uiHidden);
-  const panelOpen = useInstrument((s) => s.panelOpen);
   const params = useInstrument((s) => s.params);
   const gyroOn = useInstrument((s) => s.gyroOn);
   const micOn = useInstrument((s) => s.micOn);
@@ -559,7 +556,7 @@ export function MorphogenApp() {
 
   const enter = useCallback(async () => {
     runtime.started = true;
-    patch({ started: true });
+    patch({ started: true, panelOpen: false });
     const sensePromise = requestSensorPermission();
     try {
       const audio = new AudioEngine();
@@ -696,94 +693,80 @@ export function MorphogenApp() {
       )}
 
       {started && !uiHidden && (
-        <>
-          <header
-            data-ui
-            className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-start justify-between px-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-4"
-          >
-            <div className="pointer-events-none">
-              <p className="text-lg text-fg">
-                <Wordmark variant="hud" />
-              </p>
-              <p className="font-mono text-[10px] tracking-[0.12em] tabular-nums text-muted">
-                F {params.feed.toFixed(4)} · k {params.kill.toFixed(4)} · E {energy.toFixed(2)}
-                {` · ${formatKeyMode(keyId, modeId)}`}
-                {` · ${waveformById(waveform).tag}`}
-                {lockCount > 0 ? ` · LOOP ${lockCount}` : ""}
-                {loops.length > 0 ? ` · LAY ${loops.length}` : ""}
-                {voices > 0 ? ` · ${Math.round(hz)} Hz · ${voices}v` : ""}
-              </p>
-            </div>
-            <div className="pointer-events-auto flex gap-1">
-              <Button
-                variant={atDefaults ? "secondary" : "ghost"}
-                size="sm"
-                onClick={onDefaults}
-                aria-pressed={atDefaults}
-                aria-label="Default settings"
-                title="Restore default settings"
-              >
-                <House />
-                Default
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setPaused((p) => !p)}
-                aria-label={paused ? "Play" : "Pause"}
-              >
-                {paused ? <Play /> : <Pause />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="hidden sm:inline-flex"
-                onClick={undoLast}
-                disabled={!canUndo}
-                aria-label="Undo"
-              >
-                <Undo2 />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="hidden sm:inline-flex"
-                onClick={resetField}
-                aria-label="Reset field"
-              >
-                <RotateCcw />
-              </Button>
-              <Button
-                variant={recording ? "secondary" : "ghost"}
-                size="icon-sm"
-                className="hidden sm:inline-flex"
-                onClick={toggleRecord}
-                aria-label={recording ? "Stop recording" : "Record session"}
-              >
-                {recording ? <Square /> : <Circle />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => patch({ uiHidden: true, panelOpen: false })}
-                aria-label="Hide chrome"
-              >
-                <EyeOff />
-              </Button>
-              <Button variant="ghost" size="icon-sm" onClick={() => void requestFs()} aria-label="Fullscreen">
-                {isFs ? <Minimize2 /> : <Maximize2 />}
-              </Button>
-              <Button
-                variant={panelOpen ? "secondary" : "ghost"}
-                size="icon-sm"
-                onClick={() => patch({ panelOpen: !panelOpen })}
-                aria-label="Console"
-              >
-                <SlidersHorizontal />
-              </Button>
-            </div>
-          </header>
+        <header
+          data-ui
+          className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-center px-16 pt-hud-t sm:justify-between sm:px-4"
+        >
+          <div className="pointer-events-none rounded-md bg-bg-elevated/90 px-2 py-1 shadow-[var(--shadow-border)]">
+            <p className="text-lg text-fg">
+              <Wordmark variant="hud" />
+            </p>
+            <p className="font-mono text-[10px] tracking-[0.12em] tabular-nums text-muted">
+              F {params.feed.toFixed(4)} · k {params.kill.toFixed(4)} · E {energy.toFixed(2)}
+              {` · ${formatKeyMode(keyId, modeId)}`}
+              {` · ${waveformById(waveform).tag}`}
+              {lockCount > 0 ? ` · LOOP ${lockCount}` : ""}
+              {loops.length > 0 ? ` · LAY ${loops.length}` : ""}
+              {voices > 0 ? ` · ${Math.round(hz)} Hz · ${voices}v` : ""}
+            </p>
+          </div>
+          <div className="pointer-events-auto hidden flex-wrap justify-end gap-1 rounded-md bg-bg-elevated/90 p-1 shadow-[var(--shadow-border)] sm:flex">
+            <Button
+              variant={atDefaults ? "secondary" : "ghost"}
+              size="sm"
+              onClick={onDefaults}
+              aria-pressed={atDefaults}
+              aria-label="Default settings"
+              title="Restore default settings"
+            >
+              <House />
+              Default
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setPaused((p) => !p)}
+              aria-label={paused ? "Play" : "Pause"}
+            >
+              {paused ? <Play /> : <Pause />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={undoLast}
+              disabled={!canUndo}
+              aria-label="Undo"
+            >
+              <Undo2 />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={resetField} aria-label="Reset field">
+              <RotateCcw />
+            </Button>
+            <Button
+              variant={recording ? "secondary" : "ghost"}
+              size="icon-sm"
+              onClick={toggleRecord}
+              aria-label={recording ? "Stop recording" : "Record session"}
+            >
+              {recording ? <Square /> : <Circle />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => patch({ uiHidden: true })}
+              aria-label="Hide chrome"
+            >
+              <EyeOff />
+            </Button>
+            <Button variant="ghost" size="icon-sm" onClick={() => void requestFs()} aria-label="Fullscreen">
+              {isFs ? <Minimize2 /> : <Maximize2 />}
+            </Button>
+          </div>
+        </header>
+      )}
 
+      {started && (
+        <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex flex-col items-stretch gap-3 px-3 pt-hud-panel sm:static sm:inset-auto sm:p-0">
           <ControlDock
             tab={tab}
             onTab={setTab}
@@ -855,76 +838,6 @@ export function MorphogenApp() {
             onLoopLoop={(id, looping) => audioRef.current?.setLoopLooping(id, looping)}
             onLoopRemove={(id) => audioRef.current?.removeLoop(id)}
           />
-        </>
-      )}
-
-      {started && (
-        <div
-          data-ui
-          className="pointer-events-auto absolute bottom-[max(0.85rem,env(safe-area-inset-bottom))] left-3 z-20 flex items-center gap-2"
-        >
-          <Button
-            variant={lockCount > 0 ? "secondary" : "ghost"}
-            size="icon"
-            onClick={() => performLock()}
-            aria-label="Lock loop"
-            title="Lock this generation"
-          >
-            <Layers />
-          </Button>
-          <div className="flex h-11 items-center gap-1.5 px-1" aria-label={`${lockCount} locked loops`}>
-            {[0, 1, 2, 3].map((i) => {
-              const on = i < lockCount;
-              return (
-                <button
-                  key={i}
-                  type="button"
-                  className="flex h-11 w-6 items-center justify-center"
-                  onClick={() => {
-                    if (!on) return;
-                    popTo(i === lockCount - 1 ? i : i + 1);
-                  }}
-                  aria-label={on ? `Keep loops 1–${i + 1}` : `Empty loop ${i + 1}`}
-                  disabled={!on}
-                >
-                  <span
-                    className={cn(
-                      "block size-2 rounded-full transition-colors duration-200",
-                      on ? "bg-fg" : "bg-fg/25",
-                    )}
-                  />
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {started && !uiHidden && !panelOpen && (
-        <div
-          data-ui
-          className="pointer-events-auto absolute right-3 bottom-[max(0.85rem,env(safe-area-inset-bottom))] z-20 flex gap-1 sm:hidden"
-        >
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={undoLast}
-            disabled={!canUndo}
-            aria-label="Undo"
-          >
-            <Undo2 />
-          </Button>
-          <Button variant="ghost" size="icon-sm" onClick={resetField} aria-label="Reset field">
-            <RotateCcw />
-          </Button>
-          <Button
-            variant={recording ? "secondary" : "ghost"}
-            size="icon-sm"
-            onClick={toggleRecord}
-            aria-label={recording ? "Stop recording" : "Record session"}
-          >
-            {recording ? <Square /> : <Circle />}
-          </Button>
         </div>
       )}
 
@@ -932,7 +845,7 @@ export function MorphogenApp() {
         <button
           type="button"
           data-ui
-          className="absolute top-3 right-3 z-20 flex size-11 items-center justify-center rounded-md text-fg/40 hover:text-fg"
+          className="fixed top-hud-t left-1/2 z-50 flex size-11 -translate-x-1/2 items-center justify-center rounded-md bg-bg-elevated text-fg shadow-[var(--shadow-border)]"
           onClick={() => patch({ uiHidden: false })}
           aria-label="Show chrome"
         >

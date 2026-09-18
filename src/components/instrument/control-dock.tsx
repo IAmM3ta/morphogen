@@ -18,7 +18,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { ParamSlider } from "./param-slider";
+import { KeyPad } from "./key-pad";
+import { LoopRack } from "./loop-rack";
+import { FieldLibrary, type FieldShot } from "./field-library";
 import { PALETTES, PRESETS, WAVEFORMS, type ImageMode, type SimParams } from "@/lib/morphogen/presets";
+import type { LoopClip } from "@/lib/morphogen/loops";
 import { MIDI_MAP, TD_CALLBACKS } from "@/lib/morphogen/td-script";
 import { useInstrument, type ImageSlot } from "@/lib/morphogen/store";
 import { runtime } from "@/lib/morphogen/runtime";
@@ -64,6 +68,17 @@ export function ControlDock({
   recording,
   onUndo,
   canUndo,
+  compassLive,
+  shots,
+  onCapture,
+  onDownloadShot,
+  loops,
+  layerRecording,
+  onLayerRecord,
+  onLayerStop,
+  onLoopPlay,
+  onLoopLoop,
+  onLoopRemove,
 }: {
   tab: TabId;
   onTab: (t: TabId) => void;
@@ -90,6 +105,17 @@ export function ControlDock({
   recording: boolean;
   onUndo: () => void;
   canUndo: boolean;
+  compassLive: boolean;
+  shots: FieldShot[];
+  onCapture: () => void;
+  onDownloadShot: (id: string) => void;
+  loops: LoopClip[];
+  layerRecording: boolean;
+  onLayerRecord: () => void;
+  onLayerStop: () => void;
+  onLoopPlay: (id: string, playing: boolean) => void;
+  onLoopLoop: (id: string, looping: boolean) => void;
+  onLoopRemove: (id: string) => void;
 }) {
   const {
     params,
@@ -167,6 +193,9 @@ export function ControlDock({
             onReset={onReset}
             onDefaults={onDefaults}
             onRecord={onRecord}
+            shots={shots}
+            onCapture={onCapture}
+            onDownloadShot={onDownloadShot}
           />
         )}
 
@@ -204,7 +233,8 @@ export function ControlDock({
             <p className="text-xs leading-relaxed text-muted">
               On an iPhone this is a spatial instrument: tilt, roll, compass,
               acceleration, finger pressure. Each finger is a theremin voice —
-              height is pitch, left/right is pan. Fingers do not paint. Move
+              height is pitch, across is amplitude. The compass can walk the
+              key around the circle of fifths. Fingers do not paint. Move
               the pointer on a laptop the same way, no click required.
             </p>
             <div className="rounded-md bg-bg-subtle p-3">
@@ -252,9 +282,8 @@ export function ControlDock({
               onCheckedChange={(on) => patch({ muted: on })}
             />
             <p className="text-xs text-muted">
-              Up the glass is higher pitch, across is stereo. Sine locks to
-              the cavity. Press harder for more harmonic. Locking a loop
-              freezes this voicing. If a tab sleeps, tap anywhere to wake it.
+              Up the glass is pitch, across is amplitude. Voices snap to the
+              selected key and mode. Roll pans. Press harder for more harmonic.
             </p>
             <div>
               <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Waveform</p>
@@ -281,6 +310,16 @@ export function ControlDock({
                 ))}
               </div>
             </div>
+            <KeyPad compassLive={compassLive} />
+            <LoopRack
+              clips={loops}
+              recording={layerRecording}
+              onRecord={onLayerRecord}
+              onStop={onLayerStop}
+              onTogglePlay={onLoopPlay}
+              onToggleLoop={onLoopLoop}
+              onRemove={onLoopRemove}
+            />
           </div>
         )}
 
@@ -318,6 +357,9 @@ function FieldTab({
   onReset,
   onDefaults,
   onRecord,
+  shots,
+  onCapture,
+  onDownloadShot,
 }: {
   params: SimParams;
   presetId: string;
@@ -333,6 +375,9 @@ function FieldTab({
   onReset: () => void;
   onDefaults: () => void;
   onRecord: () => void;
+  shots: FieldShot[];
+  onCapture: () => void;
+  onDownloadShot: (id: string) => void;
 }) {
   const [term, setTerm] = useState<PdeTerm>(null);
   const fmt4 = (n: number) => n.toFixed(4);
@@ -429,6 +474,8 @@ function FieldTab({
           ))}
         </div>
       </section>
+
+      <FieldLibrary shots={shots} onCapture={onCapture} onDownloadShot={onDownloadShot} />
 
       <section className="flex flex-col gap-3">
         <p className="text-xs tracking-[0.18em] text-muted uppercase">Brush</p>

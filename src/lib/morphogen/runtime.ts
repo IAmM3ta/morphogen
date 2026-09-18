@@ -9,6 +9,7 @@ import {
   type SimParams,
   type WaveformId,
 } from "./presets";
+import { DEFAULT_KEY, DEFAULT_MODE, type KeyId, type ModeId } from "./theory";
 
 export type Antenna = {
   x: number;
@@ -25,6 +26,8 @@ export type Sense = {
   gforce: number;
   heading: number;
   pressure: number;
+  /** True when a real compass / absolute orientation is reporting. */
+  compass: boolean;
 };
 
 export type MorphJob = {
@@ -66,13 +69,15 @@ export type Runtime = {
   liveStops: Palette["stops"] | null;
   waveform: WaveformId;
   historyDepth: number;
+  keyId: KeyId;
+  modeId: ModeId;
 };
 
 export const runtime: Runtime = {
   params: { ...DEFAULT_PARAMS },
   brushes: [],
   antenna: { x: 0.5, y: 0.5, on: false, pressure: 0 },
-  sense: { roll: 0, pitch: 0, yaw: 0, spin: 0, gforce: 0, heading: 0, pressure: 0 },
+  sense: { roll: 0, pitch: 0, yaw: 0, spin: 0, gforce: 0, heading: 0, pressure: 0, compass: false },
   flowX: 0,
   flowY: 0,
   pointerFlowX: 0,
@@ -92,6 +97,8 @@ export const runtime: Runtime = {
   liveStops: null,
   waveform: DEFAULT_WAVEFORM,
   historyDepth: 0,
+  keyId: DEFAULT_KEY,
+  modeId: DEFAULT_MODE,
 };
 
 export function resetRuntimeParams(partial: Partial<SimParams>) {

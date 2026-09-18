@@ -15,9 +15,9 @@ export function StartGate({ onEnter }: { onEnter: () => void }) {
         <div className="mt-6 h-px w-16 bg-fg/35" />
         <p className="mt-6 max-w-md text-sm leading-relaxed text-muted">
           A living chemical field. The Hum is always on. How you hold the
-          phone is the other antenna — tilt, roll, spin. Height is pitch.
-          Fingers play; they leave no marks. Double-tap and hold to lock a
-          loop.
+          phone is the other antenna — tilt, roll, spin, compass. Height is
+          pitch, across is amplitude. Voices lock to a key. Fingers play;
+          they leave no marks. Double-tap and hold to freeze a generation.
         </p>
         <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
           <Button size="lg" onClick={onEnter} className="min-h-12 px-8 tracking-[0.14em] uppercase">

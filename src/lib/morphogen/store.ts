@@ -13,11 +13,20 @@ import {
 import { isRestoring, maybeCheckpoint } from "./history";
 import { beginPresetMorph, resetRuntimeParams, runtime } from "./runtime";
 import type { UndoSnap } from "./history";
+import { DEFAULT_KEY, DEFAULT_MODE, type KeyId, type ModeId } from "./theory";
 
 export type ImageSlot = {
   id: string;
   name: string;
   url: string;
+};
+
+export type FieldPatch = {
+  id: string;
+  name: string;
+  savedAt: number;
+  presetId: string;
+  params: SimParams;
 };
 
 export type InstrumentState = {
@@ -27,6 +36,9 @@ export type InstrumentState = {
   presetId: string;
   params: SimParams;
   waveform: WaveformId;
+  keyId: KeyId;
+  modeId: ModeId;
+  compassKey: boolean;
   gyroOn: boolean;
   micOn: boolean;
   cameraOn: boolean;
@@ -41,14 +53,23 @@ export type InstrumentState = {
   role: "solo" | "stage";
   images: ImageSlot[];
   activeImageId: string | null;
+  patches: FieldPatch[];
   applyPreset: (id: string) => void;
   restoreDefaults: () => void;
   setParam: <K extends keyof SimParams>(key: K, value: SimParams[K]) => void;
   setWaveform: (id: WaveformId) => void;
+  setKey: (id: KeyId, fromCompass?: boolean) => void;
+  setMode: (id: ModeId) => void;
+  setCompassKey: (on: boolean) => void;
+  savePatch: (name?: string) => FieldPatch;
+  loadPatch: (id: string) => void;
+  deletePatch: (id: string) => void;
   setImageMode: (mode: ImageMode) => void;
   applySnapshot: (snap: UndoSnap) => void;
   patch: (partial: Partial<InstrumentState>) => void;
 };
+
+const MAX_PATCHES = 12;
 
 function pushParams(params: SimParams) {
   resetRuntimeParams(params);
@@ -65,6 +86,9 @@ export const useInstrument = create<InstrumentState>()(
       presetId: DEFAULT_PRESET.id,
       params: { ...DEFAULT_PARAMS },
       waveform: DEFAULT_WAVEFORM,
+      keyId: DEFAULT_KEY,
+      modeId: DEFAULT_MODE,
+      compassKey: true,
       gyroOn: true,
       micOn: false,
       cameraOn: false,
@@ -79,6 +103,7 @@ export const useInstrument = create<InstrumentState>()(
       role: "solo",
       images: [],
       activeImageId: null,
+      patches: [],
       applyPreset: (id) => {
         if (get().presetId === id && !isRestoring()) return;
         maybeCheckpoint();
@@ -109,7 +134,16 @@ export const useInstrument = create<InstrumentState>()(
         runtime.liveStops = paletteById(DEFAULT_PRESET.paletteId).stops;
         runtime.waveform = DEFAULT_WAVEFORM;
         runtime.seedNonce += 1;
-        set({ params, presetId: DEFAULT_PRESET.id, waveform: DEFAULT_WAVEFORM });
+        runtime.keyId = DEFAULT_KEY;
+        runtime.modeId = DEFAULT_MODE;
+        set({
+          params,
+          presetId: DEFAULT_PRESET.id,
+          waveform: DEFAULT_WAVEFORM,
+          keyId: DEFAULT_KEY,
+          modeId: DEFAULT_MODE,
+          compassKey: true,
+        });
       },
       setParam: (key, value) => {
         maybeCheckpoint();
@@ -124,6 +158,50 @@ export const useInstrument = create<InstrumentState>()(
         runtime.waveform = id;
         set({ waveform: id });
       },
+      setKey: (id, fromCompass = false) => {
+        if (get().keyId === id) return;
+        if (!fromCompass) maybeCheckpoint();
+        runtime.keyId = id;
+        set(fromCompass ? { keyId: id } : { keyId: id, compassKey: false });
+      },
+      setMode: (id) => {
+        if (get().modeId === id && !isRestoring()) return;
+        maybeCheckpoint();
+        runtime.modeId = id;
+        set({ modeId: id });
+      },
+      setCompassKey: (on) => set({ compassKey: on }),
+      savePatch: (name) => {
+        const s = get();
+        const base = s.presetId === "custom" ? "Custom" : presetById(s.presetId).name;
+        const n = s.patches.filter((p) => p.name.startsWith(base)).length + 1;
+        const patch: FieldPatch = {
+          id: `p${Date.now().toString(36)}`,
+          name: name?.trim() || `${base} ${n}`,
+          savedAt: Date.now(),
+          presetId: s.presetId,
+          params: { ...s.params },
+        };
+        const patches = [patch, ...s.patches].slice(0, MAX_PATCHES);
+        set({ patches });
+        return patch;
+      },
+      loadPatch: (id) => {
+        const found = get().patches.find((p) => p.id === id);
+        if (!found) return;
+        maybeCheckpoint();
+        const pal = paletteById(found.params.paletteId);
+        beginPresetMorph({
+          feed: found.params.feed,
+          kill: found.params.kill,
+          du: found.params.du,
+          dv: found.params.dv,
+          stops: pal.stops,
+        });
+        resetRuntimeParams(found.params);
+        set({ params: { ...found.params }, presetId: found.presetId });
+      },
+      deletePatch: (id) => set({ patches: get().patches.filter((p) => p.id !== id) }),
       setImageMode: (mode) => {
         maybeCheckpoint();
         const params = { ...get().params, imageMode: mode };
@@ -134,6 +212,8 @@ export const useInstrument = create<InstrumentState>()(
         resetRuntimeParams(snap.params);
         runtime.morph = null;
         runtime.waveform = snap.waveform;
+        runtime.keyId = (snap.keyId as KeyId) || DEFAULT_KEY;
+        runtime.modeId = (snap.modeId as ModeId) || DEFAULT_MODE;
         runtime.liveStops =
           snap.params.paletteId === "image" && runtime.customPalette
             ? runtime.customPalette.stops
@@ -142,22 +222,35 @@ export const useInstrument = create<InstrumentState>()(
           params: { ...snap.params },
           presetId: snap.presetId,
           waveform: snap.waveform,
+          keyId: (snap.keyId as KeyId) || DEFAULT_KEY,
+          modeId: (snap.modeId as ModeId) || DEFAULT_MODE,
         });
       },
       patch: (partial) => set(partial),
     }),
     {
-      name: "morphogen-v10",
+      name: "morphogen-v11",
       partialize: (s) => ({
         params: s.params,
         presetId: s.presetId,
         waveform: s.waveform,
+        keyId: s.keyId,
+        modeId: s.modeId,
+        compassKey: s.compassKey,
         volume: s.volume,
         tdUrl: s.tdUrl,
         tdGrid: s.tdGrid,
         gyroOn: s.gyroOn,
         audioOn: s.audioOn,
+        patches: s.patches,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        resetRuntimeParams(state.params);
+        runtime.waveform = state.waveform;
+        runtime.keyId = state.keyId;
+        runtime.modeId = state.modeId;
+      },
     },
   ),
 );

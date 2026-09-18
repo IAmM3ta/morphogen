@@ -28,6 +28,9 @@ import { PRESETS, MAX_BRUSHES, pickSimMaxSide, waveformById, type Brush } from "
 import { runtime } from "@/lib/morphogen/runtime";
 import { useInstrument } from "@/lib/morphogen/store";
 import { SessionRecorder, downloadBlob } from "@/lib/morphogen/recorder";
+import { headingToKey, formatKeyMode } from "@/lib/morphogen/theory";
+import type { LoopClip } from "@/lib/morphogen/loops";
+import type { FieldShot } from "./field-library";
 import {
   bindHistory,
   clearHistory,
@@ -84,6 +87,8 @@ export function MorphogenApp() {
   const applyPreset = useInstrument((s) => s.applyPreset);
   const restoreDefaults = useInstrument((s) => s.restoreDefaults);
   const waveform = useInstrument((s) => s.waveform);
+  const keyId = useInstrument((s) => s.keyId);
+  const modeId = useInstrument((s) => s.modeId);
   const applySnapshot = useInstrument((s) => s.applySnapshot);
 
   const [tab, setTab] = useState<TabId>("field");
@@ -103,6 +108,10 @@ export function MorphogenApp() {
   const [recElapsed, setRecElapsed] = useState(0);
   const [canUndo, setCanUndo] = useState(false);
   const [senseReady, setSenseReady] = useState(false);
+  const [loops, setLoops] = useState<LoopClip[]>([]);
+  const [layerRecording, setLayerRecording] = useState(false);
+  const [shots, setShots] = useState<FieldShot[]>([]);
+  const [compassLive, setCompassLive] = useState(false);
 
   const performLock = useCallback((x = 0.5, y = 0.5) => {
     const now = performance.now();
@@ -196,6 +205,24 @@ export function MorphogenApp() {
     }
   }, []);
 
+  const captureField = useCallback(async () => {
+    try {
+      const blob = await engineRef.current?.capturePng();
+      if (!blob) {
+        toast("Could not capture the field");
+        return;
+      }
+      const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+      const name = `morphogen-${stamp}.png`;
+      const url = URL.createObjectURL(blob);
+      const id = `shot-${stamp}`;
+      setShots((prev) => [{ id, url, name }, ...prev].slice(0, 6));
+      downloadBlob(blob, name);
+      toast("Screenshot saved");
+    } catch {
+      toast("Could not capture the field");
+    }
+  }, []);
   performLockRef.current = performLock;
   resetRef.current = resetField;
   defaultsRef.current = onDefaults;
@@ -207,6 +234,8 @@ export function MorphogenApp() {
       const s = useInstrument.getState();
       Object.assign(runtime.params, s.params);
       runtime.waveform = s.waveform;
+      runtime.keyId = s.keyId;
+      runtime.modeId = s.modeId;
     };
     sync();
     return useInstrument.persist.onFinishHydration(sync);
@@ -252,6 +281,8 @@ export function MorphogenApp() {
           presetId: s.presetId,
           waveform: s.waveform,
           lockCount: engine.lockCount,
+          keyId: s.keyId,
+          modeId: s.modeId,
         };
       },
       checkpointField: () => engine.checkpoint(),
@@ -259,6 +290,12 @@ export function MorphogenApp() {
     });
     engine.onFrame = (_dt, stats) => {
       audioRef.current?.tick();
+      const inst = useInstrument.getState();
+      if (inst.gyroOn && inst.compassKey && runtime.sense.compass) {
+        const next = headingToKey(runtime.sense.heading, inst.keyId);
+        if (next !== inst.keyId) inst.setKey(next, true);
+      }
+      if (runtime.sense.compass) setCompassLive(true);
       setEnergy((e) => (Math.abs(e - stats.energy) > 0.02 ? stats.energy : e));
       const a = audioRef.current;
       if (a) {
@@ -289,6 +326,10 @@ export function MorphogenApp() {
       morphing: Boolean(runtime.morph),
       waveform: runtime.waveform,
       history: runtime.historyDepth,
+      key: runtime.keyId,
+      mode: runtime.modeId,
+      heading: runtime.sense.heading,
+      loops: audioRef.current?.getLoops().length ?? 0,
     });
     (window as unknown as { __morphogen: typeof probe }).__morphogen = probe;
     return () => {
@@ -509,6 +550,10 @@ export function MorphogenApp() {
       audioRef.current = audio;
       audio.setVolume(useInstrument.getState().volume);
       audio.setWaveform(useInstrument.getState().waveform);
+      audio.onLoops = (clips, rec) => {
+        setLoops(clips);
+        setLayerRecording(rec);
+      };
     } catch {
       toast("Audio could not start — tap again to retry");
     }
@@ -645,8 +690,10 @@ export function MorphogenApp() {
               </p>
               <p className="font-mono text-[10px] tracking-[0.12em] tabular-nums text-muted">
                 F {params.feed.toFixed(4)} · k {params.kill.toFixed(4)} · E {energy.toFixed(2)}
+                {` · ${formatKeyMode(keyId, modeId)}`}
                 {` · ${waveformById(waveform).tag}`}
                 {lockCount > 0 ? ` · LOOP ${lockCount}` : ""}
+                {loops.length > 0 ? ` · LAY ${loops.length}` : ""}
                 {voices > 0 ? ` · ${Math.round(hz)} Hz · ${voices}v` : ""}
               </p>
             </div>
@@ -751,6 +798,33 @@ export function MorphogenApp() {
             recording={recording}
             onUndo={undoLast}
             canUndo={canUndo}
+            compassLive={compassLive}
+            shots={shots}
+            onCapture={() => void captureField()}
+            onDownloadShot={(id) => {
+              const shot = shots.find((s) => s.id === id);
+              if (!shot) return;
+              const a = document.createElement("a");
+              a.href = shot.url;
+              a.download = shot.name;
+              a.click();
+            }}
+            loops={loops}
+            layerRecording={layerRecording}
+            onLayerRecord={() => {
+              const ok = audioRef.current?.startLayerRecord();
+              if (!ok) toast("Could not record a layer");
+              else setLayerRecording(true);
+            }}
+            onLayerStop={() => {
+              void audioRef.current?.stopLayerRecord().then((clip) => {
+                setLayerRecording(false);
+                if (clip) toast(`${clip.name} looping`);
+              });
+            }}
+            onLoopPlay={(id, playing) => audioRef.current?.setLoopPlaying(id, playing)}
+            onLoopLoop={(id, looping) => audioRef.current?.setLoopLooping(id, looping)}
+            onLoopRemove={(id) => audioRef.current?.removeLoop(id)}
           />
         </>
       )}

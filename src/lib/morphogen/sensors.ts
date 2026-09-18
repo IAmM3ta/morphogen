@@ -77,8 +77,15 @@ export function attachSensors(): () => void {
     sensorSample.alpha = alpha;
     sensorSample.beta = beta;
     sensorSample.gamma = gamma;
-    if (typeof e.webkitCompassHeading === "number") sensorSample.heading = e.webkitCompassHeading;
-    else sensorSample.heading = alpha;
+    if (typeof e.webkitCompassHeading === "number") {
+      sensorSample.heading = e.webkitCompassHeading;
+      runtime.sense.compass = true;
+    } else if (e.absolute) {
+      sensorSample.heading = ((alpha % 360) + 360) % 360;
+      runtime.sense.compass = true;
+    } else {
+      sensorSample.heading = ((alpha % 360) + 360) % 360;
+    }
 
     // Absolute pose is the other antenna — how you hold the phone is the sound.
     runtime.sense.roll = Math.max(-1, Math.min(1, gamma / 42));

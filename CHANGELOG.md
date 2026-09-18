@@ -9,9 +9,23 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- Circle-of-fifths **key** and church **mode** (plus blues / suspended) toggles.
+  Live pitch quantizes to the scale. The phone compass can walk the key in
+  realtime.
+- Audio **layer** looper: record looping samples, stack overdubs, play/pause
+  each layer from Sound.
+- Field **patches** (save F/k/Du/Dv/species/colour) and **screenshots** of the
+  living pattern.
 - Compiled release packages (Vercel prebuilt zip + source archive + SHA256SUMS)
   attached to GitHub Releases. `npm run package` rebuilds them. A Release
   workflow compiles the same archives whenever a GitHub release is published.
+
+### Changed
+
+- Waveforms are architecturally distinct (mix, filter, FM, harmonic layout);
+  live voices bypass the Hum tilt filter so saw/square/pulse cut through.
+- Play surface is an XY pad: **height is pitch**, **across is amplitude**.
+  Pan comes from roll.
 
 ## [0.1.0] — 2026-09-17
 

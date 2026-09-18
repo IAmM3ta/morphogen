@@ -703,4 +703,13 @@ export class RDEngine {
     runtime.stats.cy = mass > 1e-5 ? 1 - cy / mass / 15 : 0.5;
     runtime.stats.edge = Math.min(1, edge / 40);
   }
+
+  capturePng(): Promise<Blob> {
+    return new Promise((resolve, reject) => {
+      this.canvas.toBlob((blob) => {
+        if (blob) resolve(blob);
+        else reject(new Error("Could not capture the field."));
+      }, "image/png");
+    });
+  }
 }

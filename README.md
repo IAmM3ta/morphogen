@@ -27,8 +27,8 @@ Or from source: `npm install && npm run build && npm run preview`.
 
 1. Open the app and tap **Enter**.
 2. **The Hum is always on.** Default waveform is sine, tuned to Earth cavity modes (~7.83 Hz and its audible octaves).
-3. **Height is pitch.** Move up the glass for higher notes, snapped toward Schumann multiples. Left/right is stereo. Each finger is a voice. Fingers leave no marks — they play, they do not paint.
-4. **The chassis is the other antenna.** How you hold the phone is the sound: tilt opens the filter and shifts The Hum’s spectrum, roll pans and beats, spin is tremolo. Permission is requested on Enter.
+3. **Height is pitch, across is amplitude.** Voices snap to the current key and mode. Left/right is no longer pan — roll the chassis to pan. Each finger is a voice. Fingers leave no marks.
+4. **The chassis is the other antenna.** Tilt, roll, spin, and g-force sculpt The Hum. The compass can walk the key around the circle of fifths. Permission is requested on Enter.
 5. On a laptop, move the pointer for pitch — no click required. Click or drag to seed the chemistry (a disk of *v*). The field is a live Gray–Scott vis: species morph in place.
 6. Double-tap and hold to **lock a loop**. `L` locks, `Z` releases, `Shift+Z` clears.
 7. Species buttons **morph chemistry in place** — they do not reseed. `1`–`9` pick a species.

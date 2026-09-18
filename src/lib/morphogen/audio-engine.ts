@@ -1,5 +1,7 @@
 import { runtime } from "./runtime";
 import { DEFAULT_WAVEFORM, type Brush, type WaveformId } from "./presets";
+import { keyById, modeById, yToScaleHz } from "./theory";
+import { MAX_LOOPS, pickAudioRecorderMime, type LoopClip } from "./loops";
 
 function ramp(param: AudioParam, value: number, now: number, t = 0.05) {
   param.setTargetAtTime(value, now, t);
@@ -29,18 +31,13 @@ const HUM_PARTIALS: { hz: number; amp: number }[] = [
   { hz: 250.56, amp: 0.02 },
 ];
 
-function yToHz(y: number, pitchTilt: number): number {
-  const ny = Math.max(0, Math.min(1, 1 - y + pitchTilt * 0.42));
-  return SCHUMANN * (8 + ny * 64);
-}
-
 function snapHz(hz: number, amount: number): number {
   const n = Math.max(4, Math.round(hz / SCHUMANN));
   const snapped = SCHUMANN * n;
   return hz * (1 - amount) + snapped * amount;
 }
 
-function pulseWave(ctx: AudioContext, duty = 0.22, n = 64): PeriodicWave {
+function pulseWave(ctx: AudioContext, duty = 0.18, n = 64): PeriodicWave {
   const real = new Float32Array(n);
   const imag = new Float32Array(n);
   real[0] = 2 * duty - 1;
@@ -64,21 +61,33 @@ function spectrumWave(ctx: AudioContext, grid: Float32Array, energy: number, edg
 }
 
 const LOUD: Record<WaveformId, number> = {
-  sine: 0.86,
-  triangle: 0.92,
-  sawtooth: 0.55,
-  square: 0.48,
-  pulse: 0.52,
-  spectrum: 0.72,
+  sine: 0.78,
+  triangle: 0.82,
+  sawtooth: 0.48,
+  square: 0.42,
+  pulse: 0.46,
+  spectrum: 0.64,
 };
 
-const CUT: Record<WaveformId, number> = {
-  sine: 0.82,
-  triangle: 1,
-  sawtooth: 0.62,
-  square: 0.55,
-  pulse: 0.6,
-  spectrum: 0.86,
+type Shape = {
+  oscMix: number;
+  detMix: number;
+  harmMix: number;
+  subMix: number;
+  harmRatio: number;
+  cutoff: number;
+  q: number;
+  fm: number;
+  detuneSpread: number;
+};
+
+const SHAPE: Record<WaveformId, Shape> = {
+  sine: { oscMix: 0.78, detMix: 0.05, harmMix: 0, subMix: 0.1, harmRatio: 2, cutoff: 3400, q: 0.45, fm: 0.12, detuneSpread: 0.002 },
+  triangle: { oscMix: 0.58, detMix: 0.22, harmMix: 0.16, subMix: 0.14, harmRatio: 3, cutoff: 2600, q: 0.7, fm: 0.35, detuneSpread: 0.004 },
+  sawtooth: { oscMix: 0.72, detMix: 0.16, harmMix: 0.22, subMix: 0.2, harmRatio: 2, cutoff: 6800, q: 0.35, fm: 0.85, detuneSpread: 0.007 },
+  square: { oscMix: 0.55, detMix: 0.06, harmMix: 0.2, subMix: 0.32, harmRatio: 3, cutoff: 4600, q: 1.15, fm: 0.28, detuneSpread: 0.003 },
+  pulse: { oscMix: 0.66, detMix: 0.1, harmMix: 0.1, subMix: 0.18, harmRatio: 2, cutoff: 5200, q: 1.55, fm: 0.55, detuneSpread: 0.005 },
+  spectrum: { oscMix: 0.8, detMix: 0.04, harmMix: 0.12, subMix: 0.12, harmRatio: 2, cutoff: 6000, q: 0.55, fm: 1, detuneSpread: 0.006 },
 };
 
 function applyOscShape(osc: OscillatorNode, wave: WaveformId, pulse: PeriodicWave | null, spec: PeriodicWave | null) {
@@ -123,10 +132,20 @@ type FrozenVoice = {
   fb: GainNode;
 };
 
+type LoopVoice = {
+  clip: LoopClip;
+  source: AudioBufferSourceNode;
+  gain: GainNode;
+  buffer: AudioBuffer;
+};
+
 export class AudioEngine {
   private ctx: AudioContext | null = null;
   private master: GainNode | null = null;
   private bus: GainNode | null = null;
+  private leadBus: GainNode | null = null;
+  private loopBus: GainNode | null = null;
+  private recDest: MediaStreamAudioDestinationNode | null = null;
   private compressor: DynamicsCompressorNode | null = null;
   private tiltFilter: BiquadFilterNode | null = null;
   private hum: HumPartial[] = [];
@@ -153,6 +172,11 @@ export class AudioEngine {
   private pulse: PeriodicWave | null = null;
   private spec: PeriodicWave | null = null;
   private specTick = 0;
+  private loops = new Map<string, LoopVoice>();
+  private layerRec: MediaRecorder | null = null;
+  private layerChunks: Blob[] = [];
+  private loopSeq = 0;
+  onLoops: ((clips: LoopClip[], recording: boolean) => void) | null = null;
   volume = 0.7;
   muted = false;
   enabled = false;
@@ -175,6 +199,10 @@ export class AudioEngine {
     this.master.gain.value = 0;
     this.bus = ctx.createGain();
     this.bus.gain.value = 1;
+    this.leadBus = ctx.createGain();
+    this.leadBus.gain.value = 1;
+    this.loopBus = ctx.createGain();
+    this.loopBus.gain.value = 1;
 
     this.tiltFilter = ctx.createBiquadFilter();
     this.tiltFilter.type = "lowpass";
@@ -205,10 +233,15 @@ export class AudioEngine {
     this.echo.connect(this.echoGain);
     this.echoGain.connect(this.tiltFilter);
     this.tiltFilter.connect(this.compressor);
+    this.leadBus.connect(this.compressor);
+    this.loopBus.connect(this.compressor);
     this.compressor.connect(this.master);
     this.master.connect(ctx.destination);
     this.capture = ctx.createMediaStreamDestination();
     this.master.connect(this.capture);
+    this.recDest = ctx.createMediaStreamDestination();
+    this.leadBus.connect(this.recDest);
+    this.loopBus.connect(this.recDest);
 
     this.humBus = ctx.createGain();
     this.humBus.gain.value = 0;
@@ -276,6 +309,155 @@ export class AudioEngine {
 
   captureStream(): MediaStream | null {
     return this.capture?.stream ?? null;
+  }
+
+  getLoops(): LoopClip[] {
+    return [...this.loops.values()].map((v) => ({ ...v.clip }));
+  }
+
+  get layerRecording() {
+    return Boolean(this.layerRec && this.layerRec.state === "recording");
+  }
+
+  private emitLoops() {
+    this.onLoops?.(this.getLoops(), this.layerRecording);
+  }
+
+  startLayerRecord(): boolean {
+    if (!this.ctx || !this.recDest || this.layerRecording) return false;
+    if (this.loops.size >= MAX_LOOPS) return false;
+    if (typeof MediaRecorder === "undefined") return false;
+    const mime = pickAudioRecorderMime();
+    this.layerChunks = [];
+    try {
+      this.layerRec = mime
+        ? new MediaRecorder(this.recDest.stream, { mimeType: mime })
+        : new MediaRecorder(this.recDest.stream);
+    } catch {
+      this.layerRec = null;
+      return false;
+    }
+    this.layerRec.ondataavailable = (e) => {
+      if (e.data.size > 0) this.layerChunks.push(e.data);
+    };
+    this.layerRec.onerror = () => {
+      this.layerRec = null;
+      this.emitLoops();
+    };
+    this.layerRec.start(120);
+    this.emitLoops();
+    return true;
+  }
+
+  async stopLayerRecord(): Promise<LoopClip | null> {
+    const rec = this.layerRec;
+    if (!rec || rec.state === "inactive") {
+      this.layerRec = null;
+      this.emitLoops();
+      return null;
+    }
+    const blob = await new Promise<Blob | null>((resolve) => {
+      rec.onstop = () => {
+        const type = rec.mimeType || "audio/webm";
+        resolve(this.layerChunks.length ? new Blob(this.layerChunks, { type }) : null);
+      };
+      try {
+        rec.stop();
+      } catch {
+        resolve(null);
+      }
+    });
+    this.layerRec = null;
+    this.layerChunks = [];
+    if (!blob || !this.ctx) {
+      this.emitLoops();
+      return null;
+    }
+    try {
+      const buffer = await this.ctx.decodeAudioData(await blob.arrayBuffer());
+      return this.armLoop(buffer);
+    } catch {
+      this.emitLoops();
+      return null;
+    }
+  }
+
+  private armLoop(buffer: AudioBuffer): LoopClip {
+    const ctx = this.ctx!;
+    this.loopSeq += 1;
+    const clip: LoopClip = {
+      id: `L${this.loopSeq}`,
+      name: `Layer ${this.loopSeq}`,
+      duration: buffer.duration,
+      looping: true,
+      playing: true,
+      createdAt: Date.now(),
+    };
+    const gain = ctx.createGain();
+    gain.gain.value = 0.85;
+    gain.connect(this.loopBus!);
+    const source = this.spawnLoopSource(buffer, gain, true);
+    this.loops.set(clip.id, { clip, source, gain, buffer });
+    this.emitLoops();
+    return clip;
+  }
+
+  private spawnLoopSource(buffer: AudioBuffer, gain: GainNode, loop: boolean): AudioBufferSourceNode {
+    const ctx = this.ctx!;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = loop;
+    source.connect(gain);
+    source.start();
+    return source;
+  }
+
+  setLoopPlaying(id: string, playing: boolean) {
+    const v = this.loops.get(id);
+    if (!v || !this.ctx) return;
+    try {
+      v.source.stop();
+    } catch {
+      /* already */
+    }
+    v.clip.playing = playing;
+    if (playing) v.source = this.spawnLoopSource(v.buffer, v.gain, v.clip.looping);
+    this.emitLoops();
+  }
+
+  setLoopLooping(id: string, looping: boolean) {
+    const v = this.loops.get(id);
+    if (!v) return;
+    v.clip.looping = looping;
+    v.source.loop = looping;
+    if (v.clip.playing && !looping) {
+      v.source.onended = () => {
+        v.clip.playing = false;
+        this.emitLoops();
+      };
+    }
+    this.emitLoops();
+  }
+
+  removeLoop(id: string) {
+    const v = this.loops.get(id);
+    if (!v) return;
+    try {
+      v.source.stop();
+    } catch {
+      /* already */
+    }
+    try {
+      v.gain.disconnect();
+    } catch {
+      /* already */
+    }
+    this.loops.delete(id);
+    this.emitLoops();
+  }
+
+  clearLoops() {
+    for (const id of [...this.loops.keys()]) this.removeLoop(id);
   }
 
   setVolume(v: number) {
@@ -349,18 +531,18 @@ export class AudioEngine {
   }
 
   private applyWave(v: LiveVoice, wave: WaveformId) {
+    const shape = SHAPE[wave];
     applyOscShape(v.osc, wave, this.pulse, this.spec);
-    const detWave = wave === "triangle" ? "triangle" : "sine";
-    applyOscShape(v.detune, detWave, this.pulse, this.spec);
-    v.harm.type = "sine";
+    applyOscShape(v.detune, wave === "sine" ? "sine" : wave, this.pulse, this.spec);
+    v.harm.type = wave === "square" || wave === "sawtooth" ? wave : "sine";
+    v.sub.type = wave === "square" ? "square" : "sine";
     v.wave = wave;
     const now = this.ctx?.currentTime ?? 0;
-    const oscMix = wave === "sawtooth" || wave === "square" || wave === "pulse" ? 0.34 : 0.4;
-    const detMix = wave === "sine" ? 0.22 : wave === "triangle" ? 0.28 : 0.12;
-    const harmMix = wave === "sine" ? 0.06 : wave === "spectrum" ? 0.08 : 0.05;
-    ramp(v.oscG.gain, oscMix, now, 0.04);
-    ramp(v.detG.gain, detMix, now, 0.04);
-    ramp(v.harmG.gain, harmMix, now, 0.04);
+    ramp(v.oscG.gain, shape.oscMix, now, 0.04);
+    ramp(v.detG.gain, shape.detMix, now, 0.04);
+    ramp(v.harmG.gain, shape.harmMix, now, 0.04);
+    ramp(v.subG.gain, shape.subMix, now, 0.04);
+    v.filter.Q.value = shape.q;
   }
 
   setWaveform(id: WaveformId) {
@@ -383,7 +565,7 @@ export class AudioEngine {
     mix.connect(filter);
     filter.connect(pan);
     pan.connect(gate);
-    gate.connect(this.bus!);
+    gate.connect(this.leadBus!);
 
     const osc = ctx.createOscillator();
     osc.type = "sine";
@@ -487,28 +669,34 @@ export class AudioEngine {
     const wave = runtime.waveform;
     if (v.wave !== wave) this.applyWave(v, wave);
     const sense = runtime.sense;
-    const gravity = wave === "sine" ? 0.38 : 0.22;
-    const hz = snapHz(yToHz(y, sense.pitch), gravity) * this.liveMul;
+    const key = keyById(runtime.keyId);
+    const mode = modeById(runtime.modeId);
+    const shape = SHAPE[wave];
+    const hz = yToScaleHz(y, sense.pitch, key.pc, mode.intervals, wave === "sine" ? 0.7 : 0.9) * this.liveMul;
     this.lastHz = hz;
     const amp =
-      (0.12 + pressure * 0.5 + radius * 0.12) *
-      (0.78 + Math.max(0, 1 - y) * 0.14) *
-      (0.82 + Math.min(1, sense.gforce) * 0.28) *
+      (0.04 + x * 0.72 + pressure * 0.18 + radius * 0.06) *
+      (0.82 + Math.min(1, sense.gforce) * 0.22) *
       LOUD[wave];
     const cutoff =
-      (420 + pressure * 2000 + (1 - y) * 800 + (sense.pitch + 1) * 700 + runtime.stats.edge * 280) * CUT[wave];
-    const vib = 4.6 + sense.spin * 7.5 + Math.abs(sense.roll) * 1.4;
-    const fmAmt = 5 + sense.spin * 26 + pressure * 8 + Math.abs(sense.pitch) * 6 + runtime.mic * 14;
+      (shape.cutoff * 0.55 +
+        pressure * 1800 +
+        x * 900 +
+        (sense.pitch + 1) * 500 +
+        runtime.stats.edge * 240) *
+      (wave === "sine" ? 0.7 : 1);
+    const vib = 3.2 + sense.spin * 8.5 + Math.abs(sense.roll) * 1.2;
+    const fmAmt = shape.fm * (4 + sense.spin * 28 + pressure * 10 + Math.abs(sense.pitch) * 5 + runtime.mic * 12);
 
     ramp(v.osc.frequency, hz, now, 0.016);
-    ramp(v.detune.frequency, hz * (1.003 + sense.roll * 0.02), now, 0.018);
-    ramp(v.harm.frequency, Math.min(2400, hz * (2 + Math.max(0, sense.pitch) * 0.15)), now, 0.03);
-    ramp(v.sub.frequency, snapHz(hz * 0.5, 0.55), now, 0.03);
+    ramp(v.detune.frequency, hz * (1 + shape.detuneSpread + sense.roll * 0.012), now, 0.018);
+    ramp(v.harm.frequency, Math.min(2800, hz * shape.harmRatio), now, 0.03);
+    ramp(v.sub.frequency, hz * 0.5, now, 0.03);
     ramp(v.fm.frequency, vib, now, 0.04);
     ramp(v.fmGain.gain, fmAmt, now, 0.04);
-    ramp(v.filter.frequency, Math.max(160, Math.min(5600, cutoff)), now, 0.035);
-    ramp(v.pan.pan, Math.max(-0.92, Math.min(0.92, (x - 0.5) * 1.7 + sense.yaw * 0.35 + sense.roll * 0.2)), now, 0.03);
-    ramp(v.mix.gain, Math.max(0.0001, Math.min(0.52, amp)), now, 0.018);
+    ramp(v.filter.frequency, Math.max(180, Math.min(7200, cutoff)), now, 0.035);
+    ramp(v.pan.pan, Math.max(-0.92, Math.min(0.92, sense.yaw * 0.55 + sense.roll * 0.72)), now, 0.03);
+    ramp(v.mix.gain, Math.max(0.0001, Math.min(0.62, amp)), now, 0.018);
   }
 
   tick() {
@@ -524,7 +712,7 @@ export class AudioEngine {
     this.readMic();
 
     if (runtime.waveform === "spectrum") {
-      this.specTick = (this.specTick + 1) % 8;
+      this.specTick = (this.specTick + 1) % 4;
       if (this.specTick === 0) {
         this.spec = spectrumWave(ctx, s.grid, energy, edge);
         for (const voice of this.live.values()) {
@@ -694,6 +882,15 @@ export class AudioEngine {
   dispose() {
     this.stopMic();
     this.clearLocks();
+    this.clearLoops();
+    if (this.layerRec && this.layerRec.state !== "inactive") {
+      try {
+        this.layerRec.stop();
+      } catch {
+        /* already */
+      }
+    }
+    this.layerRec = null;
     for (const id of [...this.live.keys()]) this.releaseLive(id);
     try {
       for (const p of this.hum) p.osc.stop();

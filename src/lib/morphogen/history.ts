@@ -7,6 +7,8 @@ export type UndoSnap = {
   presetId: string;
   waveform: WaveformId;
   lockCount: number;
+  keyId: string;
+  modeId: string;
 };
 
 type HistorySink = {

@@ -108,13 +108,28 @@ function midiToHz(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
-function degreeToMidi(degreeIndex: number, tonicPc: number, intervals: number[]): number {
+function degreeToMidiInt(degreeIndex: number, tonicPc: number, intervals: number[]): number {
   const n = Math.max(1, intervals.length);
-  const oct = Math.floor(degreeIndex / n);
-  let deg = degreeIndex % n;
-  if (deg < 0) deg += n;
-  const pc = (tonicPc + intervals[deg]!) % 12;
+  const i = Math.trunc(degreeIndex);
+  let oct = Math.floor(i / n);
+  let deg = i - oct * n;
+  if (deg < 0) {
+    deg += n;
+    oct -= 1;
+  }
+  const semi = intervals[deg] ?? 0;
+  const pc = ((tonicPc + semi) % 12 + 12) % 12;
   return 48 + pc + oct * 12;
+}
+
+/** Interpolate between scale degrees so a float index never reads intervals[3.7]. */
+function degreeToMidi(degreeIndex: number, tonicPc: number, intervals: number[]): number {
+  if (!Number.isFinite(degreeIndex)) return 60;
+  const i0 = Math.floor(degreeIndex);
+  const frac = degreeIndex - i0;
+  const m0 = degreeToMidiInt(i0, tonicPc, intervals);
+  const m1 = degreeToMidiInt(i0 + 1, tonicPc, intervals);
+  return m0 + (m1 - m0) * frac;
 }
 
 /**
@@ -133,9 +148,11 @@ export function yToScaleHz(
   const span = n * 3 - 1;
   const raw = ny * span;
   const i0 = Math.max(0, Math.min(span, Math.round(raw)));
-  const snapped = midiToHz(degreeToMidi(i0, tonicPc, intervals));
+  const snapped = midiToHz(degreeToMidiInt(i0, tonicPc, intervals));
   const continuous = midiToHz(degreeToMidi(raw, tonicPc, intervals));
-  return continuous * (1 - snap) + snapped * snap;
+  const hz = continuous * (1 - snap) + snapped * snap;
+  if (!Number.isFinite(hz)) return 261.63;
+  return Math.max(27.5, Math.min(4186, hz));
 }
 
 export function formatKeyMode(keyId: string, modeId: string): string {

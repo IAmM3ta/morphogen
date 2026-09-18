@@ -480,7 +480,7 @@ export function localPointerBrushes(
     const cid = canon(e.pointerId);
     const tracking = fingers.has(cid) || fingers.has(e.pointerId) || (e.pointerType === "touch" && fingers.size > 0);
     if (tracking) {
-      e.preventDefault();
+      if (e.cancelable && !isUi(e.target)) e.preventDefault();
       const extras = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
       if (extras && extras.length > 1) {
         for (const c of extras) drive(e.pointerId, c.clientX, c.clientY, c.pressure, c.width, c.height);
@@ -542,6 +542,7 @@ export function localPointerBrushes(
 
   const onTouchMove = (e: TouchEvent) => {
     if (fingers.size === 0) return;
+    if (isUi(e.target) && e.target !== canvas) return;
     e.preventDefault();
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches.item(i);
@@ -561,30 +562,49 @@ export function localPointerBrushes(
     unbindWindow();
   };
 
+  const clearAll = () => {
+    for (const f of fingers.values()) {
+      if (f.hold != null) window.clearTimeout(f.hold);
+      if (f.painting) emit("up", f);
+    }
+    fingers.clear();
+    alias.clear();
+    onCharge?.(0, 0, 0);
+    runtime.antenna.on = false;
+    sync();
+    unbindWindow();
+  };
+
   const pointerOpts: AddEventListenerOptions = { passive: false, capture: true };
   const touchOpts: AddEventListenerOptions = { passive: false, capture: true };
-  const winOpts: AddEventListenerOptions = { passive: false, capture: true };
+  const winMoveOpts: AddEventListenerOptions = { passive: true };
+  const winUpOpts: AddEventListenerOptions = { capture: true };
 
   const bindWindow = () => {
     if (windowBound) return;
     windowBound = true;
-    window.addEventListener("pointermove", onPointerMove, winOpts);
-    window.addEventListener("pointerup", up, winOpts);
-    window.addEventListener("pointercancel", up, winOpts);
-    window.addEventListener("touchmove", onTouchMove, winOpts);
-    window.addEventListener("touchend", onTouchEnd, winOpts);
-    window.addEventListener("touchcancel", onTouchEnd, winOpts);
+    window.addEventListener("pointermove", onPointerMove, winMoveOpts);
+    window.addEventListener("pointerup", up, winUpOpts);
+    window.addEventListener("pointercancel", up, winUpOpts);
+    window.addEventListener("touchmove", onTouchMove, touchOpts);
+    window.addEventListener("touchend", onTouchEnd, touchOpts);
+    window.addEventListener("touchcancel", onTouchEnd, touchOpts);
   };
 
   const unbindWindow = () => {
     if (!windowBound || fingers.size > 0) return;
     windowBound = false;
-    window.removeEventListener("pointermove", onPointerMove, winOpts);
-    window.removeEventListener("pointerup", up, winOpts);
-    window.removeEventListener("pointercancel", up, winOpts);
-    window.removeEventListener("touchmove", onTouchMove, winOpts);
-    window.removeEventListener("touchend", onTouchEnd, winOpts);
-    window.removeEventListener("touchcancel", onTouchEnd, winOpts);
+    window.removeEventListener("pointermove", onPointerMove, winMoveOpts);
+    window.removeEventListener("pointerup", up, winUpOpts);
+    window.removeEventListener("pointercancel", up, winUpOpts);
+    window.removeEventListener("touchmove", onTouchMove, touchOpts);
+    window.removeEventListener("touchend", onTouchEnd, touchOpts);
+    window.removeEventListener("touchcancel", onTouchEnd, touchOpts);
+  };
+
+  const onBlur = () => clearAll();
+  const onVis = () => {
+    if (document.visibilityState !== "visible") clearAll();
   };
 
   canvas.addEventListener("pointerdown", down, pointerOpts);
@@ -596,6 +616,8 @@ export function localPointerBrushes(
   canvas.addEventListener("touchmove", onTouchMove, touchOpts);
   canvas.addEventListener("touchend", onTouchEnd, touchOpts);
   canvas.addEventListener("touchcancel", onTouchEnd, touchOpts);
+  window.addEventListener("blur", onBlur);
+  document.addEventListener("visibilitychange", onVis);
   canvas.style.touchAction = "none";
   canvas.style.userSelect = "none";
 
@@ -615,6 +637,8 @@ export function localPointerBrushes(
     canvas.removeEventListener("touchmove", onTouchMove, touchOpts);
     canvas.removeEventListener("touchend", onTouchEnd, touchOpts);
     canvas.removeEventListener("touchcancel", onTouchEnd, touchOpts);
+    window.removeEventListener("blur", onBlur);
+    document.removeEventListener("visibilitychange", onVis);
     runtime.antenna.on = false;
     sync();
   };

@@ -4,7 +4,12 @@ import { keyById, modeById, yToScaleHz } from "./theory";
 import { MAX_LOOPS, pickAudioRecorderMime, type LoopClip } from "./loops";
 
 function ramp(param: AudioParam, value: number, now: number, t = 0.05) {
-  param.setTargetAtTime(value, now, t);
+  if (!Number.isFinite(value) || !Number.isFinite(now) || !Number.isFinite(t) || t <= 0) return;
+  try {
+    param.setTargetAtTime(value, now, t);
+  } catch {
+    /* never throw out of the audio tick */
+  }
 }
 
 /** Live voice interval above frozen layers: unison, fifth, octave, fourth. */
@@ -672,7 +677,8 @@ export class AudioEngine {
     const key = keyById(runtime.keyId);
     const mode = modeById(runtime.modeId);
     const shape = SHAPE[wave];
-    const hz = yToScaleHz(y, sense.pitch, key.pc, mode.intervals, wave === "sine" ? 0.7 : 0.9) * this.liveMul;
+    const hzRaw = yToScaleHz(y, sense.pitch, key.pc, mode.intervals, wave === "sine" ? 0.7 : 0.9) * this.liveMul;
+    const hz = Number.isFinite(hzRaw) ? Math.max(27.5, Math.min(4186, hzRaw)) : 261.63;
     this.lastHz = hz;
     const amp =
       (0.04 + x * 0.72 + pressure * 0.18 + radius * 0.06) *
@@ -700,6 +706,14 @@ export class AudioEngine {
   }
 
   tick() {
+    try {
+      this.tickInner();
+    } catch {
+      /* never throw into the render loop */
+    }
+  }
+
+  private tickInner() {
     if (!this.enabled || !this.ctx || !this.humBus || !this.humPan || !this.lfo || !this.lfoGain || !this.noiseFilter || !this.noiseGain || !this.tiltFilter || !this.delayGain)
       return;
     const ctx = this.ctx;

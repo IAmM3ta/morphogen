@@ -265,7 +265,11 @@ export class RDEngine {
       if (!this.running || this.destroyed) return;
       const dt = Math.min(0.05, (now - this.lastT) / 1000);
       this.lastT = now;
-      this.frame(dt, now / 1000);
+      try {
+        this.frame(dt, now / 1000);
+      } catch {
+        /* a thrown onFrame (audio) must never freeze the field */
+      }
       this.raf = requestAnimationFrame(loop);
     };
     this.raf = requestAnimationFrame(loop);
@@ -656,7 +660,11 @@ export class RDEngine {
 
     this.statsEvery++;
     if (this.statsEvery % 3 === 0) this.readStats();
-    this.onFrame?.(dt, runtime.stats);
+    try {
+      this.onFrame?.(dt, runtime.stats);
+    } catch {
+      /* audio / UI must not stall the solver */
+    }
   }
 
   private readStats() {

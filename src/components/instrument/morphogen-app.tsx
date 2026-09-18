@@ -297,7 +297,11 @@ export function MorphogenApp() {
       restoreField: () => engine.undo(),
     });
     engine.onFrame = (_dt, stats) => {
-      audioRef.current?.tick();
+      try {
+        audioRef.current?.tick();
+      } catch {
+        /* keep the field alive if a voice errors */
+      }
       const inst = useInstrument.getState();
       if (inst.gyroOn && inst.compassKey && runtime.sense.compass) {
         const next = headingToKey(runtime.sense.heading, inst.keyId);

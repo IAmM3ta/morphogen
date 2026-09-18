@@ -34,10 +34,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Fixed
 
-- Touch contacts froze at the first tap: down lived on TouchEvents while
-  the slide arrived as PointerEvents and was dropped. Both APIs now drive
-  the same finger (ids are aliased), so the inoculum follows the hand.
-  Extra fingers still register. Never `setPointerCapture` on touch.
+- First contact froze the whole instrument: scale-degree lookup used a
+  float as an array index (`intervals[3.7]` → `NaN` Hz), `setTargetAtTime`
+  threw, and the animation frame never rescheduled. Pitch is interpolated;
+  audio ramps ignore non-finite values; the solver keeps running if a
+  voice errors. Window-level capturing listeners no longer swallow the
+  console while a finger is down.
 
 ## [0.1.0] — 2026-09-17
 

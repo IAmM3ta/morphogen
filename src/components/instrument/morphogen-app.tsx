@@ -121,6 +121,13 @@ export function MorphogenApp() {
     const n = engineRef.current?.lockLayer(x, y) ?? 0;
     audioRef.current?.lockLoop();
     setLockCount(n);
+    const hz = Math.round(audioRef.current?.lastHz ?? 0);
+    const pitch = hz > 24 ? `${hz} Hz` : "tonic";
+    toast(
+      n === 1
+        ? `Drone 1 — ${pitch} holds. Release peels it.`
+        : `Drone ${n}/4 — ${pitch} stacked. Release peels a layer.`,
+    );
     const id = now;
     setPulse({ x, y, id });
     window.setTimeout(() => {
@@ -136,6 +143,7 @@ export function MorphogenApp() {
       cur -= 1;
     }
     setLockCount(cur);
+    if (cur === 0) toast("Drone released.");
   }, []);
 
   const clearAllLocks = useCallback(() => {
@@ -241,6 +249,8 @@ export function MorphogenApp() {
       runtime.waveform = s.waveform;
       runtime.keyId = s.keyId;
       runtime.modeId = s.modeId;
+      runtime.pitchMinHz = s.pitchMinHz;
+      runtime.pitchMaxHz = s.pitchMaxHz;
     };
     sync();
     return useInstrument.persist.onFinishHydration(sync);
@@ -288,6 +298,8 @@ export function MorphogenApp() {
           lockCount: engine.lockCount,
           keyId: s.keyId,
           modeId: s.modeId,
+          pitchMinHz: s.pitchMinHz,
+          pitchMaxHz: s.pitchMaxHz,
         };
       },
       checkpointField: () => engine.checkpoint(),
@@ -705,7 +717,7 @@ export function MorphogenApp() {
               F {params.feed.toFixed(4)} · k {params.kill.toFixed(4)} · E {energy.toFixed(2)}
               {` · ${formatKeyMode(keyId, modeId)}`}
               {` · ${waveformById(waveform).tag}`}
-              {lockCount > 0 ? ` · LOOP ${lockCount}` : ""}
+              {lockCount > 0 ? ` · DRONE ${lockCount}` : ""}
               {loops.length > 0 ? ` · LAY ${loops.length}` : ""}
               {voices > 0 ? ` · ${Math.round(hz)} Hz · ${voices}v` : ""}
             </p>

@@ -480,8 +480,8 @@ export class RDEngine {
       this.lockStart = (this.lockStart + 1) % 4;
     }
     this.lockPoint = [x, 1 - y];
-    this.lockImpulse = 1;
-    this.flash = 1;
+    this.lockImpulse = 0.22;
+    this.flash = 0.18;
     runtime.lockCount = this.lockCount;
     return this.lockCount;
   }

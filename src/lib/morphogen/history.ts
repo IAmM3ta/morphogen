@@ -9,6 +9,8 @@ export type UndoSnap = {
   lockCount: number;
   keyId: string;
   modeId: string;
+  pitchMinHz?: number;
+  pitchMaxHz?: number;
 };
 
 type HistorySink = {

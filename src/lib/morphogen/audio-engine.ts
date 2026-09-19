@@ -1,6 +1,6 @@
 import { runtime } from "./runtime";
 import { DEFAULT_WAVEFORM, type Brush, type WaveformId } from "./presets";
-import { keyById, modeById, yToScaleHz } from "./theory";
+import { keyById, modeById, tonicHz, yToScaleHz } from "./theory";
 import { MAX_LOOPS, pickAudioRecorderMime, type LoopClip } from "./loops";
 
 function ramp(param: AudioParam, value: number, now: number, t = 0.05) {
@@ -11,9 +11,6 @@ function ramp(param: AudioParam, value: number, now: number, t = 0.05) {
     /* never throw out of the audio tick */
   }
 }
-
-/** Live voice interval above frozen layers: unison, fifth, octave, fourth. */
-const LIVE_INTERVAL = [1, 1.5, 2, 4 / 3, 5 / 4];
 
 /**
  * Earth-ionosphere cavity fundamental (Schumann).
@@ -35,12 +32,6 @@ const HUM_PARTIALS: { hz: number; amp: number }[] = [
   { hz: 125.28, amp: 0.045 },
   { hz: 250.56, amp: 0.02 },
 ];
-
-function snapHz(hz: number, amount: number): number {
-  const n = Math.max(4, Math.round(hz / SCHUMANN));
-  const snapped = SCHUMANN * n;
-  return hz * (1 - amount) + snapped * amount;
-}
 
 function pulseWave(ctx: AudioContext, duty = 0.18, n = 64): PeriodicWave {
   const real = new Float32Array(n);
@@ -130,11 +121,7 @@ type LiveVoice = {
 
 type FrozenVoice = {
   osc: OscillatorNode[];
-  noise: AudioBufferSourceNode;
   gain: GainNode;
-  filter: BiquadFilterNode;
-  delay: DelayNode;
-  fb: GainNode;
 };
 
 type LoopVoice = {
@@ -171,7 +158,6 @@ export class AudioEngine {
   private fft = new Float32Array(64);
   private frozen: FrozenVoice[] = [];
   private live = new Map<number, LiveVoice>();
-  private liveMul = 1;
   private noiseBuf: AudioBuffer | null = null;
   private capture: MediaStreamAudioDestinationNode | null = null;
   private pulse: PeriodicWave | null = null;
@@ -677,8 +663,18 @@ export class AudioEngine {
     const key = keyById(runtime.keyId);
     const mode = modeById(runtime.modeId);
     const shape = SHAPE[wave];
-    const hzRaw = yToScaleHz(y, sense.pitch, key.pc, mode.intervals, wave === "sine" ? 0.7 : 0.9) * this.liveMul;
-    const hz = Number.isFinite(hzRaw) ? Math.max(27.5, Math.min(4186, hzRaw)) : 261.63;
+    const hzRaw = yToScaleHz(
+      y,
+      sense.pitch,
+      key.pc,
+      mode.intervals,
+      wave === "sine" ? 0.7 : 0.9,
+      runtime.pitchMinHz,
+      runtime.pitchMaxHz,
+    );
+    const lo = Math.min(runtime.pitchMinHz, runtime.pitchMaxHz);
+    const hi = Math.max(runtime.pitchMinHz, runtime.pitchMaxHz);
+    const hz = Number.isFinite(hzRaw) ? Math.max(lo, Math.min(hi, hzRaw)) : Math.max(lo, Math.min(hi, 261.63));
     this.lastHz = hz;
     const amp =
       (0.04 + x * 0.72 + pressure * 0.18 + radius * 0.06) *
@@ -780,8 +776,8 @@ export class AudioEngine {
       if (p.hz === 31.38) ramp(p.osc.frequency, p.hz + roll * 0.85, now, 0.12);
     }
 
-    ramp(this.noiseFilter.frequency, 80 + edge * 260 + energy * 90 + spin * 420 + gf * 180, now, 0.08);
-    ramp(this.noiseGain.gain, 0.006 + edge * 0.018 + spin * 0.05 + gf * 0.04 + runtime.mic * 0.03, now, 0.07);
+    ramp(this.noiseFilter.frequency, 90, now, 0.08);
+    ramp(this.noiseGain.gain, 0, now, 0.08);
 
     const tiltCut = 360 + (tilt + 1) * 1100 + energy * 700 + v * 200 + this.live.size * 140 + gf * 400;
     ramp(this.tiltFilter.frequency, Math.max(180, Math.min(4800, tiltCut)), now, 0.07);
@@ -795,75 +791,55 @@ export class AudioEngine {
     const now = ctx.currentTime;
     if (this.frozen.length >= 4) this.releaseVoice(this.frozen.shift()!, now);
 
+    const dest = this.loopBus ?? this.master;
     const gain = ctx.createGain();
     const n = this.frozen.length + 1;
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.exponentialRampToValueAtTime(Math.max(0.04, 0.16 / n), now + 0.18);
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.04, 0.12 / n), now + 0.14);
+    gain.connect(dest);
 
-    const filter = ctx.createBiquadFilter();
-    filter.type = "lowpass";
-    filter.frequency.value = this.tiltFilter?.frequency.value ?? 1200;
-    filter.Q.value = 0.7;
+    const key = keyById(runtime.keyId);
+    const lo = runtime.pitchMinHz;
+    const hi = runtime.pitchMaxHz;
+    const tonic = tonicHz(key.pc, lo, hi);
+    let root = this.lastHz > 24 ? this.lastHz : tonic;
+    if (!Number.isFinite(root) || root < 24) root = tonic;
+    root = Math.max(lo, Math.min(hi, root));
+    this.lastHz = root;
 
-    const delay = ctx.createDelay(2);
-    delay.delayTime.value = 0.64 + this.frozen.length * 0.12;
-    const fb = ctx.createGain();
-    fb.gain.value = 0.78;
-
-    gain.connect(filter);
-    filter.connect(delay);
-    delay.connect(fb);
-    fb.connect(delay);
-    filter.connect(this.master);
-    delay.connect(this.master);
-
-    const root = snapHz(this.lastHz || SCHUMANN * 8, 1);
-    const freqs = [root, root * 2, SCHUMANN * 8, SCHUMANN * 4];
+    const freqs = [root];
+    if (root * 2 <= hi * 1.02) freqs.push(root * 2);
     const osc: OscillatorNode[] = [];
     const wave = runtime.waveform;
     for (let i = 0; i < freqs.length; i++) {
       const o = ctx.createOscillator();
-      applyOscShape(o, wave === "sine" ? "sine" : wave, this.pulse, this.spec);
+      applyOscShape(o, wave === "spectrum" ? "sine" : wave, this.pulse, this.spec);
       o.frequency.value = freqs[i]!;
       const og = ctx.createGain();
-      og.gain.value = i < 2 ? 0.18 : 0.12;
+      og.gain.value = i === 0 ? 0.28 : 0.07;
       o.connect(og);
       og.connect(gain);
       o.start(now);
       osc.push(o);
     }
 
-    const noise = ctx.createBufferSource();
-    if (this.noiseBuf) noise.buffer = this.noiseBuf;
-    noise.loop = true;
-    const ng = ctx.createGain();
-    ng.gain.value = 0.03 + runtime.stats.edge * 0.04;
-    noise.connect(ng);
-    ng.connect(filter);
-    noise.start(now);
-
-    this.frozen.push({ osc, noise, gain, filter, delay, fb });
-    this.liveMul = LIVE_INTERVAL[Math.min(this.frozen.length, LIVE_INTERVAL.length - 1)]!;
-    if (this.delayGain) ramp(this.delayGain.gain, 0.36, now, 0.08);
+    this.frozen.push({ osc, gain });
     return this.frozen.length;
   }
 
   popLock(): number {
     if (!this.ctx || this.frozen.length === 0) return 0;
     this.releaseVoice(this.frozen.pop()!, this.ctx.currentTime);
-    this.liveMul = LIVE_INTERVAL[Math.min(this.frozen.length, LIVE_INTERVAL.length - 1)]!;
     return this.frozen.length;
   }
 
   clearLocks() {
     if (!this.ctx) {
       this.frozen = [];
-      this.liveMul = 1;
       return;
     }
     const now = this.ctx.currentTime;
     while (this.frozen.length) this.releaseVoice(this.frozen.pop()!, now);
-    this.liveMul = 1;
   }
 
   private releaseVoice(v: FrozenVoice, now: number) {
@@ -873,13 +849,9 @@ export class AudioEngine {
       v.gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.28);
       const stopAt = now + 0.32;
       for (const o of v.osc) o.stop(stopAt);
-      v.noise.stop(stopAt);
       window.setTimeout(() => {
         try {
           v.gain.disconnect();
-          v.filter.disconnect();
-          v.delay.disconnect();
-          v.fb.disconnect();
         } catch {
           /* already gone */
         }

@@ -9,6 +9,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- Compact **Sound** face is the default on the card: waveform chips, C♯ / D♭,
+  Ionian through Locrian plus Major / Minor / pentatonic / blues / sus, and a
+  **Hz window** (factory 47–376, open either end). Field (F, k) is one tap away.
 - Always-visible **Default settings** toggle (header, Field, and Sound). Restores
   mitosis, The Hum (sine), C Ionian, factory mix, and clears loops, layers, and
   locks — a way home if you get lost in the noise.
@@ -31,11 +34,22 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   Pan comes from roll.
 - Restore-defaults also resets volume, mute, audio, gyro, key, and recorded
   layers (Shift+R, or the Default toggle).
-- F, k, Default, and Settings sit in a **card under the wordmark** on the
+- F, k, Freeze, and Sound sit in a **card under the wordmark** on the
   phone (and bottom-right on a laptop) so preview chrome cannot cover them.
-  Settings opens the full Field / Sound / Body console.
+  **Sound** on that card is waveform, key, mode, and Hz range. **More**
+  opens the full Field / Image / Body / Sound / Sync console (tabs are labeled).
+- **Freeze** / **Release** are labeled, full-width controls (not an unlabeled
+  layers glyph). Freeze holds the last pitch as a quiet drone you play over —
+  no noise bed, no delay wash, no interval stacking. **Release** peels one
+  layer; **Release all** clears the stack. Four layers. The HUD reads DRONE N.
 
 ### Fixed
+
+- The unlabeled layers glyph stacked filtered noise into a delay with high
+  feedback, then multiplied live pitch by a fifth/octave per layer, so each
+  tap was louder white noise climbing out of the Hz window, with no off
+  switch except Reset. Freeze is a musical drone inside the window; Release
+  is the off switch. The always-on noise bed is muted so The Hum stays sine.
 
 - First contact froze the whole instrument: scale-degree lookup used a
   float as an array index (`intervals[3.7]` → `NaN` Hz), `setTargetAtTime`

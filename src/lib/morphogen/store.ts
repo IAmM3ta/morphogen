@@ -13,7 +13,7 @@ import {
 import { isRestoring, maybeCheckpoint } from "./history";
 import { beginPresetMorph, resetRuntimeParams, runtime } from "./runtime";
 import type { UndoSnap } from "./history";
-import { DEFAULT_KEY, DEFAULT_MODE, type KeyId, type ModeId } from "./theory";
+import { DEFAULT_KEY, DEFAULT_MODE, DEFAULT_PITCH_MAX, DEFAULT_PITCH_MIN, clampPitchRange, type KeyId, type ModeId } from "./theory";
 
 export type ImageSlot = {
   id: string;
@@ -39,6 +39,8 @@ export type InstrumentState = {
   keyId: KeyId;
   modeId: ModeId;
   compassKey: boolean;
+  pitchMinHz: number;
+  pitchMaxHz: number;
   gyroOn: boolean;
   micOn: boolean;
   cameraOn: boolean;
@@ -61,6 +63,7 @@ export type InstrumentState = {
   setKey: (id: KeyId, fromCompass?: boolean) => void;
   setMode: (id: ModeId) => void;
   setCompassKey: (on: boolean) => void;
+  setPitchRange: (min: number, max: number) => void;
   savePatch: (name?: string) => FieldPatch;
   loadPatch: (id: string) => void;
   deletePatch: (id: string) => void;
@@ -89,6 +92,8 @@ export const useInstrument = create<InstrumentState>()(
       keyId: DEFAULT_KEY,
       modeId: DEFAULT_MODE,
       compassKey: true,
+      pitchMinHz: DEFAULT_PITCH_MIN,
+      pitchMaxHz: DEFAULT_PITCH_MAX,
       gyroOn: true,
       micOn: false,
       cameraOn: false,
@@ -136,6 +141,8 @@ export const useInstrument = create<InstrumentState>()(
         runtime.seedNonce += 1;
         runtime.keyId = DEFAULT_KEY;
         runtime.modeId = DEFAULT_MODE;
+        runtime.pitchMinHz = DEFAULT_PITCH_MIN;
+        runtime.pitchMaxHz = DEFAULT_PITCH_MAX;
         set({
           params,
           presetId: DEFAULT_PRESET.id,
@@ -143,6 +150,8 @@ export const useInstrument = create<InstrumentState>()(
           keyId: DEFAULT_KEY,
           modeId: DEFAULT_MODE,
           compassKey: true,
+          pitchMinHz: DEFAULT_PITCH_MIN,
+          pitchMaxHz: DEFAULT_PITCH_MAX,
           volume: 0.7,
           muted: false,
           audioOn: true,
@@ -175,6 +184,12 @@ export const useInstrument = create<InstrumentState>()(
         set({ modeId: id });
       },
       setCompassKey: (on) => set({ compassKey: on }),
+      setPitchRange: (min, max) => {
+        const next = clampPitchRange(min, max);
+        runtime.pitchMinHz = next.min;
+        runtime.pitchMaxHz = next.max;
+        set({ pitchMinHz: next.min, pitchMaxHz: next.max });
+      },
       savePatch: (name) => {
         const s = get();
         const base = s.presetId === "custom" ? "Custom" : presetById(s.presetId).name;
@@ -218,6 +233,8 @@ export const useInstrument = create<InstrumentState>()(
         runtime.waveform = snap.waveform;
         runtime.keyId = (snap.keyId as KeyId) || DEFAULT_KEY;
         runtime.modeId = (snap.modeId as ModeId) || DEFAULT_MODE;
+        runtime.pitchMinHz = typeof snap.pitchMinHz === "number" ? snap.pitchMinHz : DEFAULT_PITCH_MIN;
+        runtime.pitchMaxHz = typeof snap.pitchMaxHz === "number" ? snap.pitchMaxHz : DEFAULT_PITCH_MAX;
         runtime.liveStops =
           snap.params.paletteId === "image" && runtime.customPalette
             ? runtime.customPalette.stops
@@ -228,12 +245,14 @@ export const useInstrument = create<InstrumentState>()(
           waveform: snap.waveform,
           keyId: (snap.keyId as KeyId) || DEFAULT_KEY,
           modeId: (snap.modeId as ModeId) || DEFAULT_MODE,
+          pitchMinHz: typeof snap.pitchMinHz === "number" ? snap.pitchMinHz : DEFAULT_PITCH_MIN,
+          pitchMaxHz: typeof snap.pitchMaxHz === "number" ? snap.pitchMaxHz : DEFAULT_PITCH_MAX,
         });
       },
       patch: (partial) => set(partial),
     }),
     {
-      name: "morphogen-v11",
+      name: "morphogen-v12",
       partialize: (s) => ({
         params: s.params,
         presetId: s.presetId,
@@ -241,6 +260,8 @@ export const useInstrument = create<InstrumentState>()(
         keyId: s.keyId,
         modeId: s.modeId,
         compassKey: s.compassKey,
+        pitchMinHz: s.pitchMinHz,
+        pitchMaxHz: s.pitchMaxHz,
         volume: s.volume,
         tdUrl: s.tdUrl,
         tdGrid: s.tdGrid,
@@ -254,6 +275,8 @@ export const useInstrument = create<InstrumentState>()(
         runtime.waveform = state.waveform;
         runtime.keyId = state.keyId;
         runtime.modeId = state.modeId;
+        if (typeof state.pitchMinHz === "number") runtime.pitchMinHz = state.pitchMinHz;
+        if (typeof state.pitchMaxHz === "number") runtime.pitchMaxHz = state.pitchMaxHz;
       },
     },
   ),
@@ -269,6 +292,8 @@ export function isFactoryInstrument(s: InstrumentState): boolean {
     s.keyId === DEFAULT_KEY &&
     s.modeId === DEFAULT_MODE &&
     s.compassKey &&
+    Math.abs(s.pitchMinHz - DEFAULT_PITCH_MIN) < 0.5 &&
+    Math.abs(s.pitchMaxHz - DEFAULT_PITCH_MAX) < 0.5 &&
     Math.abs(s.volume - 0.7) < 1e-6 &&
     !s.muted &&
     s.audioOn &&

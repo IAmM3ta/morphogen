@@ -9,7 +9,7 @@ import {
   type SimParams,
   type WaveformId,
 } from "./presets";
-import { DEFAULT_KEY, DEFAULT_MODE, type KeyId, type ModeId } from "./theory";
+import { DEFAULT_KEY, DEFAULT_MODE, DEFAULT_PITCH_MAX, DEFAULT_PITCH_MIN, type KeyId, type ModeId } from "./theory";
 
 export type Antenna = {
   x: number;
@@ -71,6 +71,8 @@ export type Runtime = {
   historyDepth: number;
   keyId: KeyId;
   modeId: ModeId;
+  pitchMinHz: number;
+  pitchMaxHz: number;
 };
 
 export const runtime: Runtime = {
@@ -99,6 +101,8 @@ export const runtime: Runtime = {
   historyDepth: 0,
   keyId: DEFAULT_KEY,
   modeId: DEFAULT_MODE,
+  pitchMinHz: DEFAULT_PITCH_MIN,
+  pitchMaxHz: DEFAULT_PITCH_MAX,
 };
 
 export function resetRuntimeParams(partial: Partial<SimParams>) {

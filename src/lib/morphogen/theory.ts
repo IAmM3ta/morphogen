@@ -24,6 +24,8 @@ export type ModeId =
   | "locrian"
   | "major"
   | "minor"
+  | "pentatonic-major"
+  | "pentatonic-minor"
   | "blues-major"
   | "blues-minor"
   | "suspended";
@@ -57,7 +59,7 @@ export const KEYS: KeyDef[] = [
   { id: "E", name: "E", pc: 4, fifths: 4, relative: "c#" },
   { id: "B", name: "B", pc: 11, fifths: 5, relative: "g#" },
   { id: "F#", name: "F♯", alt: "G♭", pc: 6, fifths: 6, relative: "eb" },
-  { id: "Db", name: "D♭", alt: "C♯", pc: 1, fifths: 7, relative: "bb" },
+  { id: "Db", name: "C♯", alt: "D♭", pc: 1, fifths: 7, relative: "bb" },
   { id: "Ab", name: "A♭", pc: 8, fifths: 8, relative: "f" },
   { id: "Eb", name: "E♭", pc: 3, fifths: 9, relative: "c" },
   { id: "Bb", name: "B♭", pc: 10, fifths: 10, relative: "g" },
@@ -66,14 +68,16 @@ export const KEYS: KeyDef[] = [
 
 export const MODES: ModeDef[] = [
   { id: "ionian", name: "Ionian", roman: "I", blurb: "Major scale", intervals: [0, 2, 4, 5, 7, 9, 11] },
+  { id: "major", name: "Major", roman: "M", blurb: "Same tones as Ionian", intervals: [0, 2, 4, 5, 7, 9, 11] },
   { id: "dorian", name: "Dorian", roman: "II", blurb: "Minor, raised 6", intervals: [0, 2, 3, 5, 7, 9, 10] },
   { id: "phrygian", name: "Phrygian", roman: "III", blurb: "Minor, flat 2", intervals: [0, 1, 3, 5, 7, 8, 10] },
   { id: "lydian", name: "Lydian", roman: "IV", blurb: "Major, raised 4", intervals: [0, 2, 4, 6, 7, 9, 11] },
   { id: "mixolydian", name: "Mixolydian", roman: "V", blurb: "Major, flat 7", intervals: [0, 2, 4, 5, 7, 9, 10] },
   { id: "aeolian", name: "Aeolian", roman: "VI", blurb: "Natural minor", intervals: [0, 2, 3, 5, 7, 8, 10] },
+  { id: "minor", name: "Minor", roman: "m", blurb: "Same tones as Aeolian", intervals: [0, 2, 3, 5, 7, 8, 10] },
   { id: "locrian", name: "Locrian", roman: "VII", blurb: "Diminished 5", intervals: [0, 1, 3, 5, 6, 8, 10] },
-  { id: "major", name: "Major", roman: "M", blurb: "Ionian triad color", intervals: [0, 2, 4, 5, 7, 9, 11] },
-  { id: "minor", name: "Minor", roman: "m", blurb: "Aeolian triad color", intervals: [0, 2, 3, 5, 7, 8, 10] },
+  { id: "pentatonic-major", name: "Pentatonic maj", roman: "P+", blurb: "Major pentatonic", intervals: [0, 2, 4, 7, 9] },
+  { id: "pentatonic-minor", name: "Pentatonic min", roman: "P−", blurb: "Minor pentatonic", intervals: [0, 3, 5, 7, 10] },
   { id: "blues-major", name: "Blues major", roman: "B♭M", blurb: "Major blues hexatonic", intervals: [0, 2, 3, 4, 7, 9] },
   { id: "blues-minor", name: "Blues minor", roman: "Bm", blurb: "Minor blues hexatonic", intervals: [0, 3, 5, 6, 7, 10] },
   { id: "suspended", name: "Suspended", roman: "sus", blurb: "No third — 2 and 4", intervals: [0, 2, 5, 7, 9] },
@@ -81,6 +85,10 @@ export const MODES: ModeDef[] = [
 
 export const DEFAULT_KEY: KeyId = "C";
 export const DEFAULT_MODE: ModeId = "ionian";
+
+/** Factory voice range: G1-ish through F#4-ish, with room to open. */
+export const DEFAULT_PITCH_MIN = 47;
+export const DEFAULT_PITCH_MAX = 376;
 
 export function keyById(id: string): KeyDef {
   return KEYS.find((k) => k.id === id) ?? KEYS[0]!;
@@ -104,37 +112,28 @@ export function headingToKey(heading: number, current: KeyId): KeyId {
   return KEYS[idx]!.id;
 }
 
-function midiToHz(midi: number): number {
+export function midiToHz(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
-function degreeToMidiInt(degreeIndex: number, tonicPc: number, intervals: number[]): number {
-  const n = Math.max(1, intervals.length);
-  const i = Math.trunc(degreeIndex);
-  let oct = Math.floor(i / n);
-  let deg = i - oct * n;
-  if (deg < 0) {
-    deg += n;
-    oct -= 1;
+function scaleMidisInRange(tonicPc: number, intervals: number[], minHz: number, maxHz: number): number[] {
+  const lo = Math.max(27.5, Math.min(minHz, maxHz));
+  const hi = Math.max(lo + 1, Math.max(minHz, maxHz));
+  const allowed = new Set(intervals.map((s) => ((s % 12) + 12) % 12));
+  const notes: number[] = [];
+  for (let midi = 12; midi <= 108; midi++) {
+    const hz = midiToHz(midi);
+    if (hz < lo - 0.8) continue;
+    if (hz > hi + 0.8) break;
+    const rel = (((midi % 12) + 12) % 12 - ((tonicPc % 12) + 12) % 12 + 12) % 12;
+    if (allowed.has(rel)) notes.push(midi);
   }
-  const semi = intervals[deg] ?? 0;
-  const pc = ((tonicPc + semi) % 12 + 12) % 12;
-  return 48 + pc + oct * 12;
-}
-
-/** Interpolate between scale degrees so a float index never reads intervals[3.7]. */
-function degreeToMidi(degreeIndex: number, tonicPc: number, intervals: number[]): number {
-  if (!Number.isFinite(degreeIndex)) return 60;
-  const i0 = Math.floor(degreeIndex);
-  const frac = degreeIndex - i0;
-  const m0 = degreeToMidiInt(i0, tonicPc, intervals);
-  const m1 = degreeToMidiInt(i0 + 1, tonicPc, intervals);
-  return m0 + (m1 - m0) * frac;
+  return notes;
 }
 
 /**
- * Map vertical position (0 = top of glass = high) onto the current scale.
- * Spans three octaves of the mode, starting near C3 of the tonic.
+ * Map vertical position (0 = top of glass = high) onto the current scale,
+ * clamped to the chosen frequency window.
  */
 export function yToScaleHz(
   y: number,
@@ -142,21 +141,58 @@ export function yToScaleHz(
   tonicPc: number,
   intervals: number[],
   snap = 0.88,
+  minHz = DEFAULT_PITCH_MIN,
+  maxHz = DEFAULT_PITCH_MAX,
 ): number {
+  const lo = Math.max(27.5, Math.min(minHz, maxHz));
+  const hi = Math.max(lo + 1, Math.max(minHz, maxHz));
   const ny = Math.max(0, Math.min(1, 1 - y + pitchTilt * 0.42));
-  const n = Math.max(1, intervals.length);
-  const span = n * 3 - 1;
-  const raw = ny * span;
-  const i0 = Math.max(0, Math.min(span, Math.round(raw)));
-  const snapped = midiToHz(degreeToMidiInt(i0, tonicPc, intervals));
-  const continuous = midiToHz(degreeToMidi(raw, tonicPc, intervals));
-  const hz = continuous * (1 - snap) + snapped * snap;
+  const notes = scaleMidisInRange(tonicPc, intervals, lo, hi);
+  let hz: number;
+  if (notes.length === 0) {
+    hz = lo * Math.pow(hi / lo, ny);
+  } else {
+    const span = notes.length - 1;
+    const raw = ny * span;
+    const i0 = Math.max(0, Math.min(span, Math.round(raw)));
+    const snapped = midiToHz(notes[i0]!);
+    const a = Math.max(0, Math.min(span, Math.floor(raw)));
+    const b = Math.min(span, a + 1);
+    const frac = raw - a;
+    const continuous = midiToHz(notes[a]!) * (1 - frac) + midiToHz(notes[b]!) * frac;
+    hz = continuous * (1 - snap) + snapped * snap;
+  }
   if (!Number.isFinite(hz)) return 261.63;
-  return Math.max(27.5, Math.min(4186, hz));
+  return Math.max(lo, Math.min(hi, hz));
+}
+
+export function tonicHz(tonicPc: number, minHz = DEFAULT_PITCH_MIN, maxHz = DEFAULT_PITCH_MAX): number {
+  const lo = Math.max(27.5, Math.min(minHz, maxHz));
+  const hi = Math.max(lo + 1, Math.max(minHz, maxHz));
+  const mid = Math.sqrt(lo * hi);
+  let best = 60;
+  let bestDist = Infinity;
+  for (let oct = 0; oct <= 8; oct++) {
+    const midi = 12 + oct * 12 + (((tonicPc % 12) + 12) % 12);
+    const hz = midiToHz(midi);
+    if (hz < lo * 0.92 || hz > hi * 1.08) continue;
+    const dist = Math.abs(Math.log(hz / mid));
+    if (dist < bestDist) {
+      bestDist = dist;
+      best = midi;
+    }
+  }
+  return midiToHz(best);
 }
 
 export function formatKeyMode(keyId: string, modeId: string): string {
   const k = keyById(keyId);
   const m = modeById(modeId);
-  return `${k.name} ${m.name}`;
+  return `${k.name}${k.alt ? "/" + k.alt : ""} ${m.name}`;
+}
+
+export function clampPitchRange(minHz: number, maxHz: number): { min: number; max: number } {
+  const lo = Math.max(27.5, Math.min(minHz, maxHz - 8));
+  const hi = Math.min(4186, Math.max(maxHz, lo + 8));
+  return { min: lo, max: hi };
 }

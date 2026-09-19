@@ -23,12 +23,13 @@ import { ParamSlider } from "./param-slider";
 import { KeyPad } from "./key-pad";
 import { LoopRack } from "./loop-rack";
 import { FieldLibrary, type FieldShot } from "./field-library";
-import { PALETTES, PRESETS, WAVEFORMS, type ImageMode, type SimParams } from "@/lib/morphogen/presets";
+import { PALETTES, PRESETS, WAVEFORMS, waveformById, type ImageMode, type SimParams } from "@/lib/morphogen/presets";
 import type { LoopClip } from "@/lib/morphogen/loops";
 import { MIDI_MAP, TD_CALLBACKS } from "@/lib/morphogen/td-script";
 import { useInstrument, type ImageSlot } from "@/lib/morphogen/store";
 import { runtime } from "@/lib/morphogen/runtime";
 import { maybeCheckpoint } from "@/lib/morphogen/history";
+import { formatKeyMode } from "@/lib/morphogen/theory";
 import type { TdStatus } from "@/lib/morphogen/td-client";
 import type { MidiDevice } from "@/lib/morphogen/midi-out";
 import { cn } from "@/lib/utils";
@@ -142,65 +143,167 @@ export function ControlDock({
     midiId,
     panelOpen,
     patch,
+    keyId,
+    modeId,
+    pitchMinHz,
+    pitchMaxHz,
   } = useInstrument();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [face, setFace] = useState<"field" | "sound">("sound");
 
   if (!panelOpen) {
     const fmt4 = (n: number) => n.toFixed(4);
+    const soundLabel = `${waveformById(waveform).name} · ${formatKeyMode(keyId, modeId)} · ${Math.round(pitchMinHz)}–${Math.round(pitchMaxHz)} Hz`;
     return (
       <div
         data-ui
-        className="pointer-events-auto relative z-50 flex w-full flex-col gap-3 rounded-xl bg-bg-elevated px-4 py-3 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:bottom-3 sm:w-80"
+        className="pointer-events-auto relative z-50 flex w-full max-h-[min(44dvh,24rem)] flex-col overflow-hidden rounded-xl bg-bg-elevated px-3 pt-3 pb-3 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:bottom-3 sm:max-h-[min(70dvh,36rem)] sm:w-80"
       >
-        <div className="flex items-center justify-between gap-2">
-          <Button
-            variant={lockCount > 0 ? "secondary" : "ghost"}
-            size="icon-sm"
-            onClick={onLock}
-            aria-label="Lock loop"
-          >
-            <Layers />
-          </Button>
-          <p className="text-xs tracking-[0.18em] text-muted uppercase">Field</p>
-          <Button variant="default" size="sm" onClick={() => patch({ panelOpen: true })}>
-            <SlidersHorizontal />
-            Settings
-          </Button>
+        <div className="flex shrink-0 flex-col gap-2">
+          <div className="flex gap-1.5">
+            <Button
+              variant={lockCount > 0 ? "secondary" : "outline"}
+              size="default"
+              className="min-h-11 flex-1"
+              onClick={onLock}
+              aria-label="Freeze drone"
+              title="Hold the last pitch as a drone. Play over it. Release peels a layer."
+            >
+              <Layers />
+              {lockCount > 0 ? `Freeze ${lockCount}` : "Freeze"}
+            </Button>
+            <Button
+              variant="ghost"
+              size="default"
+              className="min-h-11 flex-1"
+              onClick={onPop}
+              disabled={lockCount === 0}
+              aria-label="Release freeze"
+            >
+              Release
+            </Button>
+          </div>
+          {lockCount > 1 && (
+            <button type="button" className="self-end text-xs text-faint hover:text-muted" onClick={onClearLocks}>
+              Release all
+            </button>
+          )}
+          <div className="flex gap-1">
+            <Button
+              variant={face === "field" ? "secondary" : "ghost"}
+              size="sm"
+              className="flex-1"
+              onClick={() => setFace("field")}
+              aria-pressed={face === "field"}
+            >
+              Field
+            </Button>
+            <Button
+              variant={face === "sound" ? "secondary" : "ghost"}
+              size="sm"
+              className="flex-1"
+              onClick={() => setFace("sound")}
+              aria-pressed={face === "sound"}
+            >
+              Sound
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => patch({ panelOpen: true })}>
+              More
+            </Button>
+          </div>
         </div>
-        <ParamSlider
-          label="Feed"
-          symbol="F"
-          value={params.feed}
-          min={0.01}
-          max={0.09}
-          step={0.0005}
-          format={fmt4}
-          onChange={(n) => setParam("feed", n)}
-        />
-        <ParamSlider
-          label="Kill"
-          symbol="k"
-          value={params.kill}
-          min={0.03}
-          max={0.08}
-          step={0.0005}
-          format={fmt4}
-          onChange={(n) => setParam("kill", n)}
-        />
-        <div className="flex gap-2">
-          <Button
-            variant={atDefaults ? "secondary" : "ghost"}
-            size="sm"
-            className="flex-1"
-            onClick={onDefaults}
-            aria-pressed={atDefaults}
-          >
-            <House /> Default
-          </Button>
-          <Button variant="ghost" size="sm" className="flex-1" onClick={onReset}>
-            <RotateCcw /> Reset
-          </Button>
-        </div>
+
+        {face === "field" ? (
+          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+            <p className="text-xs leading-relaxed text-muted">
+              Freeze holds the last pitch as a quiet drone — not noise. Release
+              peels one layer. Four layers. Fingers play over it.
+            </p>
+            <button
+              type="button"
+              onClick={() => setFace("sound")}
+              className="rounded-sm px-2.5 py-2 text-left text-xs shadow-[var(--shadow-border)] hover:bg-fg/6"
+            >
+              <span className="block tracking-[0.18em] text-muted uppercase">Sound</span>
+              <span className="mt-0.5 block text-fg">{soundLabel}</span>
+            </button>
+            <ParamSlider
+              label="Feed"
+              symbol="F"
+              value={params.feed}
+              min={0.01}
+              max={0.09}
+              step={0.0005}
+              format={fmt4}
+              onChange={(n) => setParam("feed", n)}
+            />
+            <ParamSlider
+              label="Kill"
+              symbol="k"
+              value={params.kill}
+              min={0.03}
+              max={0.08}
+              step={0.0005}
+              format={fmt4}
+              onChange={(n) => setParam("kill", n)}
+            />
+            <div className="flex gap-2">
+              <Button
+                variant={atDefaults ? "secondary" : "ghost"}
+                size="sm"
+                className="flex-1"
+                onClick={onDefaults}
+                aria-pressed={atDefaults}
+              >
+                <House /> Default
+              </Button>
+              <Button variant="ghost" size="sm" className="flex-1" onClick={onReset}>
+                <RotateCcw /> Reset
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+            <p className="text-xs leading-relaxed text-muted">
+              Sine is The Hum. Height is pitch inside the Hz window. C♯, Aeolian,
+              and pentatonic live here.
+            </p>
+            <div>
+              <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Waveform</p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {WAVEFORMS.map((w) => (
+                  <button
+                    key={w.id}
+                    type="button"
+                    onClick={() => setWaveform(w.id)}
+                    className={cn(
+                      "rounded-sm px-2 py-2 text-center shadow-[var(--shadow-border)] transition-colors duration-150",
+                      waveform === w.id ? "bg-fg text-bg" : "bg-transparent text-fg hover:bg-fg/6",
+                    )}
+                    aria-pressed={waveform === w.id}
+                  >
+                    <span className="block text-xs font-medium">{w.name}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <KeyPad compassLive={compassLive} compact />
+            <div className="flex gap-2">
+              <Button
+                variant={atDefaults ? "secondary" : "ghost"}
+                size="sm"
+                className="flex-1"
+                onClick={onDefaults}
+                aria-pressed={atDefaults}
+              >
+                <House /> Default
+              </Button>
+              <Button variant="ghost" size="sm" className="flex-1" onClick={onReset}>
+                <RotateCcw /> Reset
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
@@ -226,15 +329,14 @@ export function ControlDock({
               type="button"
               onClick={() => onTab(t.id)}
               className={cn(
-                "flex h-9 flex-1 items-center justify-center rounded-sm text-muted transition-colors duration-150",
+                "flex h-11 flex-1 flex-col items-center justify-center gap-0.5 rounded-sm text-muted transition-colors duration-150",
                 on ? "bg-bg-subtle text-fg" : "hover:text-fg",
               )}
               aria-pressed={on}
               title={t.label}
             >
               <Icon className="size-4" />
-              <span className="ml-1 hidden text-[10px] tracking-[0.12em] uppercase sm:inline">{t.label}</span>
-              <span className="sr-only">{t.label}</span>
+              <span className="text-[9px] tracking-[0.1em] uppercase">{t.label}</span>
             </button>
           );
         })}
@@ -355,7 +457,8 @@ export function ControlDock({
             />
             <p className="text-xs text-muted">
               Up the glass is pitch, across is amplitude. Voices snap to the
-              selected key and mode. Roll pans. Press harder for more harmonic.
+              selected key and mode, inside the Hz window below. Sine is the
+              default. Roll pans. Press harder for more harmonic.
             </p>
             <div>
               <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Waveform</p>
@@ -664,11 +767,13 @@ function FieldTab({
       <section>
         <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Loop</p>
         <p className="mb-3 text-xs leading-relaxed text-muted">
-          Double-tap and hold to freeze this generation. Further motion grows off it. Four layers.
+          Freeze holds the last pitch as a drone you play over. Further motion
+          grows off the frozen field. Four layers. Release peels one; it is
+          not a noise gate.
         </p>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" className="flex-1" onClick={onLock}>
-            Lock loop
+            Freeze
           </Button>
           <Button variant="ghost" size="sm" onClick={onPop} disabled={lockCount === 0}>
             Release

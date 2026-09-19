@@ -8,6 +8,8 @@ dist-release
 screenshots
 artifacts
 attachments
+docs/guide-preview
+docs/guide-pdf-pages
 AGENTS.md
 *.log
 .DS_Store

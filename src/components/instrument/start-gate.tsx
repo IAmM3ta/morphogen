@@ -27,6 +27,12 @@ export function StartGate({ onEnter }: { onEnter: () => void }) {
             First gesture unlocks audio and motion.
           </p>
         </div>
+        <a
+          href="/guide/Morphogen-Instrument-Guide.pdf"
+          className="mt-6 inline-block text-xs tracking-[0.18em] text-faint uppercase hover:text-muted"
+        >
+          Instrument guide
+        </a>
       </div>
     </div>
   );

@@ -12,6 +12,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 - Compact **Sound** face is the default on the card: waveform chips, C♯ / D♭,
   Ionian through Locrian plus Major / Minor / pentatonic / blues / sus, and a
   **Hz window** (factory 47–376, open either end). Field (F, k) is one tap away.
+- Twelve-page **instrument guide** (PDF): what has been built, how to play,
+  and the next chapter (Ableton, Serum, Resolume, Synesthesia). Linked from
+  Enter and from the repository.
 - Always-visible **Default settings** toggle (header, Field, and Sound). Restores
   mitosis, The Hum (sine), C Ionian, factory mix, and clears loops, layers, and
   locks — a way home if you get lost in the noise.

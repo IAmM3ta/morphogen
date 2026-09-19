@@ -2,7 +2,7 @@
 
 A **theremin made of chemistry**. 4K-class Gray–Scott reaction-diffusion you play with fingers, the phone’s IMU, and a mouse in any modern browser. The rest state is **The Hum** — Schumann resonances as a sine pad. Optional sync to projectors via TouchDesigner or MIDI.
 
-**[Changelog](CHANGELOG.md)** · **[Releases](https://github.com/IAmM3ta/morphogen/releases)** · current **[v0.1.0](https://github.com/IAmM3ta/morphogen/releases/tag/v0.1.0)**
+**[Changelog](CHANGELOG.md)** · **[Instrument guide (PDF)](docs/Morphogen-Instrument-Guide.pdf)** · **[Releases](https://github.com/IAmM3ta/morphogen/releases)** · current **[v0.1.0](https://github.com/IAmM3ta/morphogen/releases/tag/v0.1.0)**
 
 ## Download
 

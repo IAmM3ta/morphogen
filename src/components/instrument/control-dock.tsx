@@ -248,7 +248,7 @@ export function ControlDock({
           <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="text-xs leading-relaxed text-muted">
               Freeze holds the last pitch as a quiet drone — not noise. Release
-              peels one layer. Four layers. Fingers play over it.
+              peels one layer. Colour circles retune The Hum.
             </p>
             <button
               type="button"
@@ -258,6 +258,10 @@ export function ControlDock({
               <span className="block tracking-[0.18em] text-muted uppercase">Sound</span>
               <span className="mt-0.5 block text-fg">{soundLabel}</span>
             </button>
+            <div>
+              <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Colour</p>
+              <PaletteSwatches value={params.paletteId} onPick={(id) => setParam("paletteId", id)} />
+            </div>
             <ParamSlider
               label="Feed"
               symbol="F"
@@ -296,8 +300,9 @@ export function ControlDock({
         ) : (
           <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="text-xs leading-relaxed text-muted">
-              Sine is The Hum. Height is pitch inside the Hz window. C♯, Aeolian,
-              and pentatonic live here.
+              Sine is The Hum. Height is pitch inside the Hz window. Key and
+              mode retune the drone immediately. C♯, Aeolian, and pentatonic
+              live here.
             </p>
             <div>
               <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Waveform</p>
@@ -559,6 +564,33 @@ export function ControlDock({
   );
 }
 
+function PaletteSwatches({ value, onPick }: { value: string; onPick: (id: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {PALETTES.map((p) => (
+        <button
+          key={p.id}
+          type="button"
+          title={`${p.name} — tones The Hum`}
+          onClick={() => onPick(p.id)}
+          className={cn(
+            "size-7 overflow-hidden rounded-full shadow-[var(--shadow-border)]",
+            value === p.id && "ring-2 ring-fg",
+          )}
+          aria-label={p.name}
+        >
+          <span
+            className="block h-full w-full"
+            style={{
+              background: `linear-gradient(135deg, rgb(${p.stops[1]!.map((c) => Math.round(c * 255)).join(",")}), rgb(${p.stops[3]!.map((c) => Math.round(c * 255)).join(",")}))`,
+            }}
+          />
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function FieldTab({
   params,
   presetId,
@@ -760,28 +792,12 @@ function FieldTab({
 
       <section>
         <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Views</p>
-        <p className="mb-2 text-xs leading-relaxed text-muted">Colour map of <em>v</em>, with hillshade from ∇v.</p>
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {PALETTES.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              title={p.name}
-              onClick={() => setParam("paletteId", p.id)}
-              className={cn(
-                "size-7 overflow-hidden rounded-full shadow-[var(--shadow-border)]",
-                params.paletteId === p.id && "ring-2 ring-fg",
-              )}
-              aria-label={p.name}
-            >
-              <span
-                className="block h-full w-full"
-                style={{
-                  background: `linear-gradient(135deg, rgb(${p.stops[1].map((c) => Math.round(c * 255)).join(",")}), rgb(${p.stops[3].map((c) => Math.round(c * 255)).join(",")}))`,
-                }}
-              />
-            </button>
-          ))}
+        <p className="mb-2 text-xs leading-relaxed text-muted">
+          Colour map of <em>v</em>, with hillshade from ∇v. Each circle is also
+          a tone-colour — it retunes The Hum (brightness, third/fifth, air).
+        </p>
+        <div className="mb-3">
+          <PaletteSwatches value={params.paletteId} onPick={(id) => setParam("paletteId", id)} />
         </div>
         <ParamSlider
           label="Lighting"

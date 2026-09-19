@@ -1,4 +1,4 @@
-import { KEYS, MODES } from "@/lib/morphogen/theory";
+import { KEYS, MODES, ABSOLUTE_PITCH_MIN, ABSOLUTE_PITCH_MAX, HUM_X32, HUM_X128, formatHz } from "@/lib/morphogen/theory";
 import { useInstrument } from "@/lib/morphogen/store";
 import { ParamSlider } from "./param-slider";
 import { cn } from "@/lib/utils";
@@ -7,22 +7,22 @@ export function PitchRange() {
   const pitchMinHz = useInstrument((s) => s.pitchMinHz);
   const pitchMaxHz = useInstrument((s) => s.pitchMaxHz);
   const setPitchRange = useInstrument((s) => s.setPitchRange);
-  const fmt = (n: number) => `${Math.round(n)} Hz`;
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs tracking-[0.18em] text-muted uppercase">Range</p>
       <p className="text-xs leading-relaxed text-muted">
-        Height of the glass maps onto this window. Factory rest is 47–376 Hz.
-        Open either end for sub or air.
+        Height of the glass maps onto this window. Factory rest is{" "}
+        {Math.round(HUM_X32)}–{Math.round(HUM_X128)} Hz — a high octave of The
+        Hum, loud on a phone. Open Lo to 7.83 Hz for the cavity fundamental.
       </p>
       <ParamSlider
         label="Low"
         symbol="Lo"
         value={pitchMinHz}
-        min={27.5}
-        max={220}
-        step={1}
-        format={fmt}
+        min={ABSOLUTE_PITCH_MIN}
+        max={400}
+        step={0.01}
+        format={formatHz}
         onChange={(n) => setPitchRange(n, pitchMaxHz)}
       />
       <ParamSlider
@@ -30,9 +30,9 @@ export function PitchRange() {
         symbol="Hi"
         value={pitchMaxHz}
         min={120}
-        max={2093}
-        step={1}
-        format={fmt}
+        max={ABSOLUTE_PITCH_MAX}
+        step={0.01}
+        format={formatHz}
         onChange={(n) => setPitchRange(pitchMinHz, n)}
       />
     </div>
@@ -53,7 +53,9 @@ export function KeyPad({ compassLive, compact = false }: { compassLive: boolean;
         <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Key</p>
         {!compact && (
           <p className="mb-2 text-xs leading-relaxed text-muted">
-            Circle of fifths. C♯ is here. Compass can walk the ring as you turn.
+            Circle of fifths. C♯ is here. Changing key retunes The Hum now —
+            you do not have to touch the glass. Compass can walk the ring as
+            you turn.
           </p>
         )}
         <div className="grid grid-cols-4 gap-1.5">

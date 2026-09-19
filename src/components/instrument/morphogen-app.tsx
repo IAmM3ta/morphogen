@@ -350,6 +350,8 @@ export function MorphogenApp() {
       history: runtime.historyDepth,
       key: runtime.keyId,
       mode: runtime.modeId,
+      palette: runtime.params.paletteId,
+      pitch: [runtime.pitchMinHz, runtime.pitchMaxHz],
       heading: runtime.sense.heading,
       loops: audioRef.current?.getLoops().length ?? 0,
       atDefaults: isFactoryInstrument(useInstrument.getState()),

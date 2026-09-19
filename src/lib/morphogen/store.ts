@@ -13,7 +13,7 @@ import {
 import { isRestoring, maybeCheckpoint } from "./history";
 import { beginPresetMorph, resetRuntimeParams, runtime } from "./runtime";
 import type { UndoSnap } from "./history";
-import { DEFAULT_KEY, DEFAULT_MODE, DEFAULT_PITCH_MAX, DEFAULT_PITCH_MIN, clampPitchRange, type KeyId, type ModeId } from "./theory";
+import { DEFAULT_KEY, DEFAULT_MODE, DEFAULT_PITCH_MAX, DEFAULT_PITCH_MIN, clampPitchRange, isLegacyPitchWindow, type KeyId, type ModeId } from "./theory";
 
 export type ImageSlot = {
   id: string;
@@ -163,6 +163,13 @@ export const useInstrument = create<InstrumentState>()(
         const params = { ...get().params, [key]: value };
         pushParams(params);
         if (CHEM_KEYS.has(key)) runtime.morph = null;
+        if (key === "paletteId") {
+          const pal =
+            value === "image" && runtime.customPalette
+              ? runtime.customPalette
+              : paletteById(String(value));
+          runtime.liveStops = pal.stops;
+        }
         set({ params, presetId: CHEM_KEYS.has(key) ? "custom" : get().presetId });
       },
       setWaveform: (id) => {
@@ -271,6 +278,10 @@ export const useInstrument = create<InstrumentState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+        if (isLegacyPitchWindow(state.pitchMinHz, state.pitchMaxHz)) {
+          state.pitchMinHz = DEFAULT_PITCH_MIN;
+          state.pitchMaxHz = DEFAULT_PITCH_MAX;
+        }
         resetRuntimeParams(state.params);
         runtime.waveform = state.waveform;
         runtime.keyId = state.keyId;

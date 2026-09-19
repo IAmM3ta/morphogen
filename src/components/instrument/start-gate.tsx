@@ -23,16 +23,13 @@ export function StartGate({ onEnter }: { onEnter: () => void }) {
           <Button size="lg" onClick={onEnter} className="min-h-12 px-8 tracking-[0.14em] uppercase">
             Enter
           </Button>
-          <p className="text-xs tracking-wide text-faint sm:ml-3">
-            First gesture unlocks audio and motion.
-          </p>
+          <Button asChild size="lg" variant="secondary" className="min-h-12 px-8 tracking-[0.14em] uppercase">
+            <a href="/guide/Morphogen-Instrument-Guide.pdf" download="Morphogen-Instrument-Guide.pdf">
+              Guide
+            </a>
+          </Button>
         </div>
-        <a
-          href="/guide/Morphogen-Instrument-Guide.pdf"
-          className="mt-6 inline-block text-xs tracking-[0.18em] text-faint uppercase hover:text-muted"
-        >
-          Instrument guide
-        </a>
+        <p className="mt-4 text-xs tracking-wide text-faint">First gesture unlocks audio and motion.</p>
       </div>
     </div>
   );

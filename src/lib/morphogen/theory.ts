@@ -86,9 +86,24 @@ export const MODES: ModeDef[] = [
 export const DEFAULT_KEY: KeyId = "C";
 export const DEFAULT_MODE: ModeId = "ionian";
 
-/** Factory voice range: G1-ish through F#4-ish, with room to open. */
-export const DEFAULT_PITCH_MIN = 47;
-export const DEFAULT_PITCH_MAX = 376;
+/** Earth-ionosphere cavity fundamental. The generating tone of The Hum. */
+export const SCHUMANN = 7.83;
+
+/** Audible Hum octaves of 7.83 Hz. ×32 / ×64 / ×128 sit in a phone speaker. */
+export const HUM_X16 = SCHUMANN * 16; // 125.28
+export const HUM_X32 = SCHUMANN * 32; // 250.56
+export const HUM_X64 = SCHUMANN * 64; // 501.12
+export const HUM_X128 = SCHUMANN * 128; // 1002.24
+export const HUM_X256 = SCHUMANN * 256; // 2004.48
+
+/**
+ * Factory voice window: a high octave of The Hum (B3-ish through B5-ish).
+ * Lo can open to the 7.83 Hz cavity; Hi to ×256.
+ */
+export const DEFAULT_PITCH_MIN = HUM_X32;
+export const DEFAULT_PITCH_MAX = HUM_X128;
+export const ABSOLUTE_PITCH_MIN = SCHUMANN;
+export const ABSOLUTE_PITCH_MAX = HUM_X256;
 
 export function keyById(id: string): KeyDef {
   return KEYS.find((k) => k.id === id) ?? KEYS[0]!;
@@ -116,12 +131,19 @@ export function midiToHz(midi: number): number {
   return 440 * Math.pow(2, (midi - 69) / 12);
 }
 
+export function formatHz(n: number): string {
+  if (!Number.isFinite(n)) return "— Hz";
+  if (n < 20) return `${n.toFixed(2)} Hz`;
+  if (n < 100) return `${n.toFixed(1)} Hz`;
+  return `${Math.round(n)} Hz`;
+}
+
 function scaleMidisInRange(tonicPc: number, intervals: number[], minHz: number, maxHz: number): number[] {
-  const lo = Math.max(27.5, Math.min(minHz, maxHz));
+  const lo = Math.max(ABSOLUTE_PITCH_MIN, Math.min(minHz, maxHz));
   const hi = Math.max(lo + 1, Math.max(minHz, maxHz));
   const allowed = new Set(intervals.map((s) => ((s % 12) + 12) % 12));
   const notes: number[] = [];
-  for (let midi = 12; midi <= 108; midi++) {
+  for (let midi = 0; midi <= 120; midi++) {
     const hz = midiToHz(midi);
     if (hz < lo - 0.8) continue;
     if (hz > hi + 0.8) break;
@@ -144,7 +166,7 @@ export function yToScaleHz(
   minHz = DEFAULT_PITCH_MIN,
   maxHz = DEFAULT_PITCH_MAX,
 ): number {
-  const lo = Math.max(27.5, Math.min(minHz, maxHz));
+  const lo = Math.max(ABSOLUTE_PITCH_MIN, Math.min(minHz, maxHz));
   const hi = Math.max(lo + 1, Math.max(minHz, maxHz));
   const ny = Math.max(0, Math.min(1, 1 - y + pitchTilt * 0.42));
   const notes = scaleMidisInRange(tonicPc, intervals, lo, hi);
@@ -162,17 +184,17 @@ export function yToScaleHz(
     const continuous = midiToHz(notes[a]!) * (1 - frac) + midiToHz(notes[b]!) * frac;
     hz = continuous * (1 - snap) + snapped * snap;
   }
-  if (!Number.isFinite(hz)) return 261.63;
+  if (!Number.isFinite(hz)) return HUM_X64;
   return Math.max(lo, Math.min(hi, hz));
 }
 
 export function tonicHz(tonicPc: number, minHz = DEFAULT_PITCH_MIN, maxHz = DEFAULT_PITCH_MAX): number {
-  const lo = Math.max(27.5, Math.min(minHz, maxHz));
+  const lo = Math.max(ABSOLUTE_PITCH_MIN, Math.min(minHz, maxHz));
   const hi = Math.max(lo + 1, Math.max(minHz, maxHz));
   const mid = Math.sqrt(lo * hi);
-  let best = 60;
+  let best = 72;
   let bestDist = Infinity;
-  for (let oct = 0; oct <= 8; oct++) {
+  for (let oct = -1; oct <= 9; oct++) {
     const midi = 12 + oct * 12 + (((tonicPc % 12) + 12) % 12);
     const hz = midiToHz(midi);
     if (hz < lo * 0.92 || hz > hi * 1.08) continue;
@@ -182,7 +204,16 @@ export function tonicHz(tonicPc: number, minHz = DEFAULT_PITCH_MIN, maxHz = DEFA
       best = midi;
     }
   }
-  return midiToHz(best);
+  const hz = midiToHz(best);
+  return Number.isFinite(hz) ? hz : HUM_X64;
+}
+
+/** Tonic, third-or-fourth, and fifth (or tritone) of a mode, in semitones. */
+export function modeChordOffsets(intervals: number[]): [number, number, number] {
+  const set = new Set(intervals.map((s) => ((s % 12) + 12) % 12));
+  const third = set.has(4) ? 4 : set.has(3) ? 3 : set.has(5) ? 5 : set.has(2) ? 2 : 4;
+  const fifth = set.has(7) ? 7 : set.has(6) ? 6 : set.has(8) ? 8 : 7;
+  return [0, third, fifth];
 }
 
 export function formatKeyMode(keyId: string, modeId: string): string {
@@ -192,7 +223,12 @@ export function formatKeyMode(keyId: string, modeId: string): string {
 }
 
 export function clampPitchRange(minHz: number, maxHz: number): { min: number; max: number } {
-  const lo = Math.max(27.5, Math.min(minHz, maxHz - 8));
-  const hi = Math.min(4186, Math.max(maxHz, lo + 8));
+  const lo = Math.max(ABSOLUTE_PITCH_MIN, Math.min(minHz, maxHz - 8));
+  const hi = Math.min(ABSOLUTE_PITCH_MAX, Math.max(maxHz, lo + 8));
   return { min: lo, max: hi };
+}
+
+/** True when a stored window is the old inaudible factory (47–376 Hz). */
+export function isLegacyPitchWindow(minHz: number, maxHz: number): boolean {
+  return Math.abs(minHz - 47) < 1.5 && Math.abs(maxHz - 376) < 2;
 }

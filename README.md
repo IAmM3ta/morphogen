@@ -32,8 +32,8 @@ Or from source: `npm install && npm run build && npm run preview`.
 5. On a laptop, move the pointer for pitch — no click required. Click or drag to seed the chemistry (a disk of *v*). The field is a live Gray–Scott vis: species morph in place.
 6. **Freeze** holds the last pitch as a drone you play over. **Release** peels one layer. `L` freezes, `Z` releases, `Shift+Z` clears.
 7. Species buttons **morph chemistry in place** — they do not reseed. `1`–`9` pick a species.
-8. **Sound** (on the card, or Console → Sound) chooses sine (The Hum), triangle, saw, square, pulse, or spectrum; key (including C♯); mode (Ionian, Aeolian, minor pentatonic, …); and the Hz window (factory 47–376).
-9. `U` or `⌘Z` **undoes** the last change (paint, species, waveform, reset). `R` resets the field, `Shift+R` or the **Default** toggle restores factory settings (mitosis, The Hum, C Ionian, 47–376 Hz, and clears loops). `C` records the session.
+8. **Sound** (on the card, or Console → Sound) chooses sine (The Hum), triangle, saw, square, pulse, or spectrum; key (including C♯); mode (Ionian, Aeolian, minor pentatonic, …); and the Hz window (factory 251–1002 Hz, a high octave of 7.83 Hz — Lo opens to the cavity fundamental).
+9. `U` or `⌘Z` **undoes** the last change (paint, species, waveform, reset). `R` resets the field, `Shift+R` or the **Default** toggle restores factory settings (mitosis, The Hum, C Ionian, 251–1002 Hz, and clears loops). `C` records the session.
 10. Every finger is a voice. On a phone, two (or more) contacts play at once.
 
 ## Field console

@@ -127,6 +127,38 @@ export function paletteById(id: string): Palette {
   return PALETTES.find((p) => p.id === id) ?? PALETTES[0]!;
 }
 
+export type PaletteTone = {
+  lum: number;
+  sat: number;
+  hue: number;
+  warm: number;
+};
+
+/** Characteristic colour of a palette → timbre knobs for The Hum. */
+export function paletteTone(stops: Palette["stops"]): PaletteTone {
+  const pick = stops[2] ?? stops[1] ?? stops[0]!;
+  const [r, g, b] = pick;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  const sat = max < 1e-6 ? 0 : (max - min) / max;
+  let hue = 0;
+  const d = max - min;
+  if (d > 1e-5) {
+    if (max === r) hue = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+    else if (max === g) hue = ((b - r) / d + 2) / 6;
+    else hue = ((r - g) / d + 4) / 6;
+  }
+  return { lum, sat, hue, warm: r - b };
+}
+
+/** Hue of a palette maps onto an extra chord tone (m3 … m7). */
+export function paletteHueInterval(tone: PaletteTone): number {
+  const steps = [3, 4, 5, 7, 8, 9, 10];
+  const i = Math.max(0, Math.min(steps.length - 1, Math.round(tone.hue * (steps.length - 1))));
+  return steps[i]!;
+}
+
 export function presetById(id: string): SimPreset {
   return PRESETS.find((p) => p.id === id) ?? DEFAULT_PRESET;
 }

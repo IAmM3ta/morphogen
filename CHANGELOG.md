@@ -11,7 +11,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 - Compact **Sound** face is the default on the card: waveform chips, C♯ / D♭,
   Ionian through Locrian plus Major / Minor / pentatonic / blues / sus, and a
-  **Hz window** (factory 47–376, open either end). Field (F, k) is one tap away.
+  **Hz window** (factory 251–1002 Hz, a high octave of The Hum; Lo opens to
+  7.83 Hz). Field (F, k) is one tap away.
 - Twelve-page **instrument guide** (PDF): what has been built, how to play,
   and the next chapter (Ableton, Serum, Resolume, Synesthesia). Linked from
   Enter and from the repository.
@@ -55,6 +56,16 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   field, and Hide chrome never unmounted the dock. Hide now removes the
   card; a single eye restores it. Field / Sound are sheets, not a permanent
   slab.
+- Colour circles (Views) only recolored the field, and only until a species
+  morph froze `liveStops`. They now replace the live palette and retune The
+  Hum — brightness, third/fifth, and air follow the circle. Key and mode
+  retune the drone immediately, with or without a finger on the glass.
+- The Hum lived on 31–62 Hz, below what a phone speaker can reproduce, so
+  the instrument went silent after a few seconds (iOS treats that as
+  silence and suspends the context). Factory rest is now 251–1002 Hz
+  (×32–×128 of 7.83 Hz). The cavity fundamental is still there, felt, and
+  Lo opens to 7.83 Hz. AudioContext resume is hooked to pointer, key, and
+  visibility.
 - The unlabeled layers glyph stacked filtered noise into a delay with high
   feedback, then multiplied live pitch by a fifth/octave per layer, so each
   tap was louder white noise climbing out of the Hz window, with no off

@@ -10,6 +10,7 @@ artifacts
 attachments
 docs/guide-preview
 docs/guide-pdf-pages
+docs/developer
 AGENTS.md
 *.log
 .DS_Store

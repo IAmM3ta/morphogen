@@ -5,6 +5,8 @@ import {
   Camera,
   Circle,
   Copy,
+  EyeOff,
+  FileText,
   House,
   ImagePlus,
   Layers,
@@ -150,6 +152,16 @@ export function ControlDock({
   } = useInstrument();
   const fileRef = useRef<HTMLInputElement>(null);
   const [face, setFace] = useState<"field" | "sound">("sound");
+  const [sheetOpen, setSheetOpen] = useState(false);
+
+  const hideChrome = () => patch({ uiHidden: true, panelOpen: false });
+  const openFace = (next: "field" | "sound") => {
+    if (face === next && sheetOpen) setSheetOpen(false);
+    else {
+      setFace(next);
+      setSheetOpen(true);
+    }
+  };
 
   if (!panelOpen) {
     const fmt4 = (n: number) => n.toFixed(4);
@@ -157,10 +169,13 @@ export function ControlDock({
     return (
       <div
         data-ui
-        className="pointer-events-auto relative z-50 flex w-full max-h-[min(44dvh,24rem)] flex-col overflow-hidden rounded-xl bg-bg-elevated px-3 pt-3 pb-3 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:bottom-3 sm:max-h-[min(70dvh,36rem)] sm:w-80"
+        className={cn(
+          "pointer-events-auto relative z-50 flex w-full flex-col overflow-hidden rounded-xl bg-bg-elevated px-3 pt-3 pb-3 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:bottom-3 sm:w-80",
+          sheetOpen && "max-h-[min(38dvh,22rem)] sm:max-h-[min(70dvh,36rem)]",
+        )}
       >
         <div className="flex shrink-0 flex-col gap-2">
-          <div className="flex gap-1.5">
+          <div className="flex items-center gap-1.5">
             <Button
               variant={lockCount > 0 ? "secondary" : "outline"}
               size="default"
@@ -182,6 +197,15 @@ export function ControlDock({
             >
               Release
             </Button>
+            <Button
+              variant="faint"
+              size="icon"
+              onClick={hideChrome}
+              aria-label="Hide controls"
+              title="Hide controls — tap the eye to bring them back"
+            >
+              <EyeOff />
+            </Button>
           </div>
           {lockCount > 1 && (
             <button type="button" className="self-end text-xs text-faint hover:text-muted" onClick={onClearLocks}>
@@ -190,30 +214,37 @@ export function ControlDock({
           )}
           <div className="flex gap-1">
             <Button
-              variant={face === "field" ? "secondary" : "ghost"}
+              variant={sheetOpen && face === "field" ? "secondary" : "ghost"}
               size="sm"
               className="flex-1"
-              onClick={() => setFace("field")}
-              aria-pressed={face === "field"}
+              onClick={() => openFace("field")}
+              aria-pressed={sheetOpen && face === "field"}
             >
               Field
             </Button>
             <Button
-              variant={face === "sound" ? "secondary" : "ghost"}
+              variant={sheetOpen && face === "sound" ? "secondary" : "ghost"}
               size="sm"
               className="flex-1"
-              onClick={() => setFace("sound")}
-              aria-pressed={face === "sound"}
+              onClick={() => openFace("sound")}
+              aria-pressed={sheetOpen && face === "sound"}
             >
               Sound
             </Button>
             <Button variant="ghost" size="sm" onClick={() => patch({ panelOpen: true })}>
               More
             </Button>
+            <Button asChild variant="ghost" size="sm">
+              <a href="/guide/Morphogen-Instrument-Guide.pdf" download="Morphogen-Instrument-Guide.pdf">
+                <FileText />
+                Guide
+              </a>
+            </Button>
           </div>
         </div>
 
-        {face === "field" ? (
+        {sheetOpen &&
+          (face === "field" ? (
           <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="text-xs leading-relaxed text-muted">
               Freeze holds the last pitch as a quiet drone — not noise. Release
@@ -221,7 +252,7 @@ export function ControlDock({
             </p>
             <button
               type="button"
-              onClick={() => setFace("sound")}
+              onClick={() => openFace("sound")}
               className="rounded-sm px-2.5 py-2 text-left text-xs shadow-[var(--shadow-border)] hover:bg-fg/6"
             >
               <span className="block tracking-[0.18em] text-muted uppercase">Sound</span>
@@ -303,7 +334,7 @@ export function ControlDock({
               </Button>
             </div>
           </div>
-        )}
+        ))}
       </div>
     );
   }
@@ -315,9 +346,20 @@ export function ControlDock({
     >
       <header className="flex items-center justify-between px-4 pt-3 pb-2">
         <p className="text-xs tracking-[0.28em] text-muted uppercase">Console</p>
-        <Button variant="faint" size="icon-sm" onClick={() => patch({ panelOpen: false })} aria-label="Close">
-          <X />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="faint"
+            size="icon-sm"
+            onClick={() => patch({ uiHidden: true, panelOpen: false })}
+            aria-label="Hide controls"
+            title="Hide controls"
+          >
+            <EyeOff />
+          </Button>
+          <Button variant="faint" size="icon-sm" onClick={() => patch({ panelOpen: false })} aria-label="Close">
+            <X />
+          </Button>
+        </div>
       </header>
       <nav className="flex gap-0.5 px-3 pb-2">
         {TABS.map((t) => {

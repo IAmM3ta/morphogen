@@ -39,8 +39,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   layers (Shift+R, or the Default toggle).
 - F, k, Freeze, and Sound sit in a **card under the wordmark** on the
   phone (and bottom-right on a laptop) so preview chrome cannot cover them.
-  **Sound** on that card is waveform, key, mode, and Hz range. **More**
+  The card starts as a thin **Freeze / Release / Hide** bar; Field and Sound
+  sheets open on tap. **Sound** is waveform, key, mode, and Hz range. **More**
   opens the full Field / Image / Body / Sound / Sync console (tabs are labeled).
+  **Hide** (eye-off) clears the chrome so the field is the whole glass.
 - **Freeze** / **Release** are labeled, full-width controls (not an unlabeled
   layers glyph). Freeze holds the last pitch as a quiet drone you play over —
   no noise bed, no delay wash, no interval stacking. **Release** peels one
@@ -48,6 +50,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Fixed
 
+- The compact control card could not be dismissed: Close on the console
+  collapsed it to a Sound sheet that stayed parked in the middle of the
+  field, and Hide chrome never unmounted the dock. Hide now removes the
+  card; a single eye restores it. Field / Sound are sheets, not a permanent
+  slab.
 - The unlabeled layers glyph stacked filtered noise into a delay with high
   feedback, then multiplied live pitch by a fifth/octave per layer, so each
   tap was louder white noise climbing out of the Hz window, with no off

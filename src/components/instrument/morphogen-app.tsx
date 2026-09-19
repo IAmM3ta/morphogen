@@ -765,7 +765,7 @@ export function MorphogenApp() {
             <Button
               variant="ghost"
               size="icon-sm"
-              onClick={() => patch({ uiHidden: true })}
+              onClick={() => patch({ uiHidden: true, panelOpen: false })}
               aria-label="Hide chrome"
             >
               <EyeOff />
@@ -774,10 +774,21 @@ export function MorphogenApp() {
               {isFs ? <Minimize2 /> : <Maximize2 />}
             </Button>
           </div>
+          <div className="pointer-events-auto absolute top-0 right-16 sm:hidden">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="bg-bg-elevated/90 shadow-[var(--shadow-border)]"
+              onClick={() => patch({ uiHidden: true, panelOpen: false })}
+              aria-label="Hide chrome"
+            >
+              <EyeOff />
+            </Button>
+          </div>
         </header>
       )}
 
-      {started && (
+      {started && !uiHidden && (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex flex-col items-stretch gap-3 px-3 pt-hud-panel sm:static sm:inset-auto sm:p-0">
           <ControlDock
             tab={tab}

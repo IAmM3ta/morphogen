@@ -32,6 +32,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- Vibrato is no longer slaved to the gyro. Default depth is **off**. Rate
+  (0.5–12 Hz) and depth (cents) live on the Sound face.
 - Share card and X banner retitled **MORPHOS** / Living Field.
 - Spatial audio: the glass is a table in front of the listener (HRTF
   PannerNode). Left/right is azimuth, top is farther and higher, bottom

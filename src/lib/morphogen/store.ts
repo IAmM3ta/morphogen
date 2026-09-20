@@ -11,7 +11,7 @@ import {
   type WaveformId,
 } from "./presets";
 import { isRestoring, maybeCheckpoint } from "./history";
-import { beginPresetMorph, resetRuntimeParams, runtime } from "./runtime";
+import { beginPresetMorph, resetRuntimeParams, runtime, DEFAULT_VIBRATO_DEPTH, DEFAULT_VIBRATO_RATE } from "./runtime";
 import type { UndoSnap } from "./history";
 import { DEFAULT_KEY, DEFAULT_MODE, DEFAULT_PITCH_MAX, DEFAULT_PITCH_MIN, clampPitchRange, isLegacyPitchWindow, type KeyId, type ModeId } from "./theory";
 
@@ -41,6 +41,8 @@ export type InstrumentState = {
   compassKey: boolean;
   pitchMinHz: number;
   pitchMaxHz: number;
+  vibratoRate: number;
+  vibratoDepth: number;
   gyroOn: boolean;
   micOn: boolean;
   cameraOn: boolean;
@@ -64,6 +66,8 @@ export type InstrumentState = {
   setMode: (id: ModeId) => void;
   setCompassKey: (on: boolean) => void;
   setPitchRange: (min: number, max: number) => void;
+  setVibratoRate: (hz: number) => void;
+  setVibratoDepth: (amt: number) => void;
   savePatch: (name?: string) => FieldPatch;
   loadPatch: (id: string) => void;
   deletePatch: (id: string) => void;
@@ -94,6 +98,8 @@ export const useInstrument = create<InstrumentState>()(
       compassKey: false,
       pitchMinHz: DEFAULT_PITCH_MIN,
       pitchMaxHz: DEFAULT_PITCH_MAX,
+      vibratoRate: DEFAULT_VIBRATO_RATE,
+      vibratoDepth: DEFAULT_VIBRATO_DEPTH,
       gyroOn: true,
       micOn: false,
       cameraOn: false,
@@ -143,6 +149,8 @@ export const useInstrument = create<InstrumentState>()(
         runtime.modeId = DEFAULT_MODE;
         runtime.pitchMinHz = DEFAULT_PITCH_MIN;
         runtime.pitchMaxHz = DEFAULT_PITCH_MAX;
+        runtime.vibratoRate = DEFAULT_VIBRATO_RATE;
+        runtime.vibratoDepth = DEFAULT_VIBRATO_DEPTH;
         set({
           params,
           presetId: DEFAULT_PRESET.id,
@@ -152,6 +160,8 @@ export const useInstrument = create<InstrumentState>()(
           compassKey: false,
           pitchMinHz: DEFAULT_PITCH_MIN,
           pitchMaxHz: DEFAULT_PITCH_MAX,
+          vibratoRate: DEFAULT_VIBRATO_RATE,
+          vibratoDepth: DEFAULT_VIBRATO_DEPTH,
           volume: 0.7,
           muted: false,
           audioOn: true,
@@ -196,6 +206,16 @@ export const useInstrument = create<InstrumentState>()(
         runtime.pitchMinHz = next.min;
         runtime.pitchMaxHz = next.max;
         set({ pitchMinHz: next.min, pitchMaxHz: next.max });
+      },
+      setVibratoRate: (hz) => {
+        const n = Math.max(0.5, Math.min(12, Number.isFinite(hz) ? hz : DEFAULT_VIBRATO_RATE));
+        runtime.vibratoRate = n;
+        set({ vibratoRate: n });
+      },
+      setVibratoDepth: (amt) => {
+        const n = Math.max(0, Math.min(1, Number.isFinite(amt) ? amt : DEFAULT_VIBRATO_DEPTH));
+        runtime.vibratoDepth = n;
+        set({ vibratoDepth: n });
       },
       savePatch: (name) => {
         const s = get();
@@ -259,7 +279,7 @@ export const useInstrument = create<InstrumentState>()(
       patch: (partial) => set(partial),
     }),
     {
-      name: "morphogen-v13",
+      name: "morphogen-v14",
       partialize: (s) => ({
         params: s.params,
         presetId: s.presetId,
@@ -269,6 +289,8 @@ export const useInstrument = create<InstrumentState>()(
         compassKey: s.compassKey,
         pitchMinHz: s.pitchMinHz,
         pitchMaxHz: s.pitchMaxHz,
+        vibratoRate: s.vibratoRate,
+        vibratoDepth: s.vibratoDepth,
         volume: s.volume,
         tdUrl: s.tdUrl,
         tdGrid: s.tdGrid,
@@ -311,6 +333,10 @@ export const useInstrument = create<InstrumentState>()(
         runtime.modeId = state.modeId;
         if (typeof state.pitchMinHz === "number") runtime.pitchMinHz = state.pitchMinHz;
         if (typeof state.pitchMaxHz === "number") runtime.pitchMaxHz = state.pitchMaxHz;
+        if (typeof state.vibratoRate !== "number") state.vibratoRate = DEFAULT_VIBRATO_RATE;
+        if (typeof state.vibratoDepth !== "number") state.vibratoDepth = DEFAULT_VIBRATO_DEPTH;
+        runtime.vibratoRate = state.vibratoRate;
+        runtime.vibratoDepth = state.vibratoDepth;
       },
     },
   ),
@@ -328,6 +354,8 @@ export function isFactoryInstrument(s: InstrumentState): boolean {
     !s.compassKey &&
     Math.abs(s.pitchMinHz - DEFAULT_PITCH_MIN) < 0.5 &&
     Math.abs(s.pitchMaxHz - DEFAULT_PITCH_MAX) < 0.5 &&
+    Math.abs(s.vibratoRate - DEFAULT_VIBRATO_RATE) < 0.05 &&
+    s.vibratoDepth < 0.005 &&
     Math.abs(s.volume - 0.7) < 1e-6 &&
     !s.muted &&
     s.audioOn &&

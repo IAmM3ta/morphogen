@@ -73,7 +73,13 @@ export type Runtime = {
   modeId: ModeId;
   pitchMinHz: number;
   pitchMaxHz: number;
+  /** Vibrato LFO in Hz. Depth 0 = off (default). */
+  vibratoRate: number;
+  vibratoDepth: number;
 };
+
+export const DEFAULT_VIBRATO_RATE = 5.2;
+export const DEFAULT_VIBRATO_DEPTH = 0;
 
 export const runtime: Runtime = {
   params: { ...DEFAULT_PARAMS },
@@ -103,6 +109,8 @@ export const runtime: Runtime = {
   modeId: DEFAULT_MODE,
   pitchMinHz: DEFAULT_PITCH_MIN,
   pitchMaxHz: DEFAULT_PITCH_MAX,
+  vibratoRate: DEFAULT_VIBRATO_RATE,
+  vibratoDepth: DEFAULT_VIBRATO_DEPTH,
 };
 
 export function resetRuntimeParams(partial: Partial<SimParams>) {

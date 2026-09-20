@@ -47,6 +47,35 @@ const TABS = [
 
 type TabId = (typeof TABS)[number]["id"];
 
+function VibratoControls() {
+  const rate = useInstrument((s) => s.vibratoRate);
+  const depth = useInstrument((s) => s.vibratoDepth);
+  const setRate = useInstrument((s) => s.setVibratoRate);
+  const setDepth = useInstrument((s) => s.setVibratoDepth);
+  return (
+    <div className="flex flex-col gap-3">
+      <ParamSlider
+        label="Vibrato rate"
+        value={rate}
+        min={0.5}
+        max={12}
+        step={0.1}
+        format={(n) => `${n.toFixed(1)} Hz`}
+        onChange={setRate}
+      />
+      <ParamSlider
+        label="Vibrato depth"
+        value={depth}
+        min={0}
+        max={1}
+        step={0.01}
+        format={(n) => (n < 0.005 ? "off" : `${Math.round(n * 80)}¢`)}
+        onChange={setDepth}
+      />
+    </div>
+  );
+}
+
 export function ControlDock({
   tab,
   onTab,
@@ -324,6 +353,7 @@ export function ControlDock({
               </div>
             </div>
             <KeyPad compassLive={compassLive} compact />
+            <VibratoControls />
             <div className="flex gap-2">
               <Button
                 variant={atDefaults ? "secondary" : "ghost"}
@@ -433,7 +463,7 @@ export function ControlDock({
           <div className="flex flex-col gap-5">
             <ToggleRow
               label="Tilt & motion"
-              hint="How you hold the phone is the other antenna. Tilt brightens The Hum, roll pans and beats, spin is tremolo. Absolute pose — not a dead rest."
+              hint="How you hold the phone is the other antenna. Tilt is pitch, roll leans the room. Vibrato is on the Sound face — not the gyro."
               checked={gyroOn}
               onCheckedChange={onToggleGyro}
             />
@@ -533,6 +563,7 @@ export function ControlDock({
               </div>
             </div>
             <KeyPad compassLive={compassLive} />
+            <VibratoControls />
             <LoopRack
               clips={loops}
               recording={layerRecording}

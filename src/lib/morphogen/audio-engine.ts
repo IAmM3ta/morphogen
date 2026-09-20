@@ -805,15 +805,16 @@ export class AudioEngine {
             (sense.pitch + 1) * 500 +
             runtime.stats.edge * 240) *
           (0.62 + tone.lum * 0.7 + tone.sat * 0.12);
-    const vib = wave === "sine" ? 0.08 : 3.2 + sense.spin * 8.5 + Math.abs(sense.roll) * 1.2;
-    const fmAmt = wave === "sine" ? 0 : shape.fm * (4 + sense.spin * 28 + pressure * 10 + Math.abs(sense.pitch) * 5 + runtime.mic * 12);
+    const vibRate = Number.isFinite(runtime.vibratoRate) ? Math.max(0.5, Math.min(12, runtime.vibratoRate)) : 5.2;
+    const vibAmt = Number.isFinite(runtime.vibratoDepth) ? Math.max(0, Math.min(1, runtime.vibratoDepth)) : 0;
+    const depthHz = vibAmt <= 0 ? 0 : hz * (Math.pow(2, (vibAmt * 80) / 1200) - 1);
 
     ramp(v.osc.frequency, hz, now, 0.05);
     ramp(v.detune.frequency, hz * (1 + shape.detuneSpread), now, 0.06);
     ramp(v.harm.frequency, Math.min(1800, hz * shape.harmRatio), now, 0.08);
     ramp(v.sub.frequency, hz * 0.5, now, 0.08);
-    ramp(v.fm.frequency, vib, now, 0.08);
-    ramp(v.fmGain.gain, fmAmt, now, 0.08);
+    ramp(v.fm.frequency, vibRate, now, 0.12);
+    ramp(v.fmGain.gain, depthHz, now, 0.12);
     ramp(v.filter.frequency, Math.max(280, Math.min(wave === "sine" ? 2400 : 7200, cutoff)), now, 0.08);
     placePanner(v.pan, glassToWorld(x, y), now);
     ramp(v.mix.gain, Math.max(0.0001, Math.min(0.5, amp)), now, 0.07);

@@ -355,6 +355,7 @@ export function MorphogenApp() {
       mode: runtime.modeId,
       palette: runtime.params.paletteId,
       pitch: [runtime.pitchMinHz, runtime.pitchMaxHz],
+      vibrato: [runtime.vibratoRate, runtime.vibratoDepth],
       heading: runtime.sense.heading,
       loops: audioRef.current?.getLoops().length ?? 0,
       space: runtime.brushes.map((b) => glassToWorld(b.x, b.y)),

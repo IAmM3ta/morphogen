@@ -52,13 +52,25 @@ export type Origin = {
   };
   durationSec?: number;
   artist?: Artist;
+  audio?: Artist;
+  release?: string;
+  track?: string;
+  index?: number;
+};
+
+export type OriginExtras = {
+  visual?: Artist;
+  audio?: Artist;
+  release?: string;
+  track?: string;
+  index?: number;
 };
 
 export function snapshotOrigin(
   kind: Origin["kind"],
   presetId: string,
   durationSec?: number,
-  artist?: Artist,
+  extras?: OriginExtras,
 ): Origin {
   const p = runtime.params;
   const s = runtime.sense;
@@ -106,15 +118,27 @@ export function snapshotOrigin(
     },
   };
   if (typeof durationSec === "number") origin.durationSec = round4(durationSec);
-  if (artist && (artist.name || artist.url || artist.instagram || artist.x)) {
-    origin.artist = {
-      name: artist.name.trim(),
-      url: artist.url.trim(),
-      instagram: artist.instagram.trim().replace(/^@/, ""),
-      x: artist.x.trim().replace(/^@/, ""),
-    };
+  const vis = extras?.visual;
+  if (vis && (vis.name || vis.url || vis.instagram || vis.x)) {
+    origin.artist = trimCredit(vis);
   }
+  const aud = extras?.audio;
+  if (aud && (aud.name || aud.url || aud.instagram || aud.x)) {
+    origin.audio = trimCredit(aud);
+  }
+  if (extras?.release?.trim()) origin.release = extras.release.trim().slice(0, 64);
+  if (extras?.track?.trim()) origin.track = extras.track.trim().slice(0, 64);
+  if (typeof extras?.index === "number") origin.index = extras.index;
   return origin;
+}
+
+function trimCredit(a: Artist): Artist {
+  return {
+    name: a.name.trim(),
+    url: a.url.trim(),
+    instagram: a.instagram.trim().replace(/^@/, ""),
+    x: a.x.trim().replace(/^@/, ""),
+  };
 }
 
 function round4(n: number) {

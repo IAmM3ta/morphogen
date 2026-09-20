@@ -1,12 +1,13 @@
 import { useRef, useState } from "react";
-import { Bookmark, Camera, Package, Printer, ScanLine, Trash2 } from "lucide-react";
+import { Bookmark, Camera, Disc3, Package, Printer, ScanLine, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { artistFromState, useInstrument } from "@/lib/morphogen/store";
+import { artistFromState, audioFromState, useInstrument } from "@/lib/morphogen/store";
 import { toast } from "sonner";
 import type { Origin } from "@/lib/morphogen/origin";
 import { originStamp } from "@/lib/morphogen/origin";
 import { packEdition, pressImage, type PressMode } from "@/lib/morphogen/press";
 import { detectGlyphInBlob, encodeGlyphToken, glyphShareUrl, originToGlyph, renderSticker } from "@/lib/morphogen/glyph";
+import { renderSleeve } from "@/lib/morphogen/release";
 import { downloadBlob } from "@/lib/morphogen/recorder";
 
 export type FieldShot = {
@@ -84,6 +85,15 @@ export function FieldLibrary({
   const artistUrl = useInstrument((s) => s.artistUrl);
   const artistIg = useInstrument((s) => s.artistIg);
   const artistX = useInstrument((s) => s.artistX);
+  const audioName = useInstrument((s) => s.audioName);
+  const audioUrl = useInstrument((s) => s.audioUrl);
+  const audioIg = useInstrument((s) => s.audioIg);
+  const audioX = useInstrument((s) => s.audioX);
+  const releaseTitle = useInstrument((s) => s.releaseTitle);
+  const trackTitle = useInstrument((s) => s.trackTitle);
+  const tracks = useInstrument((s) => s.tracks);
+  const addTrack = useInstrument((s) => s.addTrack);
+  const removeTrack = useInstrument((s) => s.removeTrack);
   const patch = useInstrument((s) => s.patch);
   const [picked, setPicked] = useState<string | null>(null);
   const [mode, setMode] = useState<PressMode>("none");
@@ -94,9 +104,16 @@ export function FieldLibrary({
     if (!shot) return;
     setBusy(true);
     try {
+      const st = useInstrument.getState();
       const src = await fetch(shot.url).then((r) => r.blob());
       const png = await pressImage(src, mode);
-      const origin = { ...shot.origin, artist: artistFromState(useInstrument.getState()) };
+      const origin = {
+        ...shot.origin,
+        artist: artistFromState(st),
+        audio: audioFromState(st),
+        release: st.releaseTitle,
+        track: st.trackTitle,
+      };
       const zip = await packEdition(png, origin, mode);
       downloadBlob(zip, `MORPHOS-${originStamp(shot.origin.capturedAt)}.zip`);
       toast("Edition packed · glyph inside");
@@ -111,10 +128,17 @@ export function FieldLibrary({
     if (!shot) return;
     setBusy(true);
     try {
+      const st = useInstrument.getState();
       const src = await fetch(shot.url).then((r) => r.blob());
       const png = await pressImage(src, mode);
-      const origin = { ...shot.origin, artist: artistFromState(useInstrument.getState()) };
-      const token = encodeGlyphToken(originToGlyph(origin, origin.artist));
+      const origin = {
+        ...shot.origin,
+        artist: artistFromState(st),
+        audio: audioFromState(st),
+        release: st.releaseTitle,
+        track: st.trackTitle,
+      };
+      const token = encodeGlyphToken(originToGlyph(origin, origin.artist, origin.audio));
       const plate = await renderSticker(png, glyphShareUrl(token));
       downloadBlob(plate, `MORPHOS-${originStamp(shot.origin.capturedAt)}-sticker.png`);
       toast("Sticker ready to print");
@@ -162,15 +186,35 @@ export function FieldLibrary({
         )}
       </div>
       <div>
-        <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Maker</p>
+        <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Credits</p>
         <p className="mb-3 text-xs leading-relaxed text-muted">
-          Stamped into the glyph. Someone scanning your print can find you.
+          Visual look and audio voice can be two people. Both stamp the glyph.
+        </p>
+        <p className="mb-1 text-[10px] tracking-[0.16em] text-faint uppercase">Visual</p>
+        <div className="mb-2 flex flex-col gap-1.5">
+          <input className={inputClass} placeholder="Name" value={artistName} onChange={(e) => patch({ artistName: e.target.value })} />
+          <input className={inputClass} placeholder="@handle or URL" value={artistIg || artistUrl} onChange={(e) => {
+            const v = e.target.value;
+            patch(v.startsWith("http") ? { artistUrl: v } : { artistIg: v.replace(/^@/, "") });
+          }} />
+        </div>
+        <p className="mb-1 text-[10px] tracking-[0.16em] text-faint uppercase">Audio</p>
+        <div className="flex flex-col gap-1.5">
+          <input className={inputClass} placeholder="Name" value={audioName} onChange={(e) => patch({ audioName: e.target.value })} />
+          <input className={inputClass} placeholder="@handle or URL" value={audioIg || audioUrl} onChange={(e) => {
+            const v = e.target.value;
+            patch(v.startsWith("http") ? { audioUrl: v } : { audioIg: v.replace(/^@/, "") });
+          }} />
+        </div>
+      </div>
+      <div>
+        <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Release</p>
+        <p className="mb-3 text-xs leading-relaxed text-muted">
+          An album is a sequence of glyphs. Each sticker is a track.
         </p>
         <div className="flex flex-col gap-1.5">
-          <input className={inputClass} placeholder="Name" value={artistName} onChange={(e) => patch({ artistName: e.target.value })} />
-          <input className={inputClass} placeholder="URL" value={artistUrl} onChange={(e) => patch({ artistUrl: e.target.value })} />
-          <input className={inputClass} placeholder="Instagram" value={artistIg} onChange={(e) => patch({ artistIg: e.target.value })} />
-          <input className={inputClass} placeholder="X" value={artistX} onChange={(e) => patch({ artistX: e.target.value })} />
+          <input className={inputClass} placeholder="Release title" value={releaseTitle} onChange={(e) => patch({ releaseTitle: e.target.value })} />
+          <input className={inputClass} placeholder="This track" value={trackTitle} onChange={(e) => patch({ trackTitle: e.target.value })} />
         </div>
       </div>
       <div>
@@ -231,9 +275,78 @@ export function FieldLibrary({
             <Button variant="secondary" size="sm" className="w-full" onClick={() => void sticker()} disabled={busy}>
               <Printer /> {busy ? "Printing…" : "Print sticker"}
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full"
+              onClick={() => {
+                if (!shot) return;
+                const st = useInstrument.getState();
+                const title = st.trackTitle.trim() || `Track ${st.tracks.length + 1}`;
+                addTrack({
+                  id: shot.id,
+                  title,
+                  origin: {
+                    ...shot.origin,
+                    artist: artistFromState(st),
+                    audio: audioFromState(st),
+                    release: st.releaseTitle,
+                    track: title,
+                    index: st.tracks.length,
+                  },
+                  url: shot.url,
+                });
+                toast(`${title} on the sleeve`);
+              }}
+            >
+              <Disc3 /> Add to release
+            </Button>
             <Button variant="ghost" size="sm" className="w-full" onClick={() => void pack()} disabled={busy}>
               <Package /> Pack edition
             </Button>
+            {tracks.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full"
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  void (async () => {
+                    try {
+                      const st = useInstrument.getState();
+                      const plates = [];
+                      for (const t of st.tracks) {
+                        if (!t.url) continue;
+                        const src = await fetch(t.url).then((r) => r.blob());
+                        const png = await pressImage(src, "none");
+                        const token = encodeGlyphToken(originToGlyph(t.origin, t.origin.artist, t.origin.audio));
+                        const plate = await renderSticker(png, glyphShareUrl(token));
+                        plates.push({ png: plate, title: t.title });
+                      }
+                      if (!plates.length) {
+                        toast("Capture tracks this session to print a sleeve");
+                        return;
+                      }
+                      const sleeve = await renderSleeve({
+                        title: st.releaseTitle || "Untitled",
+                        visual: st.artistName,
+                        audio: st.audioName,
+                        plates,
+                      });
+                      downloadBlob(sleeve, `MORPHOS-${(st.releaseTitle || "sleeve").replace(/\s+/g, "-")}.png`);
+                      toast("Sleeve ready");
+                    } catch {
+                      toast("Could not print the sleeve");
+                    } finally {
+                      setBusy(false);
+                    }
+                  })();
+                }}
+              >
+                <Disc3 /> Print sleeve · {tracks.length}
+              </Button>
+            )}
           </div>
         </div>
       )}

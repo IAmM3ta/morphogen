@@ -62,7 +62,7 @@ export async function pressImage(src: Blob, mode: PressMode, size = 2048): Promi
 export async function packEdition(png: Blob, origin: Origin, mode: PressMode): Promise<Blob> {
   const stamp = originStamp(origin.capturedAt);
   const folder = `MORPHOS-${stamp}`;
-  const token = encodeGlyphToken(originToGlyph(origin, origin.artist));
+  const token = encodeGlyphToken(originToGlyph(origin, origin.artist, origin.audio));
   const href = glyphShareUrl(token);
   const glyph = await renderSticker(png, href);
   const readme = packReadme(origin, mode);

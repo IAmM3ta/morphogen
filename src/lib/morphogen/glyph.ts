@@ -17,7 +17,9 @@ export type Glyph = {
   w: string;
   lo: number;
   hi: number;
-  a?: { n?: string; u?: string; ig?: string; x?: string };
+  a?: { n?: string; u?: string; ig?: string; x?: string; s?: string };
+  r?: string;
+  t?: string;
 };
 
 export let lastRecalledGlyph: Glyph | null = null;
@@ -26,12 +28,15 @@ export function rememberGlyph(g: Glyph | null) {
   lastRecalledGlyph = g;
 }
 
-export function originToGlyph(origin: Origin, artist?: Artist): Glyph {
+export function originToGlyph(origin: Origin, visual?: Artist, audio?: Artist): Glyph {
+  const vis = visual ?? origin.artist;
+  const aud = audio ?? origin.audio;
   const a: Glyph["a"] = {};
-  if (artist?.name.trim()) a.n = artist.name.trim().slice(0, 48);
-  if (artist?.url.trim()) a.u = artist.url.trim().slice(0, 96);
-  if (artist?.instagram.trim()) a.ig = artist.instagram.trim().replace(/^@/, "").slice(0, 32);
-  if (artist?.x.trim()) a.x = artist.x.trim().replace(/^@/, "").slice(0, 32);
+  if (vis?.name.trim()) a.n = vis.name.trim().slice(0, 48);
+  if (vis?.url.trim()) a.u = vis.url.trim().slice(0, 96);
+  if (vis?.instagram.trim()) a.ig = vis.instagram.trim().replace(/^@/, "").slice(0, 32);
+  if (vis?.x.trim()) a.x = vis.x.trim().replace(/^@/, "").slice(0, 32);
+  if (aud?.name.trim() && aud.name.trim() !== vis?.name.trim()) a.s = aud.name.trim().slice(0, 48);
   const g: Glyph = {
     v: 1,
     f: origin.chemistry.feed,
@@ -46,7 +51,9 @@ export function originToGlyph(origin: Origin, artist?: Artist): Glyph {
     lo: origin.voice.pitchMinHz,
     hi: origin.voice.pitchMaxHz,
   };
-  if (a.n || a.u || a.ig || a.x) g.a = a;
+  if (a.n || a.u || a.ig || a.x || a.s) g.a = a;
+  if (origin.release) g.r = origin.release.slice(0, 40);
+  if (origin.track) g.t = origin.track.slice(0, 40);
   return g;
 }
 
@@ -198,10 +205,11 @@ export async function renderSticker(field: Blob, href: string, size = 2048): Pro
       const sy = Math.min(size - 1, Math.max(0, Math.floor(vv * size)));
       const i = (sy * size + sx) * 4;
       const lum = (0.2126 * (sample[i] ?? 0) + 0.7152 * (sample[i + 1] ?? 0) + 0.0722 * (sample[i + 2] ?? 0)) / 255;
-      const target = bit ? 0.1 : 0.9;
-      const mixed = lum * 0.22 + target * 0.78;
+      const maze = lum < 0.46 ? 0.08 : 0.92;
+      const target = bit ? 0.08 : 0.92;
+      const mixed = maze * 0.34 + target * 0.66;
       const g8 = Math.round(mixed * 255);
-      ctx.fillStyle = `rgb(${g8},${g8},${Math.round(g8 * 0.96)})`;
+      ctx.fillStyle = `rgb(${g8},${Math.round(g8 * 0.98)},${Math.round(g8 * 0.9)})`;
       roundRect(ctx, px + cell * 0.04, py + cell * 0.04, cell * 0.92, cell * 0.92, cell * 0.16);
       ctx.fill();
     }

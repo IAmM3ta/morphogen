@@ -9,6 +9,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Releases.** Visual + audio credits stamp the glyph. Tracks stack into a
+  sleeve — a sequence of ink plates, one per song. Print sticker inks the
+  field into a maze-like QR. Capture sits on the Field face.
 - **WebAR, Artivive-style.** Sticker URLs carry `&ar=1`. Camera opens the
   print in the browser — no gate. The living field is a transparent layer
   on the paper (void punched out, like Bridge “remove background”). Tap

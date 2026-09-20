@@ -26,7 +26,7 @@ import { attachSensors, localPointerBrushes, requestSensorPermission } from "@/l
 import { extractPaletteFromImage } from "@/lib/morphogen/extract-palette";
 import { PRESETS, MAX_BRUSHES, pickSimMaxSide, waveformById, DEFAULT_WAVEFORM, type Brush } from "@/lib/morphogen/presets";
 import { runtime } from "@/lib/morphogen/runtime";
-import { artistFromState, isFactoryInstrument, useInstrument } from "@/lib/morphogen/store";
+import { artistFromState, audioFromState, isFactoryInstrument, useInstrument } from "@/lib/morphogen/store";
 import { SessionRecorder, downloadBlob } from "@/lib/morphogen/recorder";
 import { headingToKey, formatKeyMode } from "@/lib/morphogen/theory";
 import { glassToWorld } from "@/lib/morphogen/space";
@@ -216,8 +216,14 @@ export function MorphogenApp() {
         toast("Recording was empty");
         return;
       }
-      const presetId = useInstrument.getState().presetId;
-      const origin = snapshotOrigin("loop", presetId, rec.elapsed, artistFromState(useInstrument.getState()));
+      const s = useInstrument.getState();
+      const origin = snapshotOrigin("loop", s.presetId, rec.elapsed, {
+        visual: artistFromState(s),
+        audio: audioFromState(s),
+        release: s.releaseTitle,
+        track: s.trackTitle,
+        index: s.tracks.length,
+      });
       const stamp = originStamp(origin.capturedAt);
       downloadBlob(blob, name.startsWith("morphogen") ? `morphos-${stamp}.${name.split(".").pop()}` : name);
       const originBytes = new Blob([`${JSON.stringify(origin, null, 2)}\n`], { type: "application/json" });
@@ -238,8 +244,14 @@ export function MorphogenApp() {
         toast("Could not capture the field");
         return;
       }
-      const presetId = useInstrument.getState().presetId;
-      const origin = snapshotOrigin("still", presetId, undefined, artistFromState(useInstrument.getState()));
+      const s = useInstrument.getState();
+      const origin = snapshotOrigin("still", s.presetId, undefined, {
+        visual: artistFromState(s),
+        audio: audioFromState(s),
+        release: s.releaseTitle,
+        track: s.trackTitle,
+        index: s.tracks.length,
+      });
       const stamp = originStamp(origin.capturedAt);
       const name = `morphos-${stamp}.png`;
       const url = URL.createObjectURL(blob);

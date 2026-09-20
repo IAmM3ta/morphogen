@@ -327,6 +327,9 @@ export function ControlDock({
               <Button variant="ghost" size="sm" className="flex-1" onClick={onReset}>
                 <RotateCcw /> Reset
               </Button>
+              <Button variant="ghost" size="sm" onClick={onCapture} aria-label="Capture field">
+                <Camera />
+              </Button>
             </div>
           </div>
         ) : (

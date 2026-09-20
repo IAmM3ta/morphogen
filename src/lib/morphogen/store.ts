@@ -18,6 +18,7 @@ import { DEFAULT_KEY, DEFAULT_MODE, DEFAULT_PITCH_MAX, DEFAULT_PITCH_MIN, clampP
 import type { Artist } from "./origin";
 import type { Glyph } from "./glyph";
 import { rememberGlyph } from "./glyph";
+import type { Track } from "./release";
 
 export type ImageSlot = {
   id: string;
@@ -66,6 +67,13 @@ export type InstrumentState = {
   artistUrl: string;
   artistIg: string;
   artistX: string;
+  audioName: string;
+  audioUrl: string;
+  audioIg: string;
+  audioX: string;
+  releaseTitle: string;
+  trackTitle: string;
+  tracks: Track[];
   applyPreset: (id: string) => void;
   restoreDefaults: () => void;
   setParam: <K extends keyof SimParams>(key: K, value: SimParams[K]) => void;
@@ -82,6 +90,8 @@ export type InstrumentState = {
   setImageMode: (mode: ImageMode) => void;
   applySnapshot: (snap: UndoSnap) => void;
   recallGlyph: (g: Glyph) => void;
+  addTrack: (track: Track) => void;
+  removeTrack: (id: string) => void;
   patch: (partial: Partial<InstrumentState>) => void;
 };
 
@@ -128,6 +138,13 @@ export const useInstrument = create<InstrumentState>()(
       artistUrl: "",
       artistIg: "",
       artistX: "",
+      audioName: "",
+      audioUrl: "",
+      audioIg: "",
+      audioX: "",
+      releaseTitle: "",
+      trackTitle: "",
+      tracks: [],
       applyPreset: (id) => {
         if (get().presetId === id && !isRestoring()) return;
         maybeCheckpoint();
@@ -330,6 +347,11 @@ export const useInstrument = create<InstrumentState>()(
           pitchMaxHz: range.max,
         });
       },
+      addTrack: (track) => {
+        const tracks = [...get().tracks.filter((t) => t.id !== track.id), track].slice(0, 12);
+        set({ tracks });
+      },
+      removeTrack: (id) => set({ tracks: get().tracks.filter((t) => t.id !== id) }),
       patch: (partial) => set(partial),
     }),
     {
@@ -355,6 +377,13 @@ export const useInstrument = create<InstrumentState>()(
         artistUrl: s.artistUrl,
         artistIg: s.artistIg,
         artistX: s.artistX,
+        audioName: s.audioName,
+        audioUrl: s.audioUrl,
+        audioIg: s.audioIg,
+        audioX: s.audioX,
+        releaseTitle: s.releaseTitle,
+        trackTitle: s.trackTitle,
+        tracks: s.tracks.map(({ id, title, origin }) => ({ id, title, origin, url: "" })),
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
@@ -438,5 +467,14 @@ export function artistFromState(s: Pick<InstrumentState, "artistName" | "artistU
     url: s.artistUrl,
     instagram: s.artistIg,
     x: s.artistX,
+  };
+}
+
+export function audioFromState(s: Pick<InstrumentState, "audioName" | "audioUrl" | "audioIg" | "audioX">): Artist {
+  return {
+    name: s.audioName,
+    url: s.audioUrl,
+    instagram: s.audioIg,
+    x: s.audioX,
   };
 }

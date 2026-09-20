@@ -118,7 +118,7 @@ export function ArOverlay({
     };
   }, [field]);
 
-  const maker = locked?.a?.n;
+  const maker = [locked?.a?.n, locked?.a?.s].filter(Boolean).join(" · ");
 
   return (
     <div

@@ -211,7 +211,7 @@ export function localPointerBrushes(
   const HOLD_MS = 260;
   const TAP_MOVE = 22;
   const DOUBLE_DIST = 64;
-  const NEAR_PX = 40;
+  const NEAR_PX = 18;
   /** Touch.identifier offset so mouse pointerId (often 1) never collides. */
   const TOUCH_ID = 1000;
   let lastTap = { t: 0, x: 0, y: 0 };
@@ -269,9 +269,13 @@ export function localPointerBrushes(
 
   const nearFinger = (clientX: number, clientY: number, maxPx = NEAR_PX): Finger | null => {
     const { px, py, w, h } = fromClient(clientX, clientY);
+    const now = performance.now();
     let best: Finger | null = null;
     let bestD = maxPx;
     for (const f of fingers.values()) {
+      // Only collapse pointer/touch duplicates of the same physical finger
+      // (born in the same instant, same place). Never merge two real voices.
+      if (now - f.t > 90) continue;
       const d = Math.hypot(px - f.x * w, py - f.y * h);
       if (d < bestD) {
         best = f;
@@ -458,8 +462,9 @@ export function localPointerBrushes(
 
   const down = (e: PointerEvent) => {
     if (isUi(e.target)) return;
+    // TouchEvent owns actual fingers — iOS Pointer Events drop extras.
+    if (e.pointerType === "touch") return;
     e.preventDefault();
-    // Never capture touch — iOS capture keeps extra fingers from arriving.
     if (e.pointerType !== "touch") {
       try {
         canvas.setPointerCapture(e.pointerId);
@@ -472,6 +477,7 @@ export function localPointerBrushes(
   };
 
   const onPointerMove = (e: PointerEvent) => {
+    if (e.pointerType === "touch") return;
     const cid = canon(e.pointerId);
     const known = fingers.has(cid) || fingers.has(e.pointerId);
     if (known) {
@@ -488,12 +494,6 @@ export function localPointerBrushes(
       runtime.antenna.on = false;
       return;
     }
-    if (e.pointerType === "touch") {
-      // iOS often skips pointerdown on extra fingers; still birth a voice.
-      if (e.cancelable) e.preventDefault();
-      drive(e.pointerId, e.clientX, e.clientY, e.pressure, e.width, e.height);
-      return;
-    }
     if (e.pointerType === "mouse" || e.pointerType === "pen") {
       const { x, y } = fromClient(e.clientX, e.clientY);
       runtime.antenna = {
@@ -506,12 +506,9 @@ export function localPointerBrushes(
   };
 
   const up = (e: PointerEvent) => {
+    if (e.pointerType === "touch") return;
     const cid = canon(e.pointerId);
     if (!fingers.has(cid) && !fingers.has(e.pointerId)) {
-      if (e.pointerType === "touch" && fingers.size === 1) {
-        const only = fingers.values().next().value as Finger | undefined;
-        if (only) end(only.id, e.clientX, e.clientY);
-      }
       unbindWindow();
       return;
     }

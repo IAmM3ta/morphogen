@@ -344,18 +344,21 @@ export class RDEngine {
       data[o + 3] = 255;
     }
     const spots: [number, number, number][] = [
-      [0.5, 0.5, 0.09],
-      [0.32, 0.38, 0.07],
-      [0.68, 0.58, 0.065],
-      [0.42, 0.7, 0.055],
-      [0.62, 0.3, 0.05],
-      [0.22, 0.62, 0.048],
-      [0.78, 0.4, 0.046],
-      [0.38, 0.22, 0.04],
-      [0.58, 0.82, 0.038],
-      [0.18, 0.28, 0.036],
-      [0.84, 0.72, 0.034],
-      [0.72, 0.18, 0.032],
+      [0.5, 0.5, 0.1],
+      [0.32, 0.36, 0.085],
+      [0.68, 0.6, 0.082],
+      [0.28, 0.7, 0.075],
+      [0.72, 0.3, 0.072],
+      [0.18, 0.48, 0.068],
+      [0.82, 0.52, 0.065],
+      [0.42, 0.18, 0.07],
+      [0.58, 0.82, 0.068],
+      [0.12, 0.22, 0.055],
+      [0.88, 0.78, 0.055],
+      [0.5, 0.12, 0.06],
+      [0.5, 0.88, 0.058],
+      [0.22, 0.88, 0.05],
+      [0.78, 0.14, 0.05],
     ];
     const minSide = Math.min(w, h);
     const paint = (cx: number, cy: number, r: number, vAmt: number) => {
@@ -370,7 +373,7 @@ export class RDEngine {
           const dy = y + 0.5 - cy * h;
           const t = Math.hypot(dx, dy) / Math.max(rad, 1);
           if (t >= 1) continue;
-          const ink = t < 0.58 ? 1 : 1 - (t - 0.58) / 0.42;
+          const ink = t < 0.55 ? 1 : 1 - (t - 0.55) / 0.45;
           const o = (y * w + x) * 4;
           data[o] = Math.min(data[o]!, Math.round((1 - ink * 0.5) * 255));
           data[o + 1] = Math.max(data[o + 1]!, Math.round(ink * vAmt * 255));
@@ -378,8 +381,8 @@ export class RDEngine {
       }
     };
     for (const [cx, cy, r] of spots) paint(cx, cy, r, 1);
-    for (let s = 0; s < 110; s++) {
-      paint(0.05 + Math.random() * 0.9, 0.05 + Math.random() * 0.9, 0.012 + Math.random() * 0.028, 1);
+    for (let s = 0; s < 36; s++) {
+      paint(0.08 + Math.random() * 0.84, 0.08 + Math.random() * 0.84, 0.028 + Math.random() * 0.045, 1);
     }
     gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);

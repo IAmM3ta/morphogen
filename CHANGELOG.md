@@ -17,7 +17,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   and the next chapter (Ableton, Serum, Resolume, Synesthesia). Linked from
   Enter and from the repository.
 - Always-visible **Default settings** toggle (header, Field, and Sound). Restores
-  mitosis, overtone chant (sine), D Dorian, factory mix, and clears loops, layers, and
+  mitosis, warm sine, D Dorian, factory mix, and clears loops, layers, and
   locks — a way home if you get lost in the noise.
 - Circle-of-fifths **key** and church **mode** (plus blues / suspended) toggles.
   Live pitch quantizes to the scale. The phone compass can walk the key in
@@ -32,6 +32,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- First impression: sine is a warm almost-pure voice (no formant wah). Extra
+  fingers are real voices again — TouchEvents own the glass. Factory field is
+  Pearson mitosis in Abyss (round dividing cells, 3D rim light) instead of
+  noisy coral speckle. Persist key is `morphogen-v13` so the phone picks this
+  up on refresh.
 - Waveforms are architecturally distinct (mix, filter, FM, harmonic layout);
   live voices bypass the Hum tilt filter so saw/square/pulse cut through.
 - Play surface is an XY pad: **height is pitch**, **across is amplitude**.

@@ -69,12 +69,12 @@ function spectrumWave(ctx: AudioContext, grid: Float32Array, energy: number, edg
 }
 
 const LOUD: Record<WaveformId, number> = {
-  sine: 0.56,
-  triangle: 0.72,
+  sine: 0.62,
+  triangle: 0.7,
   sawtooth: 0.48,
-  square: 0.42,
-  pulse: 0.46,
-  spectrum: 0.64,
+  square: 0.4,
+  pulse: 0.44,
+  spectrum: 0.6,
 };
 
 type Shape = {
@@ -90,8 +90,8 @@ type Shape = {
 };
 
 const SHAPE: Record<WaveformId, Shape> = {
-  sine: { oscMix: 0.9, detMix: 0.1, harmMix: 0, subMix: 0.08, harmRatio: 2, cutoff: 1680, q: 0.5, fm: 0.025, detuneSpread: 0.0016 },
-  triangle: { oscMix: 0.58, detMix: 0.22, harmMix: 0.16, subMix: 0.14, harmRatio: 3, cutoff: 2600, q: 0.7, fm: 0.35, detuneSpread: 0.004 },
+  sine: { oscMix: 0.92, detMix: 0.07, harmMix: 0, subMix: 0.05, harmRatio: 2, cutoff: 2100, q: 0.35, fm: 0, detuneSpread: 0.001 },
+  triangle: { oscMix: 0.62, detMix: 0.18, harmMix: 0.12, subMix: 0.12, harmRatio: 3, cutoff: 2400, q: 0.55, fm: 0.18, detuneSpread: 0.003 },
   sawtooth: { oscMix: 0.72, detMix: 0.16, harmMix: 0.22, subMix: 0.2, harmRatio: 2, cutoff: 6800, q: 0.35, fm: 0.85, detuneSpread: 0.007 },
   square: { oscMix: 0.55, detMix: 0.06, harmMix: 0.2, subMix: 0.32, harmRatio: 3, cutoff: 4600, q: 1.15, fm: 0.28, detuneSpread: 0.003 },
   pulse: { oscMix: 0.66, detMix: 0.1, harmMix: 0.1, subMix: 0.18, harmRatio: 2, cutoff: 5200, q: 1.55, fm: 0.55, detuneSpread: 0.005 },
@@ -240,8 +240,8 @@ export class AudioEngine {
 
     this.tiltFilter = ctx.createBiquadFilter();
     this.tiltFilter.type = "lowpass";
-    this.tiltFilter.frequency.value = 1800;
-    this.tiltFilter.Q.value = 0.7;
+    this.tiltFilter.frequency.value = 2800;
+    this.tiltFilter.Q.value = 0.4;
 
     this.compressor = ctx.createDynamicsCompressor();
     this.compressor.threshold.value = -22;
@@ -280,10 +280,10 @@ export class AudioEngine {
     this.humBus = ctx.createGain();
     this.humBus.gain.value = 0;
     this.formant = ctx.createBiquadFilter();
-    this.formant.type = "peaking";
-    this.formant.frequency.value = 260;
-    this.formant.Q.value = 0.7;
-    this.formant.gain.value = 2.2;
+    this.formant.type = "lowshelf";
+    this.formant.frequency.value = 180;
+    this.formant.Q.value = 0.5;
+    this.formant.gain.value = 1.8;
     this.humPan = ctx.createStereoPanner();
     this.humPan.pan.value = 0;
     this.humBus.connect(this.formant);
@@ -304,11 +304,10 @@ export class AudioEngine {
 
     this.lfo = ctx.createOscillator();
     this.lfo.type = "sine";
-    this.lfo.frequency.value = 0.13;
+    this.lfo.frequency.value = 0.12;
     this.lfoGain = ctx.createGain();
-    this.lfoGain.gain.value = 14;
+    this.lfoGain.gain.value = 0;
     this.lfo.connect(this.lfoGain);
-    this.lfoGain.connect(this.formant.frequency);
     this.lfo.start();
 
     const n = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
@@ -777,25 +776,26 @@ export class AudioEngine {
       (0.82 + Math.min(1, sense.gforce) * 0.22) *
       LOUD[wave];
     const cutoff =
-      (shape.cutoff * 0.55 +
-        pressure * 1800 +
-        x * 900 +
-        (sense.pitch + 1) * 500 +
-        runtime.stats.edge * 240) *
-      (wave === "sine" ? 0.7 : 1) *
-      (0.62 + tone.lum * 0.7 + tone.sat * 0.12);
-    const vib = wave === "sine" ? 0.2 + sense.spin * 0.5 : 3.2 + sense.spin * 8.5 + Math.abs(sense.roll) * 1.2;
-    const fmAmt = shape.fm * (wave === "sine" ? 2 + sense.spin * 4 : 4 + sense.spin * 28 + pressure * 10 + Math.abs(sense.pitch) * 5 + runtime.mic * 12);
+      wave === "sine"
+        ? 1400 + pressure * 400 + x * 200
+        : (shape.cutoff * 0.55 +
+            pressure * 1800 +
+            x * 900 +
+            (sense.pitch + 1) * 500 +
+            runtime.stats.edge * 240) *
+          (0.62 + tone.lum * 0.7 + tone.sat * 0.12);
+    const vib = wave === "sine" ? 0.08 : 3.2 + sense.spin * 8.5 + Math.abs(sense.roll) * 1.2;
+    const fmAmt = wave === "sine" ? 0 : shape.fm * (4 + sense.spin * 28 + pressure * 10 + Math.abs(sense.pitch) * 5 + runtime.mic * 12);
 
-    ramp(v.osc.frequency, hz, now, 0.045);
-    ramp(v.detune.frequency, hz * (1 + shape.detuneSpread + sense.roll * 0.008), now, 0.05);
+    ramp(v.osc.frequency, hz, now, 0.05);
+    ramp(v.detune.frequency, hz * (1 + shape.detuneSpread), now, 0.06);
     ramp(v.harm.frequency, Math.min(1800, hz * shape.harmRatio), now, 0.08);
     ramp(v.sub.frequency, hz * 0.5, now, 0.08);
     ramp(v.fm.frequency, vib, now, 0.08);
     ramp(v.fmGain.gain, fmAmt, now, 0.08);
-    ramp(v.filter.frequency, Math.max(160, Math.min(2400, cutoff)), now, 0.07);
-    ramp(v.pan.pan, Math.max(-0.72, Math.min(0.72, sense.yaw * 0.4 + sense.roll * 0.5)), now, 0.06);
-    ramp(v.mix.gain, Math.max(0.0001, Math.min(0.48, amp)), now, 0.08);
+    ramp(v.filter.frequency, Math.max(280, Math.min(wave === "sine" ? 2400 : 7200, cutoff)), now, 0.08);
+    ramp(v.pan.pan, Math.max(-0.85, Math.min(0.85, (x - 0.5) * 1.6 + sense.roll * 0.2)), now, 0.05);
+    ramp(v.mix.gain, Math.max(0.0001, Math.min(0.5, amp)), now, 0.07);
   }
 
   tick() {
@@ -867,35 +867,21 @@ export class AudioEngine {
     const touching = this.live.size > 0 || this.frozen.length > 0;
     if (touching) this.voicedUntil = now + 2.6;
     const voiced = now < this.voicedUntil;
-    const tilt = sense.pitch;
     const roll = sense.roll;
-    const spin = sense.spin;
-    const gf = Math.min(1.4, sense.gforce);
-    const humLevel = voiced ? 0.32 + energy * 0.08 + Math.max(0, -tilt) * 0.06 : 0;
-    ramp(this.humBus.gain, humLevel, now, voiced ? 0.18 : 0.55);
-    ramp(this.humPan.pan, Math.max(-0.55, Math.min(0.55, roll * 0.45 + sense.yaw * 0.22)), now, 0.12);
-    ramp(this.lfo.frequency, 0.11 + spin * 0.35, now, 0.14);
-    ramp(this.lfoGain.gain, voiced ? 12 + Math.abs(roll) * 6 : 4, now, 0.2);
-    if (this.formant) {
-      const stops =
-        runtime.liveStops ??
-        (runtime.params.paletteId === "image" && runtime.customPalette
-          ? runtime.customPalette.stops
-          : paletteById(runtime.params.paletteId).stops);
-      const tone = paletteTone(stops);
-      ramp(this.formant.frequency, 220 + tone.lum * 80, now, 0.2);
-      this.formant.Q.value = 0.55 + tone.sat * 0.2;
-      this.formant.gain.value = 1.6 + tone.warm * 0.8;
-    }
+    const humLevel = voiced ? 0.22 + energy * 0.05 : 0;
+    ramp(this.humBus.gain, humLevel, now, voiced ? 0.22 : 0.55);
+    ramp(this.humPan.pan, Math.max(-0.4, Math.min(0.4, roll * 0.3)), now, 0.14);
+    ramp(this.lfo.frequency, 0.1, now, 0.2);
+    ramp(this.lfoGain.gain, 0, now, 0.2);
 
     const targets = humTargets();
     if (this.live.size === 0) this.lastHz = targets[1]?.hz ?? 146.83;
     for (let i = 0; i < this.hum.length; i++) {
       const p = this.hum[i]!;
       const t = targets[i] ?? targets[targets.length - 1]!;
-      const amp = voiced ? t.amp * (0.9 + energy * 0.15) : 0.0008;
-      ramp(p.osc.frequency, t.hz, now, 0.12);
-      ramp(p.gain.gain, amp, now, voiced ? 0.16 : 0.5);
+      const amp = voiced ? t.amp : 0.0008;
+      ramp(p.osc.frequency, t.hz, now, 0.14);
+      ramp(p.gain.gain, amp, now, voiced ? 0.2 : 0.5);
       p.hz = t.hz;
       p.amp = t.amp;
     }
@@ -903,10 +889,9 @@ export class AudioEngine {
     ramp(this.noiseFilter.frequency, 90, now, 0.08);
     ramp(this.noiseGain.gain, 0, now, 0.08);
 
-    const tiltCut = 720 + (tilt + 1) * 420 + energy * 280 + v * 120 + this.live.size * 80;
-    ramp(this.tiltFilter.frequency, Math.max(280, Math.min(2200, tiltCut)), now, 0.12);
-    ramp(this.delayGain.gain, voiced ? Math.min(0.2, 0.12 + Math.abs(roll) * 0.08) : 0.05, now, 0.16);
-    if (this.echoGain) ramp(this.echoGain.gain, voiced ? 0.08 + spin * 0.06 : 0.03, now, 0.16);
+    ramp(this.tiltFilter.frequency, Math.max(1600, Math.min(4200, 2600 + energy * 400)), now, 0.14);
+    ramp(this.delayGain.gain, voiced ? 0.1 : 0.04, now, 0.2);
+    if (this.echoGain) ramp(this.echoGain.gain, voiced ? 0.05 : 0.02, now, 0.2);
   }
 
   lockLoop(): number {

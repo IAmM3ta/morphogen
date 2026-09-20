@@ -33,7 +33,7 @@ Or from source: `npm install && npm run build && npm run preview`.
 6. **Freeze** holds the last pitch as a drone you play over. **Release** peels one layer. `L` freezes, `Z` releases, `Shift+Z` clears.
 7. Species buttons **morph chemistry in place** — they do not reseed. `1`–`9` pick a species.
 8. **Sound** (on the card, or Console → Sound) chooses sine (warm voice), triangle, saw, square, pulse, or spectrum; key (including C♯); mode (Dorian at rest, plus Ionian, Aeolian, minor pentatonic, …); and the Hz window (factory 125–501 Hz — the chant band; Lo opens to 7.83 Hz).
-9. `U` or `⌘Z` **undoes** the last change (paint, species, waveform, reset). `R` resets the field, `Shift+R` or the **Default** toggle restores factory settings (coral, warm sine, D Dorian, 125–501 Hz, and clears loops). `C` records the session.
+9. `U` or `⌘Z` **undoes** the last change (paint, species, waveform, reset). `R` resets the field, `Shift+R` or the **Default** toggle restores factory settings (mitosis, warm sine, D Dorian, 125–501 Hz, and clears loops). `C` records the session.
 10. Every finger is a voice. On a phone, two (or more) contacts play at once.
 
 ## Field console

@@ -33,10 +33,10 @@ export const PALETTES: Palette[] = [
     id: "abyss",
     name: "Abyss",
     stops: [
-      [0.01, 0.02, 0.05],
-      [0.04, 0.16, 0.26],
-      [0.22, 0.58, 0.64],
-      [0.82, 0.92, 0.94],
+      [0.02, 0.05, 0.08],
+      [0.05, 0.38, 0.52],
+      [0.42, 0.9, 0.82],
+      [0.96, 0.98, 0.92],
     ],
   },
   {
@@ -92,7 +92,7 @@ export const PALETTES: Palette[] = [
 ];
 
 export const PRESETS: SimPreset[] = [
-  { id: "mitosis", name: "Mitosis", blurb: "Soft dividing cells", feed: 0.037, kill: 0.06, du: 0.21, dv: 0.105, paletteId: "field" },
+  { id: "mitosis", name: "Mitosis", blurb: "Soft dividing cells", feed: 0.037, kill: 0.06, du: 0.21, dv: 0.105, paletteId: "abyss" },
   { id: "solitons", name: "Solitons", blurb: "Quiet stable spots", feed: 0.0353, kill: 0.0653, du: 0.21, dv: 0.105, paletteId: "spore" },
   { id: "pulsing", name: "Pulsing", blurb: "Breathing spots", feed: 0.025, kill: 0.06, du: 0.18, dv: 0.09, paletteId: "spore" },
   { id: "holes", name: "Holes", blurb: "Perforated sheet", feed: 0.039, kill: 0.058, du: 0.21, dv: 0.105, paletteId: "abyss" },
@@ -104,7 +104,7 @@ export const PRESETS: SimPreset[] = [
   { id: "uskate", name: "Skate", blurb: "U-skate world", feed: 0.062, kill: 0.0609, du: 0.21, dv: 0.105, paletteId: "ember" },
 ];
 
-export const DEFAULT_PRESET = PRESETS.find((p) => p.id === "coral") ?? PRESETS[0]!;
+export const DEFAULT_PRESET = PRESETS.find((p) => p.id === "mitosis") ?? PRESETS[0]!;
 
 export const WAVEFORMS = [
   { id: "sine", name: "Sine", tag: "HUM", blurb: "Warm voice — almost pure" },
@@ -190,9 +190,9 @@ export const DEFAULT_PARAMS: SimParams = {
   imageMix: 0.35,
   imageMode: "inoculate",
   paletteId: DEFAULT_PRESET.paletteId,
-  glow: 1.15,
-  vignette: 0.1,
-  steps: 24,
+  glow: 1.35,
+  vignette: 0.16,
+  steps: 22,
 };
 
 export const MAX_BRUSHES = 8;

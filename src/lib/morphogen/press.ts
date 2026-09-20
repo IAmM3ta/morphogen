@@ -1,5 +1,6 @@
 import type { Origin } from "./origin";
 import { originStamp } from "./origin";
+import { encodeGlyphToken, glyphShareUrl, originToGlyph, renderGlyphPlate } from "./glyph";
 
 export type PressMode = "none" | "mirror-x" | "kaleido";
 
@@ -61,12 +62,16 @@ export async function pressImage(src: Blob, mode: PressMode, size = 2048): Promi
 export async function packEdition(png: Blob, origin: Origin, mode: PressMode): Promise<Blob> {
   const stamp = originStamp(origin.capturedAt);
   const folder = `MORPHOS-${stamp}`;
+  const token = encodeGlyphToken(originToGlyph(origin, origin.artist));
+  const glyph = await renderGlyphPlate(glyphShareUrl(token));
   const readme = packReadme(origin, mode);
   const originBytes = new TextEncoder().encode(`${JSON.stringify(origin, null, 2)}\n`);
   const note = new TextEncoder().encode(readme);
   const pngBytes = new Uint8Array(await png.arrayBuffer());
+  const glyphBytes = new Uint8Array(await glyph.arrayBuffer());
   return zipStore([
     { path: `${folder}/field.png`, data: pngBytes },
+    { path: `${folder}/glyph.png`, data: glyphBytes },
     { path: `${folder}/origin.json`, data: originBytes },
     { path: `${folder}/ATELIER.txt`, data: note },
   ]);
@@ -92,8 +97,10 @@ function packReadme(origin: Origin, mode: PressMode) {
     "  The instrument already speaks WebSocket (Sync). This pack is the still edition.",
     "",
     "Print",
-    "  field.png is 2048², sRGB. Kaleidoscope tiles for fabric and stickers.",
-    "  Made-to-order: send field.png + origin.json to the atelier.",
+    "  field.png is 2048², sRGB. Book-match and kaleidoscope are optional presses.",
+    "  glyph.png is the scannable plate — chemistry, voice, and maker. Print it as a",
+    "  sticker or hangtag. Open MORPHOS → Image → Scan to restore the instrument.",
+    "  A Unity / Vuforia / Artvive target can use the same still; origin.json is the payload.",
     "",
     "The pattern cannot be remade. The seed was this body, this room, this minute.",
     "",

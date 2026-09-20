@@ -24,7 +24,7 @@ import { Switch } from "@/components/ui/switch";
 import { ParamSlider } from "./param-slider";
 import { KeyPad } from "./key-pad";
 import { LoopRack } from "./loop-rack";
-import { FieldLibrary, type FieldShot } from "./field-library";
+import { FieldLibrary, ScanPlate, type FieldShot } from "./field-library";
 import { PALETTES, PRESETS, WAVEFORMS, waveformById, type ImageMode, type SimParams } from "@/lib/morphogen/presets";
 import type { LoopClip } from "@/lib/morphogen/loops";
 import { MIDI_MAP, TD_CALLBACKS } from "@/lib/morphogen/td-script";
@@ -1005,6 +1005,7 @@ function ImageTab({
           <Camera />
         </Button>
       </div>
+      <ScanPlate />
       {images.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           {images.map((img) => (

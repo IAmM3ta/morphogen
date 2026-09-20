@@ -25,11 +25,12 @@ import { attachSensors, localPointerBrushes, requestSensorPermission } from "@/l
 import { extractPaletteFromImage } from "@/lib/morphogen/extract-palette";
 import { PRESETS, MAX_BRUSHES, pickSimMaxSide, waveformById, DEFAULT_WAVEFORM, type Brush } from "@/lib/morphogen/presets";
 import { runtime } from "@/lib/morphogen/runtime";
-import { isFactoryInstrument, useInstrument } from "@/lib/morphogen/store";
+import { artistFromState, isFactoryInstrument, useInstrument } from "@/lib/morphogen/store";
 import { SessionRecorder, downloadBlob } from "@/lib/morphogen/recorder";
 import { headingToKey, formatKeyMode } from "@/lib/morphogen/theory";
 import { glassToWorld } from "@/lib/morphogen/space";
 import { snapshotOrigin, originStamp } from "@/lib/morphogen/origin";
+import { decodeGlyphToken } from "@/lib/morphogen/glyph";
 import type { LoopClip } from "@/lib/morphogen/loops";
 import type { FieldShot } from "./field-library";
 import {
@@ -211,7 +212,7 @@ export function MorphogenApp() {
         return;
       }
       const presetId = useInstrument.getState().presetId;
-      const origin = snapshotOrigin("loop", presetId, rec.elapsed);
+      const origin = snapshotOrigin("loop", presetId, rec.elapsed, artistFromState(useInstrument.getState()));
       const stamp = originStamp(origin.capturedAt);
       downloadBlob(blob, name.startsWith("morphogen") ? `morphos-${stamp}.${name.split(".").pop()}` : name);
       const originBytes = new Blob([`${JSON.stringify(origin, null, 2)}\n`], { type: "application/json" });
@@ -233,7 +234,7 @@ export function MorphogenApp() {
         return;
       }
       const presetId = useInstrument.getState().presetId;
-      const origin = snapshotOrigin("still", presetId);
+      const origin = snapshotOrigin("still", presetId, undefined, artistFromState(useInstrument.getState()));
       const stamp = originStamp(origin.capturedAt);
       const name = `morphos-${stamp}.png`;
       const url = URL.createObjectURL(blob);
@@ -264,6 +265,20 @@ export function MorphogenApp() {
     };
     sync();
     return useInstrument.persist.onFinishHydration(sync);
+  }, []);
+
+  useEffect(() => {
+    const apply = () => {
+      const raw = new URLSearchParams(window.location.search).get("o");
+      if (!raw) return;
+      const g = decodeGlyphToken(raw) ?? decodeGlyphToken(`M1.${raw}`);
+      if (!g) return;
+      useInstrument.getState().recallGlyph(g);
+      const who = g.a?.n ? ` · ${g.a.n}` : "";
+      toast(`Edition recalled${who}`);
+    };
+    if (useInstrument.persist.hasHydrated()) apply();
+    return useInstrument.persist.onFinishHydration(apply);
   }, []);
 
   useEffect(() => {

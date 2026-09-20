@@ -1,6 +1,13 @@
 import { runtime } from "./runtime";
 import { glassToWorld } from "./space";
 
+export type Artist = {
+  name: string;
+  url: string;
+  instagram: string;
+  x: string;
+};
+
 /** Provenance of a still or loop. This is the SKU — the field is the edition. */
 export type Origin = {
   v: 1;
@@ -44,9 +51,15 @@ export type Origin = {
     edge: number;
   };
   durationSec?: number;
+  artist?: Artist;
 };
 
-export function snapshotOrigin(kind: Origin["kind"], presetId: string, durationSec?: number): Origin {
+export function snapshotOrigin(
+  kind: Origin["kind"],
+  presetId: string,
+  durationSec?: number,
+  artist?: Artist,
+): Origin {
   const p = runtime.params;
   const s = runtime.sense;
   const world = glassToWorld(runtime.antenna.x, runtime.antenna.y);
@@ -93,6 +106,14 @@ export function snapshotOrigin(kind: Origin["kind"], presetId: string, durationS
     },
   };
   if (typeof durationSec === "number") origin.durationSec = round4(durationSec);
+  if (artist && (artist.name || artist.url || artist.instagram || artist.x)) {
+    origin.artist = {
+      name: artist.name.trim(),
+      url: artist.url.trim(),
+      instagram: artist.instagram.trim().replace(/^@/, ""),
+      x: artist.x.trim().replace(/^@/, ""),
+    };
+  }
   return origin;
 }
 

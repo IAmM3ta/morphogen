@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { Bookmark, Camera, Package, Trash2 } from "lucide-react";
+import { useRef, useState } from "react";
+import { Bookmark, Camera, Package, ScanLine, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useInstrument } from "@/lib/morphogen/store";
+import { artistFromState, useInstrument } from "@/lib/morphogen/store";
 import { toast } from "sonner";
 import type { Origin } from "@/lib/morphogen/origin";
 import { originStamp } from "@/lib/morphogen/origin";
 import { packEdition, pressImage, type PressMode } from "@/lib/morphogen/press";
+import { detectGlyphInBlob } from "@/lib/morphogen/glyph";
 import { downloadBlob } from "@/lib/morphogen/recorder";
 
 export type FieldShot = {
@@ -15,10 +16,61 @@ export type FieldShot = {
   origin: Origin;
 };
 
+const inputClass =
+  "w-full rounded-sm bg-transparent px-2 py-1.5 text-xs text-fg shadow-[var(--shadow-border)] outline-none placeholder:text-faint";
+
+export function ScanPlate() {
+  const recallGlyph = useInstrument((s) => s.recallGlyph);
+  const ref = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <>
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (!file) return;
+          setBusy(true);
+          void detectGlyphInBlob(file)
+            .then((g) => {
+              if (!g) {
+                toast("No glyph in that frame");
+                return;
+              }
+              recallGlyph(g);
+              const who = [g.a?.n, g.a?.ig ? `@${g.a.ig}` : "", g.a?.x ? `x.com/${g.a.x}` : ""]
+                .filter(Boolean)
+                .join(" · ");
+              toast(who ? `Edition recalled · ${who}` : "Edition recalled");
+              if (g.a?.u) {
+                try {
+                  const url = new URL(g.a.u);
+                  toast(`Maker ${url.host}`);
+                } catch {
+                  /* ignore */
+                }
+              }
+            })
+            .catch(() => toast("Could not scan that frame"))
+            .finally(() => setBusy(false));
+        }}
+      />
+      <Button variant="secondary" size="sm" className="w-full" onClick={() => ref.current?.click()} disabled={busy}>
+        <ScanLine /> {busy ? "Reading…" : "Scan edition"}
+      </Button>
+    </>
+  );
+}
+
 export function FieldLibrary({
   shots,
   onCapture,
-  onDownloadShot,
+  onDownloadShot: _onDownloadShot,
 }: {
   shots: FieldShot[];
   onCapture: () => void;
@@ -28,8 +80,13 @@ export function FieldLibrary({
   const savePatch = useInstrument((s) => s.savePatch);
   const loadPatch = useInstrument((s) => s.loadPatch);
   const deletePatch = useInstrument((s) => s.deletePatch);
+  const artistName = useInstrument((s) => s.artistName);
+  const artistUrl = useInstrument((s) => s.artistUrl);
+  const artistIg = useInstrument((s) => s.artistIg);
+  const artistX = useInstrument((s) => s.artistX);
+  const patch = useInstrument((s) => s.patch);
   const [picked, setPicked] = useState<string | null>(null);
-  const [mode, setMode] = useState<PressMode>("kaleido");
+  const [mode, setMode] = useState<PressMode>("none");
   const [busy, setBusy] = useState(false);
   const shot = shots.find((s) => s.id === picked) ?? shots[0] ?? null;
 
@@ -39,9 +96,10 @@ export function FieldLibrary({
     try {
       const src = await fetch(shot.url).then((r) => r.blob());
       const png = await pressImage(src, mode);
-      const zip = await packEdition(png, shot.origin, mode);
+      const origin = { ...shot.origin, artist: artistFromState(useInstrument.getState()) };
+      const zip = await packEdition(png, origin, mode);
       downloadBlob(zip, `MORPHOS-${originStamp(shot.origin.capturedAt)}.zip`);
-      toast("Edition packed");
+      toast("Edition packed · glyph inside");
     } catch {
       toast("Could not pack the edition");
     } finally {
@@ -86,13 +144,28 @@ export function FieldLibrary({
         )}
       </div>
       <div>
+        <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Maker</p>
+        <p className="mb-3 text-xs leading-relaxed text-muted">
+          Stamped into the glyph. Someone scanning your print can find you.
+        </p>
+        <div className="flex flex-col gap-1.5">
+          <input className={inputClass} placeholder="Name" value={artistName} onChange={(e) => patch({ artistName: e.target.value })} />
+          <input className={inputClass} placeholder="URL" value={artistUrl} onChange={(e) => patch({ artistUrl: e.target.value })} />
+          <input className={inputClass} placeholder="Instagram" value={artistIg} onChange={(e) => patch({ artistIg: e.target.value })} />
+          <input className={inputClass} placeholder="X" value={artistX} onChange={(e) => patch({ artistX: e.target.value })} />
+        </div>
+      </div>
+      <div>
         <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Capture</p>
         <p className="mb-3 text-xs leading-relaxed text-muted">
-          Still of the living field, with origin — pose, chemistry, voice. The seed of the edition.
+          Still of the living field, with origin. Scan a glyph to restore it.
         </p>
-        <Button variant="ghost" size="sm" className="w-full" onClick={onCapture}>
-          <Camera /> Screenshot
-        </Button>
+        <div className="flex flex-col gap-1.5">
+          <Button variant="ghost" size="sm" className="w-full" onClick={onCapture}>
+            <Camera /> Screenshot
+          </Button>
+          <ScanPlate />
+        </div>
         {shots.length > 0 && (
           <div className="mt-3 grid grid-cols-3 gap-1.5">
             {shots.map((s) => (
@@ -117,7 +190,7 @@ export function FieldLibrary({
         <div>
           <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Press</p>
           <p className="mb-3 text-xs leading-relaxed text-muted">
-            Mirror and pack a 2048² still + origin.json for Resolume, TouchDesigner, or print.
+            Flat is the still. Book and kaleido are optional. The pack always includes a scannable glyph.
           </p>
           <div className="mb-2 grid grid-cols-3 gap-1.5">
             {(["none", "mirror-x", "kaleido"] as const).map((m) => (

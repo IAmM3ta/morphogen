@@ -9,6 +9,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Glyph plates.** An edition pack includes `glyph.png` — a maze-like QR
+  of the origin (chemistry, voice, maker). Image → Scan (or `?o=`) restores
+  the instrument from a print, sticker, or capture. Mirroring is optional
+  (Flat is the default press). Maker name / URL / Instagram / X stamp into
+  the glyph. Same payload a Vuforia / Artvive target would carry.
 - **Atelier / origin.** Every still and session loop writes an `origin.json`
   (chemistry, voice, pose, space, field stats). Field → Press packs a
   2048² still (flat / book-match / kaleidoscope) plus origin into a zip

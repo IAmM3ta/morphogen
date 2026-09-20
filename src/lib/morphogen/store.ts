@@ -6,6 +6,7 @@ import {
   DEFAULT_WAVEFORM,
   paletteById,
   presetById,
+  waveformById,
   type ImageMode,
   type SimParams,
   type WaveformId,
@@ -13,7 +14,9 @@ import {
 import { isRestoring, maybeCheckpoint } from "./history";
 import { beginPresetMorph, resetRuntimeParams, runtime, DEFAULT_VIBRATO_DEPTH, DEFAULT_VIBRATO_RATE } from "./runtime";
 import type { UndoSnap } from "./history";
-import { DEFAULT_KEY, DEFAULT_MODE, DEFAULT_PITCH_MAX, DEFAULT_PITCH_MIN, clampPitchRange, isLegacyPitchWindow, type KeyId, type ModeId } from "./theory";
+import { DEFAULT_KEY, DEFAULT_MODE, DEFAULT_PITCH_MAX, DEFAULT_PITCH_MIN, clampPitchRange, isLegacyPitchWindow, keyById, modeById, type KeyId, type ModeId } from "./theory";
+import type { Artist } from "./origin";
+import type { Glyph } from "./glyph";
 
 export type ImageSlot = {
   id: string;
@@ -58,6 +61,10 @@ export type InstrumentState = {
   images: ImageSlot[];
   activeImageId: string | null;
   patches: FieldPatch[];
+  artistName: string;
+  artistUrl: string;
+  artistIg: string;
+  artistX: string;
   applyPreset: (id: string) => void;
   restoreDefaults: () => void;
   setParam: <K extends keyof SimParams>(key: K, value: SimParams[K]) => void;
@@ -73,6 +80,7 @@ export type InstrumentState = {
   deletePatch: (id: string) => void;
   setImageMode: (mode: ImageMode) => void;
   applySnapshot: (snap: UndoSnap) => void;
+  recallGlyph: (g: Glyph) => void;
   patch: (partial: Partial<InstrumentState>) => void;
 };
 
@@ -115,6 +123,10 @@ export const useInstrument = create<InstrumentState>()(
       images: [],
       activeImageId: null,
       patches: [],
+      artistName: "",
+      artistUrl: "",
+      artistIg: "",
+      artistX: "",
       applyPreset: (id) => {
         if (get().presetId === id && !isRestoring()) return;
         maybeCheckpoint();
@@ -276,6 +288,46 @@ export const useInstrument = create<InstrumentState>()(
           pitchMaxHz: typeof snap.pitchMaxHz === "number" ? snap.pitchMaxHz : DEFAULT_PITCH_MAX,
         });
       },
+      recallGlyph: (g) => {
+        maybeCheckpoint();
+        const pal = paletteById(g.pa);
+        const known = presetById(g.pr);
+        const params = {
+          ...get().params,
+          feed: g.f,
+          kill: g.k,
+          du: g.du,
+          dv: g.dv,
+          paletteId: pal.id,
+        };
+        beginPresetMorph({
+          feed: params.feed,
+          kill: params.kill,
+          du: params.du,
+          dv: params.dv,
+          stops: pal.stops,
+        });
+        resetRuntimeParams(params);
+        const waveform = waveformById(g.w).id;
+        const keyId = keyById(g.key).id;
+        const modeId = modeById(g.mo).id;
+        const range = clampPitchRange(g.lo, g.hi);
+        runtime.waveform = waveform;
+        runtime.keyId = keyId;
+        runtime.modeId = modeId;
+        runtime.pitchMinHz = range.min;
+        runtime.pitchMaxHz = range.max;
+        runtime.liveStops = pal.stops;
+        set({
+          params,
+          presetId: known.id === g.pr ? known.id : "custom",
+          waveform,
+          keyId,
+          modeId,
+          pitchMinHz: range.min,
+          pitchMaxHz: range.max,
+        });
+      },
       patch: (partial) => set(partial),
     }),
     {
@@ -297,6 +349,10 @@ export const useInstrument = create<InstrumentState>()(
         gyroOn: s.gyroOn,
         audioOn: s.audioOn,
         patches: s.patches,
+        artistName: s.artistName,
+        artistUrl: s.artistUrl,
+        artistIg: s.artistIg,
+        artistX: s.artistX,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
@@ -372,4 +428,13 @@ export function isFactoryInstrument(s: InstrumentState): boolean {
     p.vignette === d.vignette &&
     p.steps === d.steps
   );
+}
+
+export function artistFromState(s: Pick<InstrumentState, "artistName" | "artistUrl" | "artistIg" | "artistX">): Artist {
+  return {
+    name: s.artistName,
+    url: s.artistUrl,
+    instagram: s.artistIg,
+    x: s.artistX,
+  };
 }

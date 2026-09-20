@@ -1,12 +1,12 @@
 import { useRef, useState } from "react";
-import { Bookmark, Camera, Package, ScanLine, Trash2 } from "lucide-react";
+import { Bookmark, Camera, Package, Printer, ScanLine, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { artistFromState, useInstrument } from "@/lib/morphogen/store";
 import { toast } from "sonner";
 import type { Origin } from "@/lib/morphogen/origin";
 import { originStamp } from "@/lib/morphogen/origin";
 import { packEdition, pressImage, type PressMode } from "@/lib/morphogen/press";
-import { detectGlyphInBlob } from "@/lib/morphogen/glyph";
+import { detectGlyphInBlob, encodeGlyphToken, glyphShareUrl, originToGlyph, renderSticker } from "@/lib/morphogen/glyph";
 import { downloadBlob } from "@/lib/morphogen/recorder";
 
 export type FieldShot = {
@@ -107,6 +107,24 @@ export function FieldLibrary({
     }
   };
 
+  const sticker = async () => {
+    if (!shot) return;
+    setBusy(true);
+    try {
+      const src = await fetch(shot.url).then((r) => r.blob());
+      const png = await pressImage(src, mode);
+      const origin = { ...shot.origin, artist: artistFromState(useInstrument.getState()) };
+      const token = encodeGlyphToken(originToGlyph(origin, origin.artist));
+      const plate = await renderSticker(png, glyphShareUrl(token));
+      downloadBlob(plate, `MORPHOS-${originStamp(shot.origin.capturedAt)}-sticker.png`);
+      toast("Sticker ready to print");
+    } catch {
+      toast("Could not print the sticker");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -190,7 +208,8 @@ export function FieldLibrary({
         <div>
           <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Press</p>
           <p className="mb-3 text-xs leading-relaxed text-muted">
-            Flat is the still. Book and kaleido are optional. The pack always includes a scannable glyph.
+            Flat is the still. Book and kaleido are optional. Print sticker is the
+            field as a Camera-readable MORPHOS code.
           </p>
           <div className="mb-2 grid grid-cols-3 gap-1.5">
             {(["none", "mirror-x", "kaleido"] as const).map((m) => (
@@ -208,9 +227,14 @@ export function FieldLibrary({
               </button>
             ))}
           </div>
-          <Button variant="secondary" size="sm" className="w-full" onClick={() => void pack()} disabled={busy}>
-            <Package /> {busy ? "Packing…" : "Pack edition"}
-          </Button>
+          <div className="flex flex-col gap-1.5">
+            <Button variant="secondary" size="sm" className="w-full" onClick={() => void sticker()} disabled={busy}>
+              <Printer /> {busy ? "Printing…" : "Print sticker"}
+            </Button>
+            <Button variant="ghost" size="sm" className="w-full" onClick={() => void pack()} disabled={busy}>
+              <Package /> Pack edition
+            </Button>
+          </div>
         </div>
       )}
     </div>

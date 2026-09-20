@@ -1,6 +1,6 @@
 import type { Origin } from "./origin";
 import { originStamp } from "./origin";
-import { encodeGlyphToken, glyphShareUrl, originToGlyph, renderGlyphPlate } from "./glyph";
+import { encodeGlyphToken, glyphShareUrl, originToGlyph, renderSticker } from "./glyph";
 
 export type PressMode = "none" | "mirror-x" | "kaleido";
 
@@ -63,7 +63,8 @@ export async function packEdition(png: Blob, origin: Origin, mode: PressMode): P
   const stamp = originStamp(origin.capturedAt);
   const folder = `MORPHOS-${stamp}`;
   const token = encodeGlyphToken(originToGlyph(origin, origin.artist));
-  const glyph = await renderGlyphPlate(glyphShareUrl(token));
+  const href = glyphShareUrl(token);
+  const glyph = await renderSticker(png, href);
   const readme = packReadme(origin, mode);
   const originBytes = new TextEncoder().encode(`${JSON.stringify(origin, null, 2)}\n`);
   const note = new TextEncoder().encode(readme);
@@ -96,11 +97,15 @@ function packReadme(origin: Origin, mode: PressMode) {
     "  Movie File In TOP ← field.png. Table DAT ← origin.json.",
     "  The instrument already speaks WebSocket (Sync). This pack is the still edition.",
     "",
+    "Sticker",
+    "  glyph.png is the print. It is their field, forced into a QR the phone Camera",
+    "  already knows how to read. The URL is MORPHOS with the origin in ?o=",
+    "  No app: the link is the instrument. Installed PWA: it opens in MORPHOS.",
+    "  Native App Store / Play wrap can keep this same URL (Universal Links).",
+    "",
     "Print",
-    "  field.png is 2048², sRGB. Book-match and kaleidoscope are optional presses.",
-    "  glyph.png is the scannable plate — chemistry, voice, and maker. Print it as a",
-    "  sticker or hangtag. Open MORPHOS → Image → Scan to restore the instrument.",
-    "  A Unity / Vuforia / Artvive target can use the same still; origin.json is the payload.",
+    "  field.png is 2048², sRGB. Book-match and kaleido are optional presses.",
+    "  Send glyph.png to the sticker shop. Hang it at the venue.",
     "",
     "The pattern cannot be remade. The seed was this body, this room, this minute.",
     "",

@@ -169,6 +169,7 @@ export function renderWebManifest(hostHeader) {
       display: "standalone",
       background_color: "#000000",
       theme_color: "#000000",
+      launch_handler: { client_mode: ["navigate-existing", "auto"] },
       icons: [
         {
           src: "/__grok/icon-180.png",

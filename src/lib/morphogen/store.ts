@@ -17,6 +17,7 @@ import type { UndoSnap } from "./history";
 import { DEFAULT_KEY, DEFAULT_MODE, DEFAULT_PITCH_MAX, DEFAULT_PITCH_MIN, clampPitchRange, isLegacyPitchWindow, keyById, modeById, type KeyId, type ModeId } from "./theory";
 import type { Artist } from "./origin";
 import type { Glyph } from "./glyph";
+import { rememberGlyph } from "./glyph";
 
 export type ImageSlot = {
   id: string;
@@ -290,6 +291,7 @@ export const useInstrument = create<InstrumentState>()(
       },
       recallGlyph: (g) => {
         maybeCheckpoint();
+        rememberGlyph(g);
         const pal = paletteById(g.pa);
         const known = presetById(g.pr);
         const params = {

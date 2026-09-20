@@ -30,7 +30,7 @@ import { SessionRecorder, downloadBlob } from "@/lib/morphogen/recorder";
 import { headingToKey, formatKeyMode } from "@/lib/morphogen/theory";
 import { glassToWorld } from "@/lib/morphogen/space";
 import { snapshotOrigin, originStamp } from "@/lib/morphogen/origin";
-import { decodeGlyphToken } from "@/lib/morphogen/glyph";
+import { decodeGlyphToken, lastRecalledGlyph, type Glyph } from "@/lib/morphogen/glyph";
 import type { LoopClip } from "@/lib/morphogen/loops";
 import type { FieldShot } from "./field-library";
 import {
@@ -113,6 +113,7 @@ export function MorphogenApp() {
   const [layerRecording, setLayerRecording] = useState(false);
   const [shots, setShots] = useState<FieldShot[]>([]);
   const [compassLive, setCompassLive] = useState(false);
+  const [edition, setEdition] = useState<Glyph | null>(lastRecalledGlyph);
   const factory = useInstrument(isFactoryInstrument);
   const atDefaults = factory && lockCount === 0 && loops.length === 0;
 
@@ -268,17 +269,29 @@ export function MorphogenApp() {
   }, []);
 
   useEffect(() => {
-    const apply = () => {
-      const raw = new URLSearchParams(window.location.search).get("o");
+    const applyFrom = (raw: string | null) => {
       if (!raw) return;
       const g = decodeGlyphToken(raw) ?? decodeGlyphToken(`M1.${raw}`);
       if (!g) return;
       useInstrument.getState().recallGlyph(g);
+      setEdition(g);
       const who = g.a?.n ? ` · ${g.a.n}` : "";
       toast(`Edition recalled${who}`);
     };
+    const apply = () => applyFrom(new URLSearchParams(window.location.search).get("o"));
     if (useInstrument.persist.hasHydrated()) apply();
-    return useInstrument.persist.onFinishHydration(apply);
+    const unsub = useInstrument.persist.onFinishHydration(apply);
+    const w = window as Window & {
+      launchQueue?: { setConsumer: (cb: (p: { targetURL: string }) => void) => void };
+    };
+    w.launchQueue?.setConsumer((p) => {
+      try {
+        applyFrom(new URL(p.targetURL).searchParams.get("o"));
+      } catch {
+        /* ignore */
+      }
+    });
+    return unsub;
   }, []);
 
   useEffect(() => {
@@ -725,7 +738,7 @@ export function MorphogenApp() {
         </div>
       )}
 
-      {!started && !glError && <StartGate onEnter={() => void enter()} />}
+      {!started && !glError && <StartGate onEnter={() => void enter()} edition={edition} />}
 
       {started && recording && (
         <div

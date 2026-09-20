@@ -9,6 +9,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Venue stickers.** Print sticker fuses the living field into a Camera-readable
+  MORPHOS URL (`/?o=`). Phone Camera opens the instrument with that chemistry
+  and voice. Installed PWA reuses the window (`launch_handler`). Remix is the
+  Enter gate. Native App Store / Play can keep the same URL later.
 - **Glyph plates.** An edition pack includes `glyph.png` — a maze-like QR
   of the origin (chemistry, voice, maker). Image → Scan (or `?o=`) restores
   the instrument from a print, sticker, or capture. Mirroring is optional

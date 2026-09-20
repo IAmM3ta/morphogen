@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ControlDock } from "./control-dock";
 import { StartGate } from "./start-gate";
+import { ArOverlay } from "./ar-overlay";
 import { LivingField, MorphoMark, Wordmark } from "./wordmark";
 import { RDEngine } from "@/lib/morphogen/rd-engine";
 import { AudioEngine } from "@/lib/morphogen/audio-engine";
@@ -70,6 +71,7 @@ export function MorphogenApp() {
   const defaultsRef = useRef<() => void>(() => {});
   const recordRef = useRef<() => void>(() => {});
   const undoRef = useRef<() => void>(() => {});
+  const huntAfter = useRef(false);
   const lastLockAt = useRef(0);
   const sensorsUnhook = useRef<(() => void) | null>(null);
 
@@ -114,6 +116,7 @@ export function MorphogenApp() {
   const [shots, setShots] = useState<FieldShot[]>([]);
   const [compassLive, setCompassLive] = useState(false);
   const [edition, setEdition] = useState<Glyph | null>(lastRecalledGlyph);
+  const [hunting, setHunting] = useState(false);
   const factory = useInstrument(isFactoryInstrument);
   const atDefaults = factory && lockCount === 0 && loops.length === 0;
 
@@ -306,6 +309,13 @@ export function MorphogenApp() {
   }, []);
 
   useEffect(() => subscribeHistory((n) => setCanUndo(n > 0)), []);
+
+  useEffect(() => {
+    if (!started || !huntAfter.current) return;
+    huntAfter.current = false;
+    setHunting(true);
+    patch({ cameraOn: false, uiHidden: true, panelOpen: false });
+  }, [started, patch]);
 
   useEffect(() => {
     if (!recording) return;
@@ -710,7 +720,7 @@ export function MorphogenApp() {
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-bg text-fg select-none">
       <div ref={canvasWrapRef} className="absolute inset-0 touch-none" style={{ touchAction: "none" }}>
-        <canvas ref={canvasRef} className="block h-full w-full touch-none" />
+        <canvas ref={canvasRef} className={cn("block h-full w-full touch-none", hunting && "opacity-0")} />
         <video ref={videoRef} className="hidden" playsInline muted />
         {charge.v > 0.02 && (
           <div
@@ -732,13 +742,38 @@ export function MorphogenApp() {
         )}
       </div>
 
+      {hunting && (
+        <ArOverlay
+          field={canvasRef.current}
+          onClose={() => {
+            setHunting(false);
+            patch({ uiHidden: false });
+          }}
+          onLock={(g) => {
+            useInstrument.getState().recallGlyph(g);
+            setEdition(g);
+            const who = g.a?.n ? ` · ${g.a.n}` : "";
+            toast(`Field found${who}`);
+          }}
+        />
+      )}
+
       {glError && (
         <div className="absolute inset-0 z-40 flex items-center justify-center bg-bg px-6 text-center">
           <p className="max-w-sm text-sm text-muted">{glError}</p>
         </div>
       )}
 
-      {!started && !glError && <StartGate onEnter={() => void enter()} edition={edition} />}
+      {!started && !glError && (
+        <StartGate
+          onEnter={() => void enter()}
+          onHunt={() => {
+            huntAfter.current = true;
+            void enter();
+          }}
+          edition={edition}
+        />
+      )}
 
       {started && recording && (
         <div
@@ -851,6 +886,10 @@ export function MorphogenApp() {
             onMidiSelect={onMidiSelect}
             onToggleMic={(on) => void onToggleMic(on)}
             onToggleCamera={(on) => patch({ cameraOn: on })}
+            onHunt={() => {
+              patch({ cameraOn: false, uiHidden: true, panelOpen: false });
+              setHunting(true);
+            }}
             onToggleGyro={(on) => {
               patch({ gyroOn: on });
               if (on) {

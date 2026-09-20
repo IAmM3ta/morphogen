@@ -9,6 +9,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Find / AR overlay.** Image → Find sticker (or Enter → Find) opens the
+  rear camera. A MORPHOS glyph is tracked by its corners; the living field
+  is perspectively mapped onto the print (screen blend). Settings lock to
+  that origin. Lose the sticker, keep hunting. Geocache in the city.
 - **Venue stickers.** Print sticker fuses the living field into a Camera-readable
   MORPHOS URL (`/?o=`). Phone Camera opens the instrument with that chemistry
   and voice. Installed PWA reuses the window (`launch_handler`). Remix is the

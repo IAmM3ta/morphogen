@@ -4,9 +4,11 @@ import type { Glyph } from "@/lib/morphogen/glyph";
 
 export function StartGate({
   onEnter,
+  onHunt,
   edition,
 }: {
   onEnter: () => void;
+  onHunt?: () => void;
   edition?: Glyph | null;
 }) {
   const maker = edition?.a?.n;
@@ -41,6 +43,11 @@ export function StartGate({
           <Button size="lg" onClick={onEnter} className="min-h-12 px-8 tracking-[0.14em] uppercase">
             {edition ? "Remix" : "Enter"}
           </Button>
+          {onHunt && (
+            <Button size="lg" variant="secondary" className="min-h-12 px-8 tracking-[0.14em] uppercase" onClick={onHunt}>
+              Find
+            </Button>
+          )}
           <Button asChild size="lg" variant="secondary" className="min-h-12 px-8 tracking-[0.14em] uppercase">
             <a href="/guide/Morphos-Instrument-Guide.pdf" download="Morphos-Instrument-Guide.pdf">
               Guide

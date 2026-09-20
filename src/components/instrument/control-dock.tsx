@@ -12,6 +12,7 @@ import {
   Layers,
   Radio,
   RotateCcw,
+  ScanSearch,
   Smartphone,
   SlidersHorizontal,
   Square,
@@ -87,6 +88,7 @@ export function ControlDock({
   onMidiSelect,
   onToggleMic,
   onToggleCamera,
+  onHunt,
   onToggleGyro,
   cameraOn,
   onAddImage,
@@ -125,6 +127,7 @@ export function ControlDock({
   onMidiSelect: (id: string | null) => void;
   onToggleMic: (on: boolean) => void;
   onToggleCamera: (on: boolean) => void;
+  onHunt: () => void;
   onToggleGyro: (on: boolean) => void;
   cameraOn: boolean;
   onAddImage: (files: FileList | null) => void;
@@ -454,6 +457,7 @@ export function ControlDock({
             onPickImage={onPickImage}
             onUsePalette={onUsePalette}
             onToggleCamera={onToggleCamera}
+            onHunt={onHunt}
             setImageMode={setImageMode}
             setMix={(n) => setParam("imageMix", n)}
           />
@@ -967,6 +971,7 @@ function ImageTab({
   onPickImage,
   onUsePalette,
   onToggleCamera,
+  onHunt,
   setImageMode,
   setMix,
 }: {
@@ -980,6 +985,7 @@ function ImageTab({
   onPickImage: (id: string) => void;
   onUsePalette: () => void;
   onToggleCamera: (on: boolean) => void;
+  onHunt: () => void;
   setImageMode: (m: ImageMode) => void;
   setMix: (n: number) => void;
 }) {
@@ -1006,6 +1012,13 @@ function ImageTab({
         </Button>
       </div>
       <ScanPlate />
+      <Button variant="secondary" size="sm" className="w-full" onClick={onHunt}>
+        <ScanSearch /> Find sticker
+      </Button>
+      <p className="text-xs leading-relaxed text-muted">
+        Point the camera at a print. The field locks to that origin and lives
+        on the paper — a cache in the city.
+      </p>
       {images.length > 0 && (
         <div className="flex gap-2 overflow-x-auto pb-1">
           {images.map((img) => (

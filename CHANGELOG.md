@@ -32,6 +32,7 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- Share card and X banner retitled **MORPHOS** / Living Field.
 - Spatial audio: the glass is a table in front of the listener (HRTF
   PannerNode). Left/right is azimuth, top is farther and higher, bottom
   is in the lap. Locked drones and recorded loops sit where they were

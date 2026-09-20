@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Wordmark } from "./wordmark";
+import { LivingField, Wordmark } from "./wordmark";
 
 export function StartGate({ onEnter }: { onEnter: () => void }) {
   return (
@@ -8,8 +8,8 @@ export function StartGate({ onEnter }: { onEnter: () => void }) {
       data-ui
     >
       <div className="mx-auto w-full max-w-lg">
-        <p className="text-xs tracking-[0.38em] text-muted uppercase">Earth cavity · 7.83 Hz</p>
-        <h1 className="mt-4 max-w-full text-wordmark text-fg">
+        <LivingField className="text-[10px]" />
+        <h1 className="mt-3 max-w-full text-wordmark text-fg">
           <Wordmark variant="hero" />
         </h1>
         <div className="mt-6 h-px w-16 bg-fg/35" />
@@ -25,7 +25,7 @@ export function StartGate({ onEnter }: { onEnter: () => void }) {
             Enter
           </Button>
           <Button asChild size="lg" variant="secondary" className="min-h-12 px-8 tracking-[0.14em] uppercase">
-            <a href="/guide/Morphogen-Instrument-Guide.pdf" download="Morphogen-Instrument-Guide.pdf">
+            <a href="/guide/Morphos-Instrument-Guide.pdf" download="Morphos-Instrument-Guide.pdf">
               Guide
             </a>
           </Button>

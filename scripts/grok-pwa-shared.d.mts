@@ -11,17 +11,11 @@ export declare function acceptsHtml(accept: string | null | undefined): boolean;
 export declare function stripInstallParams(url: string | null | undefined): string;
 export declare function renderInstallPageHtml(
   template: string,
-  context?: {
-    host?: string | null;
-    url?: string | null;
-    site?: OgSite;
-    cwd?: string;
-  },
+  context?: { host?: string | null; url?: string | null },
 ): string;
 export declare function renderWebManifest(
-  hostHeader?: string | null,
-  site?: OgSite,
-  cwd?: string,
+  hostHeader: string | null | undefined,
+  site?: { title?: string } | null,
 ): string;
 export declare function grokPwaHeadTags(appName?: string): Array<[string, string]>;
 export declare const GROK_EXTENSIONS_SCRIPT_SRC: string;

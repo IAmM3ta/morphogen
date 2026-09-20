@@ -1,5 +1,6 @@
 {
-  "title": "Morphogen",
+  "title": "MORPHOS",
+  "description": "Living Field — a reaction-diffusion audiovisual instrument.",
   "type": "x:game",
   "card": "custom"
 }

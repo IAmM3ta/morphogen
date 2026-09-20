@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ControlDock } from "./control-dock";
 import { StartGate } from "./start-gate";
-import { Wordmark } from "./wordmark";
+import { LivingField, Wordmark } from "./wordmark";
 import { RDEngine } from "@/lib/morphogen/rd-engine";
 import { AudioEngine } from "@/lib/morphogen/audio-engine";
 import { MidiOut, type MidiDevice } from "@/lib/morphogen/midi-out";
@@ -721,6 +721,7 @@ export function MorphogenApp() {
             <p className="text-lg text-fg">
               <Wordmark variant="hud" />
             </p>
+            <LivingField className="mt-0.5 text-[9px]" />
             <p className="font-mono text-[10px] tracking-[0.12em] tabular-nums text-muted">
               F {params.feed.toFixed(4)} · k {params.kill.toFixed(4)} · E {energy.toFixed(2)}
               {` · ${formatKeyMode(keyId, modeId)}`}

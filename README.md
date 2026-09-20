@@ -1,6 +1,8 @@
-# Morphogen
+# MORPHOS
 
-A **theremin made of chemistry**. 4K-class Gray–Scott reaction-diffusion you play with fingers, the phone’s IMU, and a mouse in any modern browser. First touch voices an overtone chant in the current key; lift and it recedes. Optional sync to projectors via TouchDesigner or MIDI.
+**Living Field.** A theremin made of chemistry. 4K-class Gray–Scott reaction-diffusion you play with fingers, the phone’s IMU, and a mouse in any modern browser. First touch voices an overtone chant in the current key; lift and it recedes. Optional sync to projectors via TouchDesigner or MIDI.
+
+Public instrument: **[morphos.grok.me](https://morphos.grok.me)**
 
 **[Changelog](CHANGELOG.md)** · **[Instrument guide (PDF)](docs/Morphogen-Instrument-Guide.pdf)** · **[Releases](https://github.com/IAmM3ta/morphogen/releases)** · current **[v0.1.0](https://github.com/IAmM3ta/morphogen/releases/tag/v0.1.0)**
 
@@ -73,7 +75,7 @@ npm run preview
 
 ## TouchDesigner
 
-In Morphogen, open **Sync** and connect to a WebSocket DAT running as a server. Callbacks live in `public/td/morphogen_ws_callbacks.py`. MIDI CCs 20–29 are an alternative.
+In MORPHOS, open **Sync** and connect to a WebSocket DAT running as a server. Callbacks live in `public/td/morphogen_ws_callbacks.py`. MIDI CCs 20–29 are an alternative.
 
 ## Stack
 

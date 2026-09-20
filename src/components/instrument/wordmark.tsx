@@ -1,15 +1,19 @@
 import type { CSSProperties } from "react";
 import { cn } from "@/lib/utils";
 
-const WORD = "Morphogen";
+export const APP_NAME = "MORPHOS";
+export const APP_TAGLINE = "Living Field";
+export const APP_HOST = "morphos.grok.me";
+
+const WORD = "MORPHOS";
 
 /**
  * 1D concentration bump: letters bloom in the middle the way a
  * Gray-Scott inoculum spreads. Hero is more extreme; HUD stays legible.
  */
 const STRETCH = {
-  hero: [72, 96, 124, 146, 150, 138, 116, 92, 70],
-  hud: [90, 104, 118, 130, 134, 124, 112, 100, 88],
+  hero: [80, 104, 130, 150, 128, 102, 78],
+  hud: [94, 110, 124, 136, 124, 110, 94],
 } as const;
 
 const WEIGHT = {
@@ -29,7 +33,7 @@ export function Wordmark({
   return (
     <span
       className={cn("wordmark", variant === "hero" ? "wordmark-hero" : "wordmark-hud", className)}
-      aria-label="Morphogen"
+      aria-label={APP_NAME}
     >
       {[...WORD].map((ch, i) => {
         const w = stretch[i] ?? 100;
@@ -50,5 +54,15 @@ export function Wordmark({
         );
       })}
     </span>
+  );
+}
+
+export function LivingField({ className }: { className?: string }) {
+  return (
+    <p className={cn("font-mono uppercase tracking-[0.28em] text-muted", className)}>
+      <span className="text-faint">{"<"}</span>
+      {` ${APP_TAGLINE} `}
+      <span className="text-faint">{">"}</span>
+    </p>
   );
 }

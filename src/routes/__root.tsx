@@ -2,9 +2,8 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-r
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { Toaster } from "sonner";
+import { APP_HOST, APP_NAME } from "@/components/instrument/wordmark";
 import appCss from "../styles.css?url";
-
-const APP_NAME = "Morphogen";
 
 export const Route = createRootRoute({
   head: () => ({
@@ -21,10 +20,11 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "A living reaction-diffusion audiovisual instrument. First touch voices an overtone chant. Play it with photographs, phone sensors, and TouchDesigner.",
+          "MORPHOS — Living Field. A reaction-diffusion audiovisual instrument. First touch voices the field. Play it with photographs, phone sensors, and TouchDesigner.",
       },
     ],
     links: [
+      { rel: "canonical", href: `https://${APP_HOST}/` },
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       { rel: "stylesheet", href: appCss },
       { rel: "manifest", href: "/__grok/manifest.webmanifest" },

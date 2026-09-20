@@ -199,7 +199,7 @@ export class RDEngine {
       powerPreference: "high-performance",
       preserveDrawingBuffer: true,
     });
-    if (!gl) throw new Error("WebGL2 is required for Morphogen.");
+    if (!gl) throw new Error("WebGL2 is required for MORPHOS.");
     this.gl = gl;
 
     gl.getExtension("EXT_color_buffer_float");

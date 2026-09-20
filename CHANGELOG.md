@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Morphogen are documented in this file.
+All notable changes to MORPHOS are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -32,6 +32,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- Product name is **MORPHOS**, subtitle **Living Field**. Wordmark, Enter
+  gate, PWA, and instrument guide retitled. Public URL
+  [morphos.grok.me](https://morphos.grok.me). Repo stays
+  `IAmM3ta/morphogen`.
 - First impression: sine is a warm almost-pure voice (no formant wah). Extra
   fingers are real voices again — TouchEvents own the glass. Factory field is
   Pearson mitosis in Abyss (round dividing cells, 3D rim light) instead of

@@ -1,20 +1,20 @@
-# Morphogen → TouchDesigner WebSocket DAT callbacks
+# MORPHOS → TouchDesigner WebSocket DAT callbacks
 # 1. Add a WebSocket DAT, set it to Server, Active on, port 9980
 # 2. Paste this into the DAT's callbacks (or point the DAT at this file)
 # 3. Create Table DATs named 'morphogen_json' and 'morphogen_grid'
-# 4. In Morphogen, open Sync and Connect to ws://127.0.0.1:9980
-#    If Morphogen is served over HTTPS, expose this socket as wss://
+# 4. In MORPHOS, open Sync and Connect to ws://127.0.0.1:9980
+#    If MORPHOS is served over HTTPS, expose this socket as wss://
 #
-# MIDI alternative: enable MIDI in Morphogen and map CCs 20–29 in a MIDI In CHOP.
+# MIDI alternative: enable MIDI in MORPHOS and map CCs 20–29 in a MIDI In CHOP.
 
 import json
 
 def onConnect(dat, webSocket):
-    print("Morphogen connected")
+    print("MORPHOS connected")
     return
 
 def onDisconnect(dat, webSocket):
-    print("Morphogen disconnected")
+    print("MORPHOS disconnected")
     return
 
 def onReceiveText(dat, rowIndex, message):

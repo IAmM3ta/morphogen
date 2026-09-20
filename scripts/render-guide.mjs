@@ -27,4 +27,8 @@ await browser.close();
 
 mkdirSync(publicDir, { recursive: true });
 copyFileSync(out, resolve(publicDir, "Morphogen-Instrument-Guide.pdf"));
-console.log(JSON.stringify({ ok: true, out, public: resolve(publicDir, "Morphogen-Instrument-Guide.pdf") }));
+copyFileSync(out, resolve(publicDir, "Morphos-Instrument-Guide.pdf"));
+copyFileSync(out, resolve(root, "public/Morphogen-Instrument-Guide.pdf"));
+copyFileSync(out, resolve(root, "public/Morphos-Instrument-Guide.pdf"));
+copyFileSync(out, resolve(root, "docs/Morphos-Instrument-Guide.pdf"));
+console.log(JSON.stringify({ ok: true, out, public: resolve(publicDir, "Morphos-Instrument-Guide.pdf") }));

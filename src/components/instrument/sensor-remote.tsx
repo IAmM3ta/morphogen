@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Wordmark } from "./wordmark";
+import { LivingField, Wordmark } from "./wordmark";
 import { useP2PRoom } from "@/lib/multiplayer/use-p2p-room";
 import {
   attachSensors,
@@ -69,7 +69,7 @@ export function SensorRemote({ code }: { code: string }) {
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-bg text-fg">
       <header className="px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-2">
-        <p className="text-xs tracking-[0.2em] text-muted uppercase">Sensor</p>
+        <LivingField className="text-[10px]" />
         <h1 className="mt-1 text-3xl">
           <Wordmark variant="hud" className="text-3xl" />
         </h1>
@@ -92,7 +92,7 @@ export function SensorRemote({ code }: { code: string }) {
         {!armed && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 px-6 text-center">
             <p className="max-w-xs text-sm leading-relaxed text-muted">
-              This phone becomes tilt, shake, and touch for the Morphogen stage.
+              This phone becomes tilt, shake, and touch for the MORPHOS stage.
             </p>
             <Button size="lg" onClick={() => void arm()}>
               Arm sensors

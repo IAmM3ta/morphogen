@@ -137,7 +137,9 @@
 
 .wordmark {
   display: inline-flex;
+  flex-wrap: nowrap;
   align-items: baseline;
+  white-space: nowrap;
   font-family: var(--font-display);
   font-synthesis: none;
   font-kerning: none;

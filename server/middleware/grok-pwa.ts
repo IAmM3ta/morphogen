@@ -87,7 +87,6 @@ export default async function grokPwaMiddleware(
     const html = renderInstallPageHtml(installPageTemplate, {
       host: requestHost(event),
       url: urlWithQuery,
-      site: grokOgIdentity.site,
     });
     return new Response(html, {
       headers: {

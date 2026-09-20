@@ -235,7 +235,7 @@ export function ControlDock({
               More
             </Button>
             <Button asChild variant="ghost" size="sm">
-              <a href="/guide/Morphogen-Instrument-Guide.pdf" download="Morphogen-Instrument-Guide.pdf">
+              <a href="/guide/Morphos-Instrument-Guide.pdf" download="Morphos-Instrument-Guide.pdf">
                 <FileText />
                 Guide
               </a>
@@ -1066,7 +1066,7 @@ function SyncTab({
       <div>
         <p className="text-sm text-fg">TouchDesigner WebSocket</p>
         <p className="mt-1 text-xs leading-relaxed text-muted">
-          Run a WebSocket DAT as a server, then connect Morphogen as the client.
+          Run a WebSocket DAT as a server, then connect MORPHOS as the client.
           Packets are JSON at 20 Hz: params, sensors, audio, field stats, optional
           16×16 grid.
         </p>

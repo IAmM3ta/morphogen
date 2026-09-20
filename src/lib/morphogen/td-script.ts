@@ -1,8 +1,8 @@
-export const TD_CALLBACKS = `# Morphogen → TouchDesigner WebSocket DAT callbacks
+export const TD_CALLBACKS = `# MORPHOS → TouchDesigner WebSocket DAT callbacks
 # 1. Add a WebSocket DAT, set it to Server, Active on, port 9980
 # 2. Paste this into the DAT's callbacks
-# 3. In Morphogen, open Sync and Connect to ws://127.0.0.1:9980
-#    (use wss://host:port if Morphogen is served over HTTPS)
+# 3. In MORPHOS, open Sync and Connect to ws://127.0.0.1:9980
+#    (use wss://host:port if MORPHOS is served over HTTPS)
 #
 # Suggested CHOPs / TOPs:
 #   - Table DAT named 'morphogen_json' (this script fills it)
@@ -12,11 +12,11 @@ export const TD_CALLBACKS = `# Morphogen → TouchDesigner WebSocket DAT callbac
 import json
 
 def onConnect(dat, webSocket):
-    print('Morphogen connected')
+    print('MORPHOS connected')
     return
 
 def onDisconnect(dat, webSocket):
-    print('Morphogen disconnected')
+    print('MORPHOS disconnected')
     return
 
 def onReceiveText(dat, rowIndex, message):

@@ -343,6 +343,8 @@ export function MorphogenApp() {
       preset: useInstrument.getState().presetId,
       hz: audioRef.current?.lastHz ?? 0,
       voices: audioRef.current?.voiceCount ?? 0,
+      audio: audioRef.current?.contextState() ?? "none",
+      audioOn: useInstrument.getState().audioOn,
       antenna: runtime.antenna.on,
       recording: recorderRef.current.recording,
       morphing: Boolean(runtime.morph),
@@ -385,6 +387,7 @@ export function MorphogenApp() {
       (x, y) => performLockRef.current(x, y),
       (v, x, y) => setCharge({ v, x, y }),
       (evt) => {
+        audioRef.current?.resume();
         if (evt.type === "down" && localBrushes.current.length <= 1) maybeCheckpoint();
       },
     );
@@ -569,14 +572,13 @@ export function MorphogenApp() {
   }, [cameraOn, patch]);
 
   const enter = useCallback(async () => {
-    runtime.started = true;
-    patch({ started: true, panelOpen: false });
-    const sensePromise = requestSensorPermission();
+    let audio: AudioEngine | null = null;
     try {
-      const audio = new AudioEngine();
+      audio = new AudioEngine();
       audio.unlock();
       audioRef.current = audio;
       audio.setVolume(useInstrument.getState().volume);
+      audio.setMuted(useInstrument.getState().muted || !useInstrument.getState().audioOn);
       audio.setWaveform(useInstrument.getState().waveform);
       audio.onLoops = (clips, rec) => {
         setLoops(clips);
@@ -586,7 +588,11 @@ export function MorphogenApp() {
       toast("Audio could not start — tap again to retry");
     }
 
+    runtime.started = true;
+    patch({ started: true, panelOpen: false });
+    const sensePromise = requestSensorPermission();
     await sensePromise;
+    audio?.resume();
     patch({ gyroOn: true });
     setSenseReady(true);
 

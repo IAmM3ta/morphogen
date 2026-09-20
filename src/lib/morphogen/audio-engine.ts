@@ -212,12 +212,15 @@ export class AudioEngine {
   lastHz = HUM_X64;
   voiceCount = 0;
   private ctxHooked = false;
+  private resumePromise: Promise<void> | null = null;
+  private lastResumeAt = 0;
 
   unlock() {
     if (this.ctx?.state === "closed") {
       this.ctx = null;
       this.hum = [];
       this.ctxHooked = false;
+      this.resumePromise = null;
     }
     if (!this.ctx) {
       const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
@@ -225,23 +228,26 @@ export class AudioEngine {
       this.buildGraph();
       this.hookContext();
     }
-    if (this.ctx.state !== "running") void this.ctx.resume();
     this.enabled = true;
+    this.punchMaster();
+    this.resume();
   }
 
   private hookContext() {
     const ctx = this.ctx;
     if (!ctx || this.ctxHooked) return;
     this.ctxHooked = true;
-    ctx.addEventListener("statechange", () => {
-      if (this.enabled && ctx.state !== "running" && ctx.state !== "closed") void ctx.resume();
-    });
     const wake = () => {
       if (this.enabled) this.resume();
     };
     window.addEventListener("pointerdown", wake, { passive: true });
     window.addEventListener("touchstart", wake, { passive: true });
     window.addEventListener("keydown", wake);
+  }
+
+  /** Snapshot for the probe / HUD. */
+  contextState(): string {
+    return this.ctx?.state ?? "none";
   }
 
   private buildGraph() {
@@ -295,11 +301,12 @@ export class AudioEngine {
     this.loopBus.connect(this.recDest);
 
     this.humBus = ctx.createGain();
-    this.humBus.gain.value = 0;
+    this.humBus.gain.value = 0.88;
     this.humPan = ctx.createStereoPanner();
     this.humPan.pan.value = 0;
     this.humBus.connect(this.humPan);
-    this.humPan.connect(this.bus);
+    // Dry into the lead bus so The Hum cannot vanish inside the delay loop.
+    this.humPan.connect(this.leadBus);
     this.hum = humTargets().map((p) => {
       const osc = ctx.createOscillator();
       osc.type = "sine";
@@ -355,7 +362,25 @@ export class AudioEngine {
     }
 
     ramp(this.master.gain, this.muted ? 0 : this.volume * this.volume, ctx.currentTime, 0.08);
-    ramp(this.humBus.gain, 0.88, ctx.currentTime, 0.35);
+    this.punchMaster();
+  }
+
+  private masterGainTarget() {
+    if (!this.enabled || this.muted) return 0;
+    const v = Number.isFinite(this.volume) ? Math.max(0, Math.min(1, this.volume)) : 0.7;
+    return v * v;
+  }
+
+  /** WebKit drops setTargetAtTime scheduled while suspended; write the value. */
+  private punchMaster() {
+    if (!this.master) return;
+    const g = this.masterGainTarget();
+    try {
+      this.master.gain.cancelScheduledValues(this.ctx?.currentTime ?? 0);
+      this.master.gain.value = g;
+    } catch {
+      /* ignore */
+    }
   }
 
   captureStream(): MediaStream | null {
@@ -512,23 +537,40 @@ export class AudioEngine {
   }
 
   setVolume(v: number) {
-    this.volume = v;
-    if (!this.ctx || !this.master) return;
-    ramp(this.master.gain, this.muted || !this.enabled ? 0 : v * v, this.ctx.currentTime, 0.04);
+    this.volume = Number.isFinite(v) ? v : 0.7;
+    this.punchMaster();
   }
 
   setMuted(m: boolean) {
     this.muted = m;
-    this.setVolume(this.volume);
+    this.punchMaster();
   }
 
   resume() {
-    if (!this.ctx) return;
-    if (this.ctx.state === "closed") {
+    if (!this.enabled) return;
+    if (this.ctx?.state === "closed") {
       this.unlock();
       return;
     }
-    if (this.ctx.state !== "running") void this.ctx.resume();
+    const ctx = this.ctx;
+    if (!ctx) return;
+    if (ctx.state === "running") {
+      this.punchMaster();
+      return;
+    }
+    const now = performance.now();
+    if (this.resumePromise) return;
+    if (now - this.lastResumeAt < 400) return;
+    this.lastResumeAt = now;
+    this.resumePromise = ctx
+      .resume()
+      .then(() => {
+        this.resumePromise = null;
+        this.punchMaster();
+      })
+      .catch(() => {
+        this.resumePromise = null;
+      });
   }
 
   async connectMic(): Promise<boolean> {
@@ -788,13 +830,14 @@ export class AudioEngine {
       return;
     }
     if (this.ctx.state !== "running") {
-      void this.ctx.resume();
+      // Do not spam resume() from rAF — Safari/WKWebView sticks suspended.
       return;
     }
     if (!this.humBus || !this.humPan || !this.lfo || !this.lfoGain || !this.noiseFilter || !this.noiseGain || !this.tiltFilter || !this.delayGain)
       return;
     const ctx = this.ctx;
     const now = ctx.currentTime;
+    this.punchMaster();
     const s = runtime.stats;
     const energy = s.energy;
     const v = s.meanV;

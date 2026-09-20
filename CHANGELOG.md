@@ -60,12 +60,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   morph froze `liveStops`. They now replace the live palette and retune The
   Hum — brightness, third/fifth, and air follow the circle. Key and mode
   retune the drone immediately, with or without a finger on the glass.
-- The Hum lived on 31–62 Hz, below what a phone speaker can reproduce, so
-  the instrument went silent after a few seconds (iOS treats that as
-  silence and suspends the context). Factory rest is now 251–1002 Hz
-  (×32–×128 of 7.83 Hz). The cavity fundamental is still there, felt, and
-  Lo opens to 7.83 Hz. AudioContext resume is hooked to pointer, key, and
-  visibility.
+- Safari/WKWebView went silent after Enter: the Hum tick called `resume()`
+  on every frame while the context was still suspended, which sticks the
+  context, and the initial master-gain ramp was dropped. Resume is
+  gesture-only; master gain is written directly; The Hum is dry into the
+  lead bus so it cannot vanish in the delay loop.
 - The unlabeled layers glyph stacked filtered noise into a delay with high
   feedback, then multiplied live pitch by a fifth/octave per layer, so each
   tap was louder white noise climbing out of the Hz window, with no off

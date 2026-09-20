@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ControlDock } from "./control-dock";
 import { StartGate } from "./start-gate";
-import { LivingField, Wordmark } from "./wordmark";
+import { LivingField, MorphoMark, Wordmark } from "./wordmark";
 import { RDEngine } from "@/lib/morphogen/rd-engine";
 import { AudioEngine } from "@/lib/morphogen/audio-engine";
 import { MidiOut, type MidiDevice } from "@/lib/morphogen/midi-out";
@@ -721,7 +721,8 @@ export function MorphogenApp() {
           className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-center px-16 pt-hud-t sm:justify-between sm:px-4"
         >
           <div className="pointer-events-none rounded-md bg-bg-elevated/90 px-2 py-1 shadow-[var(--shadow-border)]">
-            <p className="text-lg text-fg">
+            <p className="flex items-center gap-1.5 text-lg text-fg">
+              <MorphoMark className="size-5" />
               <Wordmark variant="hud" />
             </p>
             <LivingField className="mt-0.5 text-[9px]" />

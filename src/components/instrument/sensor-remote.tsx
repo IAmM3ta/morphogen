@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { LivingField, Wordmark } from "./wordmark";
+import { LivingField, MorphoMark, Wordmark } from "./wordmark";
 import { useP2PRoom } from "@/lib/multiplayer/use-p2p-room";
 import {
   attachSensors,
@@ -69,8 +69,9 @@ export function SensorRemote({ code }: { code: string }) {
   return (
     <div className="relative flex h-dvh flex-col overflow-hidden bg-bg text-fg">
       <header className="px-5 pt-[max(1.25rem,env(safe-area-inset-top))] pb-2">
+        <MorphoMark className="mb-2 size-8" title="MORPHOS" />
         <LivingField className="text-[10px]" />
-        <h1 className="mt-1 text-3xl">
+        <h1 className="mt-1 flex items-center gap-2 text-3xl">
           <Wordmark variant="hud" className="text-3xl" />
         </h1>
         <p className="mt-1 font-mono text-sm tracking-[0.2em] text-muted">{code}</p>

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { LivingField, Wordmark } from "./wordmark";
+import { LivingField, MorphoMark, Wordmark } from "./wordmark";
 
 export function StartGate({ onEnter }: { onEnter: () => void }) {
   return (
@@ -8,6 +8,7 @@ export function StartGate({ onEnter }: { onEnter: () => void }) {
       data-ui
     >
       <div className="mx-auto w-full max-w-lg">
+        <MorphoMark className="mb-4 size-12" title="MORPHOS" />
         <LivingField className="text-[10px]" />
         <h1 className="mt-3 max-w-full text-wordmark text-fg">
           <Wordmark variant="hero" />

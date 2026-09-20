@@ -104,10 +104,10 @@ export const PRESETS: SimPreset[] = [
   { id: "uskate", name: "Skate", blurb: "U-skate world", feed: 0.062, kill: 0.0609, du: 0.21, dv: 0.105, paletteId: "ember" },
 ];
 
-export const DEFAULT_PRESET = PRESETS[0]!;
+export const DEFAULT_PRESET = PRESETS.find((p) => p.id === "coral") ?? PRESETS[0]!;
 
 export const WAVEFORMS = [
-  { id: "sine", name: "Sine", tag: "HUM", blurb: "Overtone chant — OM vowel" },
+  { id: "sine", name: "Sine", tag: "HUM", blurb: "Warm voice — almost pure" },
   { id: "triangle", name: "Triangle", tag: "TRI", blurb: "Soft odd harmonics" },
   { id: "sawtooth", name: "Saw", tag: "SAW", blurb: "Bright full ramp" },
   { id: "square", name: "Square", tag: "SQR", blurb: "Hollow odd series" },
@@ -190,9 +190,9 @@ export const DEFAULT_PARAMS: SimParams = {
   imageMix: 0.35,
   imageMode: "inoculate",
   paletteId: DEFAULT_PRESET.paletteId,
-  glow: 1,
-  vignette: 0.08,
-  steps: 20,
+  glow: 1.15,
+  vignette: 0.1,
+  steps: 24,
 };
 
 export const MAX_BRUSHES = 8;

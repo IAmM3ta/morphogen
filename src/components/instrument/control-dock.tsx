@@ -300,9 +300,9 @@ export function ControlDock({
         ) : (
           <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="text-xs leading-relaxed text-muted">
-              Sine is an overtone chant, D dorian at rest. Height is pitch.
-              First tap voices it; lift and it recedes. C♯, Aeolian, and
-              pentatonic live here.
+              Sine is a warm voice, D dorian at rest. Height is pitch.
+              First tap voices it; lift and it recedes. Two fingers, two
+              voices. C♯, Aeolian, and pentatonic live here.
             </p>
             <div>
               <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Waveform</p>
@@ -640,7 +640,7 @@ function FieldTab({
       <section>
         <ToggleRow
           label="Default settings"
-          hint="Mitosis, overtone chant (sine), D Dorian. Clears loops, layers, and locks. Home, if you get lost in the noise."
+          hint="Coral, warm sine, D Dorian. Clears loops, layers, and locks. Home, if you get lost in the noise."
           checked={atDefaults}
           onCheckedChange={(on) => {
             if (on) onDefaults();

@@ -60,11 +60,12 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   morph froze `liveStops`. They now replace the live palette and retune The
   Hum — brightness, third/fifth, and air follow the circle. Key and mode
   retune the drone immediately, with or without a finger on the glass.
-- The always-on C5 pad was a steady electronic tone. Sound is silent
-  until the first tap; sine is now an overtone chant (harmonics 1–2–3–5–9,
-  OM vowel formant ~390 Hz) in **D Dorian** inside 125–501 Hz, in the
-  register of Maha Mrityunjaya / Dalai Lama recitation. Lift and it
-  recedes over a couple of seconds. Freeze still holds a drone on purpose.
+- Default sine used an odd-harmonic “chant” table that read as a
+  triangle/square buzzer. It is a true sine again — a little unison
+  chorus, chest peaking, dark lowpass. Extra fingers were aliased onto
+  the first voice; each contact is its own voice. Opening field is
+  **Coral** in Abyss, strongly seeded, so the first frame is already a
+  living reef.
 - Safari/WKWebView went silent after Enter: resume-spam while suspended
   stuck the context. Resume is gesture-only; master gain is written
   directly.

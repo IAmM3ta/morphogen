@@ -289,6 +289,22 @@ export const useInstrument = create<InstrumentState>()(
           state.modeId = DEFAULT_MODE;
           state.compassKey = false;
         }
+        const dullField = state.presetId === "mitosis" && state.params?.paletteId === "field";
+        if (dullField) {
+          const coral = presetById("coral");
+          state.presetId = coral.id;
+          state.params = {
+            ...state.params,
+            feed: coral.feed,
+            kill: coral.kill,
+            du: coral.du,
+            dv: coral.dv,
+            paletteId: coral.paletteId,
+            glow: DEFAULT_PARAMS.glow,
+            steps: DEFAULT_PARAMS.steps,
+          };
+        }
+        if (state.waveform !== "sine" && dullField) state.waveform = DEFAULT_WAVEFORM;
         resetRuntimeParams(state.params);
         runtime.waveform = state.waveform;
         runtime.keyId = state.keyId;

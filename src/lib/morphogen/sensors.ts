@@ -446,13 +446,8 @@ export function localPointerBrushes(
       move(cid, clientX, clientY, pressure, width, height);
       return;
     }
-    if (fingers.size === 1) {
-      const only = fingers.values().next().value as Finger;
-      alias.set(id, only.id);
-      move(only.id, clientX, clientY, pressure, width, height);
-      return;
-    }
-    const near = nearFinger(clientX, clientY, 120);
+    // Same physical finger as a pointer/touch duplicate — not a second voice.
+    const near = nearFinger(clientX, clientY);
     if (near) {
       alias.set(id, near.id);
       move(near.id, clientX, clientY, pressure, width, height);
@@ -478,8 +473,8 @@ export function localPointerBrushes(
 
   const onPointerMove = (e: PointerEvent) => {
     const cid = canon(e.pointerId);
-    const tracking = fingers.has(cid) || fingers.has(e.pointerId) || (e.pointerType === "touch" && fingers.size > 0);
-    if (tracking) {
+    const known = fingers.has(cid) || fingers.has(e.pointerId);
+    if (known) {
       if (e.cancelable && !isUi(e.target)) e.preventDefault();
       const extras = typeof e.getCoalescedEvents === "function" ? e.getCoalescedEvents() : null;
       if (extras && extras.length > 1) {
@@ -491,6 +486,12 @@ export function localPointerBrushes(
     }
     if (isUi(e.target)) {
       runtime.antenna.on = false;
+      return;
+    }
+    if (e.pointerType === "touch") {
+      // iOS often skips pointerdown on extra fingers; still birth a voice.
+      if (e.cancelable) e.preventDefault();
+      drive(e.pointerId, e.clientX, e.clientY, e.pressure, e.width, e.height);
       return;
     }
     if (e.pointerType === "mouse" || e.pointerType === "pen") {

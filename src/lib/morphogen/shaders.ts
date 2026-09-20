@@ -162,21 +162,21 @@ void main() {
   float v = 0.0;
 
   float ink = 0.0;
-  ink = max(ink, blob(uv, vec2(0.50, 0.52), 0.055, res));
-  ink = max(ink, blob(uv, vec2(0.38, 0.44), 0.038, res));
-  ink = max(ink, blob(uv, vec2(0.63, 0.58), 0.034, res));
-  ink = max(ink, blob(uv, vec2(0.47, 0.68), 0.030, res));
-  ink = max(ink, blob(uv, vec2(0.60, 0.36), 0.028, res));
-  ink = max(ink, blob(uv, vec2(0.31, 0.60), 0.026, res));
-  ink = max(ink, blob(uv, vec2(0.70, 0.42), 0.024, res));
-  ink = max(ink, blob(uv, vec2(0.42, 0.32), 0.022, res));
-  ink = max(ink, blob(uv, vec2(0.55, 0.78), 0.020, res));
-  v = ink * (0.26 + n2 * 0.08);
+  ink = max(ink, blob(uv, vec2(0.50, 0.50), 0.090, res));
+  ink = max(ink, blob(uv, vec2(0.32, 0.38), 0.070, res));
+  ink = max(ink, blob(uv, vec2(0.68, 0.58), 0.065, res));
+  ink = max(ink, blob(uv, vec2(0.42, 0.70), 0.055, res));
+  ink = max(ink, blob(uv, vec2(0.62, 0.30), 0.050, res));
+  ink = max(ink, blob(uv, vec2(0.22, 0.62), 0.048, res));
+  ink = max(ink, blob(uv, vec2(0.78, 0.40), 0.046, res));
+  ink = max(ink, blob(uv, vec2(0.38, 0.22), 0.040, res));
+  ink = max(ink, blob(uv, vec2(0.58, 0.82), 0.038, res));
+  v = ink * (0.92 + n2 * 0.08);
   u = mix(1.0, 0.50, ink);
 
-  if (n > 0.991) {
-    v = max(v, 0.24);
-    u = min(u, 0.72);
+  if (n > 0.972) {
+    v = max(v, 0.85);
+    u = min(u, 0.52);
   }
 
   if (uHasImage > 0.5) {
@@ -233,8 +233,8 @@ vec3 colorize(sampler2D field, vec3 c0, vec3 c1, vec3 c2, vec3 c3, float glowAmt
   vec3 col = paletteStops(t, c0, c1, c2, c3);
   vec3 nrm = normalize(vec3(-(vE - vW) * (2.4 + glowAmt * 2.2), (vN - vS) * (2.4 + glowAmt * 2.2), 0.22));
   float ndl = max(0.0, dot(nrm, normalize(vec3(-0.38, 0.62, 0.72))));
-  col *= 0.40 + 0.78 * ndl;
-  col += paletteStops(min(1.0, t + 0.16), c0, c1, c2, c3) * edge * (0.28 + glowAmt * 0.22);
+  col *= 0.52 + 0.88 * ndl;
+  col += paletteStops(min(1.0, t + 0.16), c0, c1, c2, c3) * edge * (0.36 + glowAmt * 0.28);
   return col;
 }
 

@@ -26,14 +26,14 @@ Or from source: `npm install && npm run build && npm run preview`.
 ## Play
 
 1. Open the app and tap **Enter**.
-2. **Silent until a finger.** Default waveform is sine — an overtone chant (harmonics 1, 2, 3, 5, 9) in D Dorian, in the Maha Mrityunjaya / OM band (~125–501 Hz). Lift and it recedes. Lo still opens to 7.83 Hz.
+2. **Silent until a finger.** Default waveform is a warm sine in D Dorian (~125–501 Hz). Two fingers, two voices. Lift and it recedes. Lo still opens to 7.83 Hz.
 3. **Height is pitch, across is amplitude.** Voices snap to the current key and mode. Left/right is no longer pan — roll the chassis to pan. Each finger is a voice. Fingers leave no marks.
 4. **The chassis is the other antenna.** Tilt, roll, spin, and g-force sculpt The Hum. The compass can walk the key around the circle of fifths. Permission is requested on Enter.
 5. On a laptop, move the pointer for pitch — no click required. Click or drag to seed the chemistry (a disk of *v*). The field is a live Gray–Scott vis: species morph in place.
 6. **Freeze** holds the last pitch as a drone you play over. **Release** peels one layer. `L` freezes, `Z` releases, `Shift+Z` clears.
 7. Species buttons **morph chemistry in place** — they do not reseed. `1`–`9` pick a species.
-8. **Sound** (on the card, or Console → Sound) chooses sine (overtone chant), triangle, saw, square, pulse, or spectrum; key (including C♯); mode (Dorian at rest, plus Ionian, Aeolian, minor pentatonic, …); and the Hz window (factory 125–501 Hz — the chant band; Lo opens to 7.83 Hz).
-9. `U` or `⌘Z` **undoes** the last change (paint, species, waveform, reset). `R` resets the field, `Shift+R` or the **Default** toggle restores factory settings (mitosis, chant, D Dorian, 125–501 Hz, and clears loops). `C` records the session.
+8. **Sound** (on the card, or Console → Sound) chooses sine (warm voice), triangle, saw, square, pulse, or spectrum; key (including C♯); mode (Dorian at rest, plus Ionian, Aeolian, minor pentatonic, …); and the Hz window (factory 125–501 Hz — the chant band; Lo opens to 7.83 Hz).
+9. `U` or `⌘Z` **undoes** the last change (paint, species, waveform, reset). `R` resets the field, `Shift+R` or the **Default** toggle restores factory settings (coral, warm sine, D Dorian, 125–501 Hz, and clears loops). `C` records the session.
 10. Every finger is a voice. On a phone, two (or more) contacts play at once.
 
 ## Field console

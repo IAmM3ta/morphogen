@@ -344,15 +344,18 @@ export class RDEngine {
       data[o + 3] = 255;
     }
     const spots: [number, number, number][] = [
-      [0.5, 0.52, 0.055],
-      [0.38, 0.44, 0.038],
-      [0.63, 0.58, 0.034],
-      [0.47, 0.68, 0.03],
-      [0.6, 0.36, 0.028],
-      [0.31, 0.6, 0.026],
-      [0.7, 0.42, 0.024],
-      [0.42, 0.32, 0.022],
-      [0.55, 0.78, 0.02],
+      [0.5, 0.5, 0.09],
+      [0.32, 0.38, 0.07],
+      [0.68, 0.58, 0.065],
+      [0.42, 0.7, 0.055],
+      [0.62, 0.3, 0.05],
+      [0.22, 0.62, 0.048],
+      [0.78, 0.4, 0.046],
+      [0.38, 0.22, 0.04],
+      [0.58, 0.82, 0.038],
+      [0.18, 0.28, 0.036],
+      [0.84, 0.72, 0.034],
+      [0.72, 0.18, 0.032],
     ];
     const minSide = Math.min(w, h);
     const paint = (cx: number, cy: number, r: number, vAmt: number) => {
@@ -375,8 +378,8 @@ export class RDEngine {
       }
     };
     for (const [cx, cy, r] of spots) paint(cx, cy, r, 1);
-    for (let s = 0; s < 72; s++) {
-      paint(0.08 + Math.random() * 0.84, 0.08 + Math.random() * 0.84, 0.01 + Math.random() * 0.018, 0.95);
+    for (let s = 0; s < 110; s++) {
+      paint(0.05 + Math.random() * 0.9, 0.05 + Math.random() * 0.9, 0.012 + Math.random() * 0.028, 1);
     }
     gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);

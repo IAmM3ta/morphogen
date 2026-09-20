@@ -28,54 +28,21 @@ export { SCHUMANN } from "./theory";
 type HumTarget = { hz: number; amp: number };
 
 /**
- * Phone-first chant: silent until a finger. Then a low overtone drone
- * (harmonics 1, 2, 3, 5, 9 — Tibetan low-voice formants) in the current key.
- * No major triad, no always-on pad.
+ * Quiet choir under the fingers: mostly the tonic, a little octave.
+ * Odd-harmonic stacks read as square/triangle — keep this a voice, not a buzzer.
  */
 function humTargets(): HumTarget[] {
   const key = keyById(runtime.keyId);
   const tonic = tonicHz(key.pc, runtime.pitchMinHz, runtime.pitchMaxHz);
-  const stops =
-    runtime.liveStops ??
-    (runtime.params.paletteId === "image" && runtime.customPalette
-      ? runtime.customPalette.stops
-      : paletteById(runtime.params.paletteId).stops);
-  const tone = paletteTone(stops);
   const felt = SCHUMANN;
-  const air = 0.55 + tone.lum * 0.45;
   return [
-    { hz: felt, amp: 0.012 },
-    { hz: tonic, amp: 0.2 },
-    { hz: tonic * 2, amp: 0.14 * air },
-    { hz: tonic * 3, amp: 0.09 * air },
-    { hz: tonic * 5, amp: 0.07 * (0.6 + tone.sat) },
-    { hz: tonic * 9, amp: 0.035 * air },
+    { hz: felt, amp: 0.008 },
+    { hz: tonic, amp: 0.16 },
+    { hz: tonic * 2, amp: 0.05 },
   ].map((p) => ({
     hz: Math.max(felt, Math.min(HUM_X64 * 4, p.hz || felt)),
     amp: Math.max(0.0008, p.amp),
   }));
-}
-
-/** Overtone series of a throat-sung / Maha Mrityunjaya voice. */
-function chantWave(ctx: AudioContext): PeriodicWave {
-  const n = 32;
-  const real = new Float32Array(n);
-  const imag = new Float32Array(n);
-  const boost: Record<number, number> = {
-    1: 0.72,
-    2: 0.52,
-    3: 0.3,
-    4: 0.1,
-    5: 0.36,
-    6: 0.05,
-    7: 0.09,
-    8: 0.06,
-    9: 0.2,
-  };
-  for (let k = 1; k < n; k++) {
-    imag[k] = boost[k] ?? 0.4 / Math.pow(k, 1.4);
-  }
-  return ctx.createPeriodicWave(real, imag);
 }
 
 function pulseWave(ctx: AudioContext, duty = 0.18, n = 64): PeriodicWave {
@@ -123,7 +90,7 @@ type Shape = {
 };
 
 const SHAPE: Record<WaveformId, Shape> = {
-  sine: { oscMix: 0.7, detMix: 0.3, harmMix: 0.1, subMix: 0.22, harmRatio: 2, cutoff: 920, q: 1.15, fm: 0.06, detuneSpread: 0.005 },
+  sine: { oscMix: 0.9, detMix: 0.1, harmMix: 0, subMix: 0.08, harmRatio: 2, cutoff: 1680, q: 0.5, fm: 0.025, detuneSpread: 0.0016 },
   triangle: { oscMix: 0.58, detMix: 0.22, harmMix: 0.16, subMix: 0.14, harmRatio: 3, cutoff: 2600, q: 0.7, fm: 0.35, detuneSpread: 0.004 },
   sawtooth: { oscMix: 0.72, detMix: 0.16, harmMix: 0.22, subMix: 0.2, harmRatio: 2, cutoff: 6800, q: 0.35, fm: 0.85, detuneSpread: 0.007 },
   square: { oscMix: 0.55, detMix: 0.06, harmMix: 0.2, subMix: 0.32, harmRatio: 3, cutoff: 4600, q: 1.15, fm: 0.28, detuneSpread: 0.003 },
@@ -131,11 +98,10 @@ const SHAPE: Record<WaveformId, Shape> = {
   spectrum: { oscMix: 0.8, detMix: 0.04, harmMix: 0.12, subMix: 0.12, harmRatio: 2, cutoff: 6000, q: 0.55, fm: 1, detuneSpread: 0.006 },
 };
 
-function applyOscShape(osc: OscillatorNode, wave: WaveformId, pulse: PeriodicWave | null, spec: PeriodicWave | null, chant: PeriodicWave | null) {
-  if (wave === "sine" && chant) osc.setPeriodicWave(chant);
-  else if (wave === "pulse" && pulse) osc.setPeriodicWave(pulse);
+function applyOscShape(osc: OscillatorNode, wave: WaveformId, pulse: PeriodicWave | null, spec: PeriodicWave | null, _chant: PeriodicWave | null) {
+  if (wave === "pulse" && pulse) osc.setPeriodicWave(pulse);
   else if (wave === "spectrum" && spec) osc.setPeriodicWave(spec);
-  else if (wave === "triangle" || wave === "sawtooth" || wave === "square") osc.type = wave;
+  else if (wave === "sine" || wave === "triangle" || wave === "sawtooth" || wave === "square") osc.type = wave;
   else osc.type = "sine";
 }
 
@@ -314,23 +280,19 @@ export class AudioEngine {
     this.humBus = ctx.createGain();
     this.humBus.gain.value = 0;
     this.formant = ctx.createBiquadFilter();
-    this.formant.type = "bandpass";
-    this.formant.frequency.value = 390;
-    this.formant.Q.value = 1.35;
+    this.formant.type = "peaking";
+    this.formant.frequency.value = 260;
+    this.formant.Q.value = 0.7;
+    this.formant.gain.value = 2.2;
     this.humPan = ctx.createStereoPanner();
     this.humPan.pan.value = 0;
     this.humBus.connect(this.formant);
     this.formant.connect(this.humPan);
     this.humPan.connect(this.bus);
-    try {
-      this.chant = chantWave(ctx);
-    } catch {
-      this.chant = null;
-    }
+    this.chant = null;
     this.hum = humTargets().map((p) => {
       const osc = ctx.createOscillator();
-      if (this.chant) osc.setPeriodicWave(this.chant);
-      else osc.type = "sine";
+      osc.type = "sine";
       osc.frequency.value = p.hz;
       const gain = ctx.createGain();
       gain.gain.value = 0;
@@ -921,8 +883,9 @@ export class AudioEngine {
           ? runtime.customPalette.stops
           : paletteById(runtime.params.paletteId).stops);
       const tone = paletteTone(stops);
-      ramp(this.formant.frequency, 320 + tone.lum * 220 + tone.hue * 60, now, 0.16);
-      this.formant.Q.value = 1.15 + tone.sat * 0.5;
+      ramp(this.formant.frequency, 220 + tone.lum * 80, now, 0.2);
+      this.formant.Q.value = 0.55 + tone.sat * 0.2;
+      this.formant.gain.value = 1.6 + tone.warm * 0.8;
     }
 
     const targets = humTargets();

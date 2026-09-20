@@ -9,6 +9,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **WebAR, Artivive-style.** Sticker URLs carry `&ar=1`. Camera opens the
+  print in the browser — no gate. The living field is a transparent layer
+  on the paper (void punched out, like Bridge “remove background”). Tap
+  wakes the chant. Vuforia Area Targets remain the venue-scale next step
+  (`space.ts`).
 - **Find / AR overlay.** Image → Find sticker (or Enter → Find) opens the
   rear camera. A MORPHOS glyph is tracked by its corners; the living field
   is perspectively mapped onto the print (screen blend). Settings lock to

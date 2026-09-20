@@ -40,6 +40,12 @@ export function lerpQuad(a: [Pt, Pt, Pt, Pt], b: [Pt, Pt, Pt, Pt], t: number): [
   ];
 }
 
+export function scaleQuad(q: [Pt, Pt, Pt, Pt], s: number): [Pt, Pt, Pt, Pt] {
+  const cx = (q[0].x + q[1].x + q[2].x + q[3].x) / 4;
+  const cy = (q[0].y + q[1].y + q[2].y + q[3].y) / 4;
+  return q.map((p) => ({ x: cx + (p.x - cx) * s, y: cy + (p.y - cy) * s })) as [Pt, Pt, Pt, Pt];
+}
+
 function round(n: number) {
   return Math.round(n * 1e6) / 1e6;
 }

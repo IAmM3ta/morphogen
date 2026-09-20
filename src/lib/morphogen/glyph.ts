@@ -102,7 +102,7 @@ export function publicOrigin() {
 }
 
 export function glyphShareUrl(token: string) {
-  return `${publicOrigin()}/?o=${encodeURIComponent(token)}`;
+  return `${publicOrigin()}/?o=${encodeURIComponent(token)}&ar=1`;
 }
 
 /** Ivory plate, black modules, heavy frame — maze-like, still a QR. */

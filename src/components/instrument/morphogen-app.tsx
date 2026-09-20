@@ -117,6 +117,7 @@ export function MorphogenApp() {
   const [compassLive, setCompassLive] = useState(false);
   const [edition, setEdition] = useState<Glyph | null>(lastRecalledGlyph);
   const [hunting, setHunting] = useState(false);
+  const [webAr, setWebAr] = useState(false);
   const factory = useInstrument(isFactoryInstrument);
   const atDefaults = factory && lockCount === 0 && loops.length === 0;
 
@@ -278,8 +279,15 @@ export function MorphogenApp() {
       if (!g) return;
       useInstrument.getState().recallGlyph(g);
       setEdition(g);
-      const who = g.a?.n ? ` · ${g.a.n}` : "";
-      toast(`Edition recalled${who}`);
+      const params = new URLSearchParams(window.location.search);
+      const asWebAr = params.get("ar") !== "0";
+      if (asWebAr) {
+        huntAfter.current = true;
+        setWebAr(true);
+      } else {
+        const who = g.a?.n ? ` · ${g.a.n}` : "";
+        toast(`Edition recalled${who}`);
+      }
     };
     const apply = () => applyFrom(new URLSearchParams(window.location.search).get("o"));
     if (useInstrument.persist.hasHydrated()) apply();
@@ -662,6 +670,12 @@ export function MorphogenApp() {
     tdRef.current = td;
   }, [patch]);
 
+  useEffect(() => {
+    if (!webAr) return;
+    huntAfter.current = true;
+    if (!started) void enter();
+  }, [webAr, started, enter, patch]);
+
   const onToggleMic = useCallback(
     async (on: boolean) => {
       patch({ micOn: on });
@@ -755,6 +769,10 @@ export function MorphogenApp() {
             const who = g.a?.n ? ` · ${g.a.n}` : "";
             toast(`Field found${who}`);
           }}
+          onWake={() => {
+            audioRef.current?.unlock();
+            void audioRef.current?.resume();
+          }}
         />
       )}
 
@@ -764,7 +782,7 @@ export function MorphogenApp() {
         </div>
       )}
 
-      {!started && !glError && (
+      {!started && !glError && !webAr && (
         <StartGate
           onEnter={() => void enter()}
           onHunt={() => {

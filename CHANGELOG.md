@@ -11,13 +11,13 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 - Compact **Sound** face is the default on the card: waveform chips, C♯ / D♭,
   Ionian through Locrian plus Major / Minor / pentatonic / blues / sus, and a
-  **Hz window** (factory 251–1002 Hz, a high octave of The Hum; Lo opens to
-  7.83 Hz). Field (F, k) is one tap away.
+  **Hz window** (factory 125–501 Hz, the chant band; Lo opens to 7.83 Hz).
+  Field (F, k) is one tap away.
 - Twelve-page **instrument guide** (PDF): what has been built, how to play,
   and the next chapter (Ableton, Serum, Resolume, Synesthesia). Linked from
   Enter and from the repository.
 - Always-visible **Default settings** toggle (header, Field, and Sound). Restores
-  mitosis, The Hum (sine), C Ionian, factory mix, and clears loops, layers, and
+  mitosis, overtone chant (sine), D Dorian, factory mix, and clears loops, layers, and
   locks — a way home if you get lost in the noise.
 - Circle-of-fifths **key** and church **mode** (plus blues / suspended) toggles.
   Live pitch quantizes to the scale. The phone compass can walk the key in
@@ -60,11 +60,14 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
   morph froze `liveStops`. They now replace the live palette and retune The
   Hum — brightness, third/fifth, and air follow the circle. Key and mode
   retune the drone immediately, with or without a finger on the glass.
-- Safari/WKWebView went silent after Enter: the Hum tick called `resume()`
-  on every frame while the context was still suspended, which sticks the
-  context, and the initial master-gain ramp was dropped. Resume is
-  gesture-only; master gain is written directly; The Hum is dry into the
-  lead bus so it cannot vanish in the delay loop.
+- The always-on C5 pad was a steady electronic tone. Sound is silent
+  until the first tap; sine is now an overtone chant (harmonics 1–2–3–5–9,
+  OM vowel formant ~390 Hz) in **D Dorian** inside 125–501 Hz, in the
+  register of Maha Mrityunjaya / Dalai Lama recitation. Lift and it
+  recedes over a couple of seconds. Freeze still holds a drone on purpose.
+- Safari/WKWebView went silent after Enter: resume-spam while suspended
+  stuck the context. Resume is gesture-only; master gain is written
+  directly.
 - The unlabeled layers glyph stacked filtered noise into a delay with high
   feedback, then multiplied live pitch by a fifth/octave per layer, so each
   tap was louder white noise climbing out of the Hz window, with no off

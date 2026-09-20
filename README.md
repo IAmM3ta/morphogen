@@ -1,6 +1,6 @@
 # Morphogen
 
-A **theremin made of chemistry**. 4K-class Gray–Scott reaction-diffusion you play with fingers, the phone’s IMU, and a mouse in any modern browser. The rest state is **The Hum** — Schumann resonances as a sine pad. Optional sync to projectors via TouchDesigner or MIDI.
+A **theremin made of chemistry**. 4K-class Gray–Scott reaction-diffusion you play with fingers, the phone’s IMU, and a mouse in any modern browser. First touch voices an overtone chant in the current key; lift and it recedes. Optional sync to projectors via TouchDesigner or MIDI.
 
 **[Changelog](CHANGELOG.md)** · **[Instrument guide (PDF)](docs/Morphogen-Instrument-Guide.pdf)** · **[Releases](https://github.com/IAmM3ta/morphogen/releases)** · current **[v0.1.0](https://github.com/IAmM3ta/morphogen/releases/tag/v0.1.0)**
 
@@ -26,14 +26,14 @@ Or from source: `npm install && npm run build && npm run preview`.
 ## Play
 
 1. Open the app and tap **Enter**.
-2. **The Hum is always on.** Default waveform is sine, tuned to Earth cavity modes (~7.83 Hz and its audible octaves).
+2. **Silent until a finger.** Default waveform is sine — an overtone chant (harmonics 1, 2, 3, 5, 9) in D Dorian, in the Maha Mrityunjaya / OM band (~125–501 Hz). Lift and it recedes. Lo still opens to 7.83 Hz.
 3. **Height is pitch, across is amplitude.** Voices snap to the current key and mode. Left/right is no longer pan — roll the chassis to pan. Each finger is a voice. Fingers leave no marks.
 4. **The chassis is the other antenna.** Tilt, roll, spin, and g-force sculpt The Hum. The compass can walk the key around the circle of fifths. Permission is requested on Enter.
 5. On a laptop, move the pointer for pitch — no click required. Click or drag to seed the chemistry (a disk of *v*). The field is a live Gray–Scott vis: species morph in place.
 6. **Freeze** holds the last pitch as a drone you play over. **Release** peels one layer. `L` freezes, `Z` releases, `Shift+Z` clears.
 7. Species buttons **morph chemistry in place** — they do not reseed. `1`–`9` pick a species.
-8. **Sound** (on the card, or Console → Sound) chooses sine (The Hum), triangle, saw, square, pulse, or spectrum; key (including C♯); mode (Ionian, Aeolian, minor pentatonic, …); and the Hz window (factory 251–1002 Hz, a high octave of 7.83 Hz — Lo opens to the cavity fundamental).
-9. `U` or `⌘Z` **undoes** the last change (paint, species, waveform, reset). `R` resets the field, `Shift+R` or the **Default** toggle restores factory settings (mitosis, The Hum, C Ionian, 251–1002 Hz, and clears loops). `C` records the session.
+8. **Sound** (on the card, or Console → Sound) chooses sine (overtone chant), triangle, saw, square, pulse, or spectrum; key (including C♯); mode (Dorian at rest, plus Ionian, Aeolian, minor pentatonic, …); and the Hz window (factory 125–501 Hz — the chant band; Lo opens to 7.83 Hz).
+9. `U` or `⌘Z` **undoes** the last change (paint, species, waveform, reset). `R` resets the field, `Shift+R` or the **Default** toggle restores factory settings (mitosis, chant, D Dorian, 125–501 Hz, and clears loops). `C` records the session.
 10. Every finger is a voice. On a phone, two (or more) contacts play at once.
 
 ## Field console

@@ -14,10 +14,11 @@ export function StartGate({ onEnter }: { onEnter: () => void }) {
         </h1>
         <div className="mt-6 h-px w-16 bg-fg/35" />
         <p className="mt-6 max-w-md text-sm leading-relaxed text-muted">
-          A living chemical field. The Hum is always on. How you hold the
-          phone is the other antenna — tilt, roll, spin, compass. Height is
-          pitch, across is amplitude. Voices lock to a key. Fingers play;
-          they leave no marks. Double-tap and hold to freeze a generation.
+          A living chemical field. First touch voices a chant — overtones
+          in the current key, then it recedes when you lift. How you hold
+          the phone is the other antenna. Height is pitch, across is
+          amplitude. Fingers leave no marks. Double-tap and hold to freeze
+          a generation.
         </p>
         <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
           <Button size="lg" onClick={onEnter} className="min-h-12 px-8 tracking-[0.14em] uppercase">
@@ -29,7 +30,7 @@ export function StartGate({ onEnter }: { onEnter: () => void }) {
             </a>
           </Button>
         </div>
-        <p className="mt-4 text-xs tracking-wide text-faint">First gesture unlocks audio and motion.</p>
+        <p className="mt-4 text-xs tracking-wide text-faint">Enter unlocks audio. First tap voices the field.</p>
       </div>
     </div>
   );

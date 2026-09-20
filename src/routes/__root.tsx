@@ -21,7 +21,7 @@ export const Route = createRootRoute({
       {
         name: "description",
         content:
-          "A living reaction-diffusion audiovisual instrument. The Hum is always on — Schumann resonances as a sine pad. Play it with photographs, phone sensors, and TouchDesigner.",
+          "A living reaction-diffusion audiovisual instrument. First touch voices an overtone chant. Play it with photographs, phone sensors, and TouchDesigner.",
       },
     ],
     links: [

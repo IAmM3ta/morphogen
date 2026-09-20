@@ -300,9 +300,9 @@ export function ControlDock({
         ) : (
           <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="text-xs leading-relaxed text-muted">
-              Sine is The Hum. Height is pitch inside the Hz window. Key and
-              mode retune the drone immediately. C♯, Aeolian, and pentatonic
-              live here.
+              Sine is an overtone chant, D dorian at rest. Height is pitch.
+              First tap voices it; lift and it recedes. C♯, Aeolian, and
+              pentatonic live here.
             </p>
             <div>
               <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Waveform</p>
@@ -475,7 +475,7 @@ export function ControlDock({
           <div className="flex flex-col gap-5">
             <ToggleRow
               label="Default settings"
-              hint="Sine Hum, C Ionian, factory mix. Clears recorded layers. Home, if you get lost in the noise."
+              hint="Overtone chant, D Dorian, factory mix. Clears recorded layers. Home, if you get lost in the noise."
               checked={atDefaults}
               onCheckedChange={(on) => {
                 if (on) onDefaults();
@@ -483,7 +483,7 @@ export function ControlDock({
             />
             <ToggleRow
               label="Voice of the field"
-              hint="The Hum is always on — Schumann resonances as a sine pad. Live voices follow your hands."
+              hint="The field is silent until a finger. Sine is an overtone chant in the current key; lift and it recedes."
               checked={audioOn}
               onCheckedChange={(on) => patch({ audioOn: on })}
             />
@@ -640,7 +640,7 @@ function FieldTab({
       <section>
         <ToggleRow
           label="Default settings"
-          hint="Mitosis, The Hum (sine), C Ionian. Clears loops, layers, and locks. Home, if you get lost in the noise."
+          hint="Mitosis, overtone chant (sine), D Dorian. Clears loops, layers, and locks. Home, if you get lost in the noise."
           checked={atDefaults}
           onCheckedChange={(on) => {
             if (on) onDefaults();

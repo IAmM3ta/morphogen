@@ -1,4 +1,4 @@
-import { KEYS, MODES, ABSOLUTE_PITCH_MIN, ABSOLUTE_PITCH_MAX, HUM_X32, HUM_X128, formatHz } from "@/lib/morphogen/theory";
+import { KEYS, MODES, ABSOLUTE_PITCH_MIN, ABSOLUTE_PITCH_MAX, HUM_X16, HUM_X64, formatHz } from "@/lib/morphogen/theory";
 import { useInstrument } from "@/lib/morphogen/store";
 import { ParamSlider } from "./param-slider";
 import { cn } from "@/lib/utils";
@@ -12,8 +12,9 @@ export function PitchRange() {
       <p className="text-xs tracking-[0.18em] text-muted uppercase">Range</p>
       <p className="text-xs leading-relaxed text-muted">
         Height of the glass maps onto this window. Factory rest is{" "}
-        {Math.round(HUM_X32)}–{Math.round(HUM_X128)} Hz — a high octave of The
-        Hum, loud on a phone. Open Lo to 7.83 Hz for the cavity fundamental.
+        {Math.round(HUM_X16)}–{Math.round(HUM_X64)} Hz — the chant band (OM
+        through the upper partials). Open Lo to 7.83 Hz for the cavity
+        fundamental.
       </p>
       <ParamSlider
         label="Low"

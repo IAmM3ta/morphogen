@@ -91,7 +91,7 @@ export const useInstrument = create<InstrumentState>()(
       waveform: DEFAULT_WAVEFORM,
       keyId: DEFAULT_KEY,
       modeId: DEFAULT_MODE,
-      compassKey: true,
+      compassKey: false,
       pitchMinHz: DEFAULT_PITCH_MIN,
       pitchMaxHz: DEFAULT_PITCH_MAX,
       gyroOn: true,
@@ -149,7 +149,7 @@ export const useInstrument = create<InstrumentState>()(
           waveform: DEFAULT_WAVEFORM,
           keyId: DEFAULT_KEY,
           modeId: DEFAULT_MODE,
-          compassKey: true,
+          compassKey: false,
           pitchMinHz: DEFAULT_PITCH_MIN,
           pitchMaxHz: DEFAULT_PITCH_MAX,
           volume: 0.7,
@@ -278,9 +278,16 @@ export const useInstrument = create<InstrumentState>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        if (isLegacyPitchWindow(state.pitchMinHz, state.pitchMaxHz)) {
+        const factoryRest = state.keyId === "C" && state.modeId === "ionian";
+        const oldWindow = isLegacyPitchWindow(state.pitchMinHz, state.pitchMaxHz);
+        if (oldWindow) {
           state.pitchMinHz = DEFAULT_PITCH_MIN;
           state.pitchMaxHz = DEFAULT_PITCH_MAX;
+        }
+        if (factoryRest && oldWindow) {
+          state.keyId = DEFAULT_KEY;
+          state.modeId = DEFAULT_MODE;
+          state.compassKey = false;
         }
         resetRuntimeParams(state.params);
         runtime.waveform = state.waveform;
@@ -302,7 +309,7 @@ export function isFactoryInstrument(s: InstrumentState): boolean {
     s.waveform === DEFAULT_WAVEFORM &&
     s.keyId === DEFAULT_KEY &&
     s.modeId === DEFAULT_MODE &&
-    s.compassKey &&
+    !s.compassKey &&
     Math.abs(s.pitchMinHz - DEFAULT_PITCH_MIN) < 0.5 &&
     Math.abs(s.pitchMaxHz - DEFAULT_PITCH_MAX) < 0.5 &&
     Math.abs(s.volume - 0.7) < 1e-6 &&

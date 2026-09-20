@@ -83,8 +83,8 @@ export const MODES: ModeDef[] = [
   { id: "suspended", name: "Suspended", roman: "sus", blurb: "No third — 2 and 4", intervals: [0, 2, 5, 7, 9] },
 ];
 
-export const DEFAULT_KEY: KeyId = "C";
-export const DEFAULT_MODE: ModeId = "ionian";
+export const DEFAULT_KEY: KeyId = "D";
+export const DEFAULT_MODE: ModeId = "dorian";
 
 /** Earth-ionosphere cavity fundamental. The generating tone of The Hum. */
 export const SCHUMANN = 7.83;
@@ -97,13 +97,16 @@ export const HUM_X128 = SCHUMANN * 128; // 1002.24
 export const HUM_X256 = SCHUMANN * 256; // 2004.48
 
 /**
- * Factory voice window: a high octave of The Hum (B3-ish through B5-ish).
- * Lo can open to the 7.83 Hz cavity; Hi to ×256.
+ * Factory voice window: the Maha Mrityunjaya / OM chant band.
+ * Peaks of Buddhist recitation sit ~110, 255, 385, 520 Hz.
+ * Lo still opens to the 7.83 Hz cavity.
  */
-export const DEFAULT_PITCH_MIN = HUM_X32;
-export const DEFAULT_PITCH_MAX = HUM_X128;
+export const DEFAULT_PITCH_MIN = HUM_X16; // 125.28
+export const DEFAULT_PITCH_MAX = HUM_X64; // 501.12
 export const ABSOLUTE_PITCH_MIN = SCHUMANN;
 export const ABSOLUTE_PITCH_MAX = HUM_X256;
+/** Preferred Hum tonic — D3, a low male chant a phone can still carry via overtones. */
+export const CHANT_PREFER_HZ = 146.83;
 
 export function keyById(id: string): KeyDef {
   return KEYS.find((k) => k.id === id) ?? KEYS[0]!;
@@ -189,23 +192,27 @@ export function yToScaleHz(
 }
 
 export function tonicHz(tonicPc: number, minHz = DEFAULT_PITCH_MIN, maxHz = DEFAULT_PITCH_MAX): number {
+  return chantTonicHz(tonicPc, minHz, maxHz);
+}
+
+/** Tonic in the low chant register (near D3) inside the current window. */
+export function chantTonicHz(tonicPc: number, minHz = DEFAULT_PITCH_MIN, maxHz = DEFAULT_PITCH_MAX): number {
   const lo = Math.max(ABSOLUTE_PITCH_MIN, Math.min(minHz, maxHz));
   const hi = Math.max(lo + 1, Math.max(minHz, maxHz));
-  const mid = Math.sqrt(lo * hi);
-  let best = 72;
+  let best = 50;
   let bestDist = Infinity;
   for (let oct = -1; oct <= 9; oct++) {
     const midi = 12 + oct * 12 + (((tonicPc % 12) + 12) % 12);
     const hz = midiToHz(midi);
     if (hz < lo * 0.92 || hz > hi * 1.08) continue;
-    const dist = Math.abs(Math.log(hz / mid));
+    const dist = Math.abs(Math.log(hz / CHANT_PREFER_HZ));
     if (dist < bestDist) {
       bestDist = dist;
       best = midi;
     }
   }
   const hz = midiToHz(best);
-  return Number.isFinite(hz) ? hz : HUM_X64;
+  return Number.isFinite(hz) ? hz : CHANT_PREFER_HZ;
 }
 
 /** Tonic, third-or-fourth, and fifth (or tritone) of a mode, in semitones. */
@@ -228,7 +235,9 @@ export function clampPitchRange(minHz: number, maxHz: number): { min: number; ma
   return { min: lo, max: hi };
 }
 
-/** True when a stored window is the old inaudible factory (47–376 Hz). */
+/** True when a stored window is a previous factory rest (inaudible 47–376, or the piercing 251–1002 pad). */
 export function isLegacyPitchWindow(minHz: number, maxHz: number): boolean {
-  return Math.abs(minHz - 47) < 1.5 && Math.abs(maxHz - 376) < 2;
+  const oldQuiet = Math.abs(minHz - 47) < 1.5 && Math.abs(maxHz - 376) < 2;
+  const oldPad = Math.abs(minHz - 250.56) < 2 && Math.abs(maxHz - 1002.24) < 3;
+  return oldQuiet || oldPad;
 }

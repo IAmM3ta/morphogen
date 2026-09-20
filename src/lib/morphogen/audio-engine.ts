@@ -9,6 +9,7 @@ import {
   yToScaleHz,
 } from "./theory";
 import { MAX_LOOPS, pickAudioRecorderMime, type LoopClip } from "./loops";
+import { configurePanner, glassToWorld, placePanner, poseInstrumentListener } from "./space";
 
 function ramp(param: AudioParam, value: number, now: number, t = 0.05) {
   if (!Number.isFinite(value) || !Number.isFinite(now) || !Number.isFinite(t) || t <= 0) return;
@@ -126,7 +127,7 @@ type LiveVoice = {
   subG: GainNode;
   mix: GainNode;
   filter: BiquadFilterNode;
-  pan: StereoPannerNode;
+  pan: PannerNode;
   gate: GainNode;
   wave: WaveformId;
 };
@@ -134,12 +135,16 @@ type LiveVoice = {
 type FrozenVoice = {
   osc: OscillatorNode[];
   gain: GainNode;
+  pan: PannerNode;
+  x: number;
+  y: number;
 };
 
 type LoopVoice = {
   clip: LoopClip;
   source: AudioBufferSourceNode;
   gain: GainNode;
+  pan: PannerNode;
   buffer: AudioBuffer;
 };
 
@@ -154,7 +159,7 @@ export class AudioEngine {
   private tiltFilter: BiquadFilterNode | null = null;
   private hum: HumPartial[] = [];
   private humBus: GainNode | null = null;
-  private humPan: StereoPannerNode | null = null;
+  private humPan: PannerNode | null = null;
   private lfo: OscillatorNode | null = null;
   private lfoGain: GainNode | null = null;
   private noise: AudioBufferSourceNode | null = null;
@@ -284,11 +289,13 @@ export class AudioEngine {
     this.formant.frequency.value = 180;
     this.formant.Q.value = 0.5;
     this.formant.gain.value = 1.8;
-    this.humPan = ctx.createStereoPanner();
-    this.humPan.pan.value = 0;
+    this.humPan = ctx.createPanner();
+    configurePanner(this.humPan);
+    this.humPan.rolloffFactor = 0.35;
     this.humBus.connect(this.formant);
     this.formant.connect(this.humPan);
     this.humPan.connect(this.bus);
+    placePanner(this.humPan, { x: 0, y: 0.16, z: -0.55 }, ctx.currentTime, 0.01);
     this.chant = null;
     this.hum = humTargets().map((p) => {
       const osc = ctx.createOscillator();
@@ -443,6 +450,13 @@ export class AudioEngine {
   private armLoop(buffer: AudioBuffer): LoopClip {
     const ctx = this.ctx!;
     this.loopSeq += 1;
+    const hands = runtime.brushes;
+    let x = 0.5;
+    let y = 0.5;
+    if (hands.length > 0) {
+      x = hands.reduce((s, b) => s + b.x, 0) / hands.length;
+      y = hands.reduce((s, b) => s + b.y, 0) / hands.length;
+    }
     const clip: LoopClip = {
       id: `L${this.loopSeq}`,
       name: `Layer ${this.loopSeq}`,
@@ -450,12 +464,18 @@ export class AudioEngine {
       looping: true,
       playing: true,
       createdAt: Date.now(),
+      x,
+      y,
     };
     const gain = ctx.createGain();
     gain.gain.value = 0.85;
-    gain.connect(this.loopBus!);
+    const pan = ctx.createPanner();
+    configurePanner(pan);
+    gain.connect(pan);
+    pan.connect(this.loopBus!);
+    placePanner(pan, glassToWorld(x, y), ctx.currentTime, 0.01);
     const source = this.spawnLoopSource(buffer, gain, true);
-    this.loops.set(clip.id, { clip, source, gain, buffer });
+    this.loops.set(clip.id, { clip, source, gain, pan, buffer });
     this.emitLoops();
     return clip;
   }
@@ -507,6 +527,7 @@ export class AudioEngine {
     }
     try {
       v.gain.disconnect();
+      v.pan.disconnect();
     } catch {
       /* already */
     }
@@ -638,8 +659,8 @@ export class AudioEngine {
     filter.type = "lowpass";
     filter.frequency.value = 1400;
     filter.Q.value = 0.75;
-    const pan = ctx.createStereoPanner();
-    pan.pan.value = 0;
+    const pan = ctx.createPanner();
+    configurePanner(pan);
     const gate = ctx.createGain();
     gate.gain.value = 1;
     mix.connect(filter);
@@ -772,7 +793,7 @@ export class AudioEngine {
         : paletteById(runtime.params.paletteId).stops);
     const tone = paletteTone(stops);
     const amp =
-      (0.04 + x * 0.72 + pressure * 0.18 + radius * 0.06) *
+      (0.2 + pressure * 0.38 + radius * 0.08) *
       (0.82 + Math.min(1, sense.gforce) * 0.22) *
       LOUD[wave];
     const cutoff =
@@ -794,7 +815,7 @@ export class AudioEngine {
     ramp(v.fm.frequency, vib, now, 0.08);
     ramp(v.fmGain.gain, fmAmt, now, 0.08);
     ramp(v.filter.frequency, Math.max(280, Math.min(wave === "sine" ? 2400 : 7200, cutoff)), now, 0.08);
-    ramp(v.pan.pan, Math.max(-0.85, Math.min(0.85, (x - 0.5) * 1.6 + sense.roll * 0.2)), now, 0.05);
+    placePanner(v.pan, glassToWorld(x, y), now);
     ramp(v.mix.gain, Math.max(0.0001, Math.min(0.5, amp)), now, 0.07);
   }
 
@@ -826,6 +847,7 @@ export class AudioEngine {
     const v = s.meanV;
     const edge = s.edge;
     const sense = runtime.sense;
+    poseInstrumentListener(ctx, sense.roll, sense.pitch, now);
     this.readMic();
 
     if (runtime.waveform === "spectrum") {
@@ -867,10 +889,8 @@ export class AudioEngine {
     const touching = this.live.size > 0 || this.frozen.length > 0;
     if (touching) this.voicedUntil = now + 2.6;
     const voiced = now < this.voicedUntil;
-    const roll = sense.roll;
     const humLevel = voiced ? 0.22 + energy * 0.05 : 0;
     ramp(this.humBus.gain, humLevel, now, voiced ? 0.22 : 0.55);
-    ramp(this.humPan.pan, Math.max(-0.4, Math.min(0.4, roll * 0.3)), now, 0.14);
     ramp(this.lfo.frequency, 0.1, now, 0.2);
     ramp(this.lfoGain.gain, 0, now, 0.2);
 
@@ -894,7 +914,7 @@ export class AudioEngine {
     if (this.echoGain) ramp(this.echoGain.gain, voiced ? 0.05 : 0.02, now, 0.2);
   }
 
-  lockLoop(): number {
+  lockLoop(x = 0.5, y = 0.5): number {
     if (!this.ctx || !this.master || !this.enabled) return this.frozen.length;
     const ctx = this.ctx;
     const now = ctx.currentTime;
@@ -902,10 +922,14 @@ export class AudioEngine {
 
     const dest = this.loopBus ?? this.master;
     const gain = ctx.createGain();
+    const pan = ctx.createPanner();
+    configurePanner(pan);
     const n = this.frozen.length + 1;
     gain.gain.setValueAtTime(0.0001, now);
     gain.gain.exponentialRampToValueAtTime(Math.max(0.04, 0.12 / n), now + 0.14);
-    gain.connect(dest);
+    gain.connect(pan);
+    pan.connect(dest);
+    placePanner(pan, glassToWorld(x, y), now, 0.01);
 
     const key = keyById(runtime.keyId);
     const lo = runtime.pitchMinHz;
@@ -932,8 +956,26 @@ export class AudioEngine {
       osc.push(o);
     }
 
-    this.frozen.push({ osc, gain });
+    this.frozen.push({ osc, gain, pan, x, y });
     return this.frozen.length;
+  }
+
+  /** Drag a locked drone through instrument space (pitch stays until a later bind). */
+  moveLock(index: number, x: number, y: number) {
+    const v = this.frozen[index];
+    if (!v || !this.ctx) return;
+    v.x = x;
+    v.y = y;
+    placePanner(v.pan, glassToWorld(x, y), this.ctx.currentTime);
+  }
+
+  /** Drop or drag a recorded loop on the glass. */
+  moveLoop(id: string, x: number, y: number) {
+    const v = this.loops.get(id);
+    if (!v || !this.ctx) return;
+    v.clip.x = x;
+    v.clip.y = y;
+    placePanner(v.pan, glassToWorld(x, y), this.ctx.currentTime);
   }
 
   popLock(): number {
@@ -961,6 +1003,7 @@ export class AudioEngine {
       window.setTimeout(() => {
         try {
           v.gain.disconnect();
+          v.pan.disconnect();
         } catch {
           /* already gone */
         }

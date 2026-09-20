@@ -28,6 +28,7 @@ import { runtime } from "@/lib/morphogen/runtime";
 import { isFactoryInstrument, useInstrument } from "@/lib/morphogen/store";
 import { SessionRecorder, downloadBlob } from "@/lib/morphogen/recorder";
 import { headingToKey, formatKeyMode } from "@/lib/morphogen/theory";
+import { glassToWorld } from "@/lib/morphogen/space";
 import type { LoopClip } from "@/lib/morphogen/loops";
 import type { FieldShot } from "./field-library";
 import {
@@ -119,7 +120,7 @@ export function MorphogenApp() {
     lastLockAt.current = now;
     maybeCheckpoint();
     const n = engineRef.current?.lockLayer(x, y) ?? 0;
-    audioRef.current?.lockLoop();
+    audioRef.current?.lockLoop(x, y);
     setLockCount(n);
     const hz = Math.round(audioRef.current?.lastHz ?? 0);
     const pitch = hz > 24 ? `${hz} Hz` : "tonic";
@@ -356,6 +357,7 @@ export function MorphogenApp() {
       pitch: [runtime.pitchMinHz, runtime.pitchMaxHz],
       heading: runtime.sense.heading,
       loops: audioRef.current?.getLoops().length ?? 0,
+      space: runtime.brushes.map((b) => glassToWorld(b.x, b.y)),
       atDefaults: isFactoryInstrument(useInstrument.getState()),
     });
     (window as unknown as { __morphogen: typeof probe }).__morphogen = probe;

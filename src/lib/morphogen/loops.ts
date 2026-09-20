@@ -5,6 +5,13 @@ export type LoopClip = {
   looping: boolean;
   playing: boolean;
   createdAt: number;
+  /** Instrument-space glass coords. */
+  x: number;
+  y: number;
+  /** World-space, set when a loop is dropped on GPS. */
+  lat?: number;
+  lng?: number;
+  alt?: number;
 };
 
 export const MAX_LOOPS = 6;

@@ -32,6 +32,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
+- Spatial audio: the glass is a table in front of the listener (HRTF
+  PannerNode). Left/right is azimuth, top is farther and higher, bottom
+  is in the lap. Locked drones and recorded loops sit where they were
+  played. GPS tangent-plane mapping is in `space.ts` for geo loops.
+  Gyro leans the head; compass is reserved for world-space.
 - Product name is **MORPHOS**, subtitle **Living Field**. Wordmark, Enter
   gate, PWA, and instrument guide retitled. Public URL
   [morphos.grok.me](https://morphos.grok.me). Repo stays

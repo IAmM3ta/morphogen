@@ -29,6 +29,7 @@ import { isFactoryInstrument, useInstrument } from "@/lib/morphogen/store";
 import { SessionRecorder, downloadBlob } from "@/lib/morphogen/recorder";
 import { headingToKey, formatKeyMode } from "@/lib/morphogen/theory";
 import { glassToWorld } from "@/lib/morphogen/space";
+import { snapshotOrigin, originStamp } from "@/lib/morphogen/origin";
 import type { LoopClip } from "@/lib/morphogen/loops";
 import type { FieldShot } from "./field-library";
 import {
@@ -209,8 +210,13 @@ export function MorphogenApp() {
         toast("Recording was empty");
         return;
       }
-      downloadBlob(blob, name);
-      toast("Recording saved");
+      const presetId = useInstrument.getState().presetId;
+      const origin = snapshotOrigin("loop", presetId, rec.elapsed);
+      const stamp = originStamp(origin.capturedAt);
+      downloadBlob(blob, name.startsWith("morphogen") ? `morphos-${stamp}.${name.split(".").pop()}` : name);
+      const originBytes = new Blob([`${JSON.stringify(origin, null, 2)}\n`], { type: "application/json" });
+      downloadBlob(originBytes, `MORPHOS-${stamp}-origin.json`);
+      toast("Loop + origin saved");
     };
     const ok = rec.start(canvas, audioRef.current?.captureStream() ?? null);
     if (ok) {
@@ -226,13 +232,16 @@ export function MorphogenApp() {
         toast("Could not capture the field");
         return;
       }
-      const stamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-      const name = `morphogen-${stamp}.png`;
+      const presetId = useInstrument.getState().presetId;
+      const origin = snapshotOrigin("still", presetId);
+      const stamp = originStamp(origin.capturedAt);
+      const name = `morphos-${stamp}.png`;
       const url = URL.createObjectURL(blob);
       const id = `shot-${stamp}`;
-      setShots((prev) => [{ id, url, name }, ...prev].slice(0, 6));
+      setShots((prev) => [{ id, url, name, origin }, ...prev].slice(0, 6));
       downloadBlob(blob, name);
-      toast("Screenshot saved");
+      downloadBlob(new Blob([`${JSON.stringify(origin, null, 2)}\n`], { type: "application/json" }), `MORPHOS-${stamp}-origin.json`);
+      toast("Still + origin saved");
     } catch {
       toast("Could not capture the field");
     }

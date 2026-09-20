@@ -1,12 +1,18 @@
-import { Bookmark, Camera, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Bookmark, Camera, Package, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useInstrument } from "@/lib/morphogen/store";
 import { toast } from "sonner";
+import type { Origin } from "@/lib/morphogen/origin";
+import { originStamp } from "@/lib/morphogen/origin";
+import { packEdition, pressImage, type PressMode } from "@/lib/morphogen/press";
+import { downloadBlob } from "@/lib/morphogen/recorder";
 
 export type FieldShot = {
   id: string;
   url: string;
   name: string;
+  origin: Origin;
 };
 
 export function FieldLibrary({
@@ -22,6 +28,27 @@ export function FieldLibrary({
   const savePatch = useInstrument((s) => s.savePatch);
   const loadPatch = useInstrument((s) => s.loadPatch);
   const deletePatch = useInstrument((s) => s.deletePatch);
+  const [picked, setPicked] = useState<string | null>(null);
+  const [mode, setMode] = useState<PressMode>("kaleido");
+  const [busy, setBusy] = useState(false);
+  const shot = shots.find((s) => s.id === picked) ?? shots[0] ?? null;
+
+  const pack = async () => {
+    if (!shot) return;
+    setBusy(true);
+    try {
+      const src = await fetch(shot.url).then((r) => r.blob());
+      const png = await pressImage(src, mode);
+      const zip = await packEdition(png, shot.origin, mode);
+      downloadBlob(zip, `MORPHOS-${originStamp(shot.origin.capturedAt)}.zip`);
+      toast("Edition packed");
+    } catch {
+      toast("Could not pack the edition");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -60,7 +87,9 @@ export function FieldLibrary({
       </div>
       <div>
         <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Capture</p>
-        <p className="mb-3 text-xs leading-relaxed text-muted">Still of the living field. Saved to this device.</p>
+        <p className="mb-3 text-xs leading-relaxed text-muted">
+          Still of the living field, with origin — pose, chemistry, voice. The seed of the edition.
+        </p>
         <Button variant="ghost" size="sm" className="w-full" onClick={onCapture}>
           <Camera /> Screenshot
         </Button>
@@ -70,8 +99,12 @@ export function FieldLibrary({
               <button
                 key={s.id}
                 type="button"
-                onClick={() => onDownloadShot(s.id)}
-                className="overflow-hidden rounded-sm shadow-[var(--shadow-border)]"
+                onClick={() => setPicked(s.id)}
+                className={
+                  shot?.id === s.id
+                    ? "overflow-hidden rounded-sm ring-1 ring-fg"
+                    : "overflow-hidden rounded-sm shadow-[var(--shadow-border)]"
+                }
                 title={s.name}
               >
                 <img src={s.url} alt={s.name} className="aspect-square w-full object-cover" />
@@ -80,6 +113,33 @@ export function FieldLibrary({
           </div>
         )}
       </div>
+      {shot && (
+        <div>
+          <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Press</p>
+          <p className="mb-3 text-xs leading-relaxed text-muted">
+            Mirror and pack a 2048² still + origin.json for Resolume, TouchDesigner, or print.
+          </p>
+          <div className="mb-2 grid grid-cols-3 gap-1.5">
+            {(["none", "mirror-x", "kaleido"] as const).map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={
+                  mode === m
+                    ? "rounded-sm bg-fg px-2 py-1.5 text-[10px] tracking-wide text-bg uppercase"
+                    : "rounded-sm px-2 py-1.5 text-[10px] tracking-wide text-muted uppercase shadow-[var(--shadow-border)]"
+                }
+              >
+                {m === "none" ? "Flat" : m === "mirror-x" ? "Book" : "Kaleido"}
+              </button>
+            ))}
+          </div>
+          <Button variant="secondary" size="sm" className="w-full" onClick={() => void pack()} disabled={busy}>
+            <Package /> {busy ? "Packing…" : "Pack edition"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

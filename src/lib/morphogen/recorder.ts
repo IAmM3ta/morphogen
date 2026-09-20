@@ -15,13 +15,14 @@ export class SessionRecorder {
   private chunks: Blob[] = [];
   recording = false;
   startedAt = 0;
+  lastElapsed = 0;
   mime = "";
   onStop: ((blob: Blob, name: string) => void) | null = null;
   onError: ((msg: string) => void) | null = null;
 
   get elapsed() {
-    if (!this.recording) return 0;
-    return (performance.now() - this.startedAt) / 1000;
+    if (this.recording) return (performance.now() - this.startedAt) / 1000;
+    return this.lastElapsed;
   }
 
   start(canvas: HTMLCanvasElement, audio: MediaStream | null): boolean {
@@ -51,6 +52,7 @@ export class SessionRecorder {
       this.onError?.("Recording failed.");
     };
     this.rec.onstop = () => {
+      this.lastElapsed = (performance.now() - this.startedAt) / 1000;
       this.recording = false;
       const type = this.mime || "video/webm";
       const blob = new Blob(this.chunks, { type });

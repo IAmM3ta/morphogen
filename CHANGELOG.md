@@ -9,6 +9,11 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Atelier / origin.** Every still and session loop writes an `origin.json`
+  (chemistry, voice, pose, space, field stats). Field → Press packs a
+  2048² still (flat / book-match / kaleidoscope) plus origin into a zip
+  for Resolume, TouchDesigner, or print. The instrument is the atelier;
+  the origin is the edition.
 - Compact **Sound** face is the default on the card: waveform chips, C♯ / D♭,
   Ionian through Locrian plus Major / Minor / pentatonic / blues / sus, and a
   **Hz window** (factory 125–501 Hz, the chant band; Lo opens to 7.83 Hz).

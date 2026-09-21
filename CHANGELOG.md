@@ -9,6 +9,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **TouchDesigner 087.** Sync packets are v2 with a `feedback` block mapped
+  onto IIHQ Tutorial 087: Blur, Sharpen, Level, Transform, Feedback reset.
+  Name those ops in the toe and the callbacks ride them. MIDI CCs 30–35
+  (bands, listen, blur, opacity). Pixels stay NDI/Window; the socket is knobs.
 - **Listen.** Bass feeds, mids kill, highs sparkle and advect. Drop a track
   on the Sound face (Null Diffuse) or open the mic — Listen is how much
   the field hears. Glow rides RMS. The chemistry sliders stay the rest pitch.

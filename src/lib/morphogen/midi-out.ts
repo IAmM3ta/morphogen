@@ -1,5 +1,6 @@
 import { runtime } from "./runtime";
 import { sensorSample } from "./sensors";
+import { buildFeedback } from "./td-client";
 
 function cc(n: number, v: number): [number, number, number] {
   return [0xb0, n, Math.max(0, Math.min(127, Math.round(v * 127)))];
@@ -63,6 +64,7 @@ export class MidiOut {
     if (!this.out) return;
     const s = runtime.stats;
     const p = runtime.params;
+    const fb = buildFeedback(0);
     const msgs: [number, number, number][] = [
       cc(20, (p.feed - 0.01) / 0.08),
       cc(21, (p.kill - 0.04) / 0.04),
@@ -74,6 +76,12 @@ export class MidiOut {
       cc(27, (sensorSample.gamma + 90) / 180),
       cc(28, (sensorSample.beta + 90) / 180),
       cc(29, s.edge),
+      cc(30, runtime.bands.bass),
+      cc(31, runtime.bands.mid),
+      cc(32, runtime.bands.high),
+      cc(33, runtime.listen),
+      cc(34, (fb.blur - 1) / 31),
+      cc(35, fb.opacity),
     ];
     const t = performance.now();
     for (const m of msgs) {

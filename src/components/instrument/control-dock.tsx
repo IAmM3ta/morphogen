@@ -1186,9 +1186,11 @@ function SyncTab({
       <div>
         <p className="text-sm text-fg">TouchDesigner WebSocket</p>
         <p className="mt-1 text-xs leading-relaxed text-muted">
-          Run a WebSocket DAT as a server, then connect MORPHOS as the client.
-          Packets are JSON at 20 Hz: params, sensors, audio, field stats, optional
-          16×16 grid.
+          Two pipes. Pixels: NDI / Spout / Window COMP of this canvas — that
+          is the chemical. Knobs: this socket at 20 Hz, mapped onto IIHQ
+          Tutorial 087 (Feedback → Blur → Sharpen → Level → Transform).
+          Name those ops <span className="font-mono text-fg">blur, sharpen, level1, xform, feedback1</span> and
+          the callbacks ride them. Reset in MORPHOS pulses the Feedback TOP.
         </p>
         <input
           value={tdUrl}
@@ -1248,7 +1250,7 @@ function SyncTab({
         <p className="text-sm text-fg">MIDI to TouchDesigner</p>
         <p className="mt-1 text-xs leading-relaxed text-muted">
           Same-machine path with no network. Enable a virtual port (IAC / loopMIDI)
-          and a MIDI In CHOP. CCs 20–29.
+          and a MIDI In CHOP. CCs 20–35: chemistry, field, bands, 087 blur/opacity.
         </p>
         <ToggleRow
           label="Send MIDI CC"

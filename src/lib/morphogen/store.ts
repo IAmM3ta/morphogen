@@ -12,7 +12,7 @@ import {
   type WaveformId,
 } from "./presets";
 import { isRestoring, maybeCheckpoint } from "./history";
-import { beginPresetMorph, resetRuntimeParams, runtime, DEFAULT_VIBRATO_DEPTH, DEFAULT_VIBRATO_RATE, DEFAULT_ORBIT_RATE } from "./runtime";
+import { beginPresetMorph, resetRuntimeParams, runtime, DEFAULT_VIBRATO_DEPTH, DEFAULT_VIBRATO_RATE, DEFAULT_ORBIT_RATE, DEFAULT_LISTEN } from "./runtime";
 import type { UndoSnap } from "./history";
 import { DEFAULT_KEY, DEFAULT_MODE, DEFAULT_PITCH_MAX, DEFAULT_PITCH_MIN, clampPitchRange, isLegacyPitchWindow, keyById, modeById, type KeyId, type ModeId } from "./theory";
 import type { Artist } from "./origin";
@@ -49,6 +49,7 @@ export type InstrumentState = {
   vibratoRate: number;
   vibratoDepth: number;
   orbitRate: number;
+  listen: number;
   gyroOn: boolean;
   micOn: boolean;
   cameraOn: boolean;
@@ -86,6 +87,7 @@ export type InstrumentState = {
   setVibratoRate: (hz: number) => void;
   setVibratoDepth: (amt: number) => void;
   setOrbitRate: (hz: number) => void;
+  setListen: (amt: number) => void;
   savePatch: (name?: string) => FieldPatch;
   loadPatch: (id: string) => void;
   deletePatch: (id: string) => void;
@@ -122,6 +124,7 @@ export const useInstrument = create<InstrumentState>()(
       vibratoRate: DEFAULT_VIBRATO_RATE,
       vibratoDepth: DEFAULT_VIBRATO_DEPTH,
       orbitRate: DEFAULT_ORBIT_RATE,
+      listen: DEFAULT_LISTEN,
       gyroOn: true,
       micOn: false,
       cameraOn: false,
@@ -185,6 +188,7 @@ export const useInstrument = create<InstrumentState>()(
         runtime.vibratoRate = DEFAULT_VIBRATO_RATE;
         runtime.vibratoDepth = DEFAULT_VIBRATO_DEPTH;
         runtime.orbitRate = DEFAULT_ORBIT_RATE;
+        runtime.listen = DEFAULT_LISTEN;
         set({
           params,
           presetId: DEFAULT_PRESET.id,
@@ -197,6 +201,7 @@ export const useInstrument = create<InstrumentState>()(
           vibratoRate: DEFAULT_VIBRATO_RATE,
           vibratoDepth: DEFAULT_VIBRATO_DEPTH,
           orbitRate: DEFAULT_ORBIT_RATE,
+          listen: DEFAULT_LISTEN,
           volume: 0.7,
           muted: false,
           audioOn: true,
@@ -256,6 +261,11 @@ export const useInstrument = create<InstrumentState>()(
         const n = Math.max(0, Math.min(8, Number.isFinite(hz) ? hz : DEFAULT_ORBIT_RATE));
         runtime.orbitRate = n;
         set({ orbitRate: n });
+      },
+      setListen: (amt) => {
+        const n = Math.max(0, Math.min(1, Number.isFinite(amt) ? amt : DEFAULT_LISTEN));
+        runtime.listen = n;
+        set({ listen: n });
       },
       savePatch: (name) => {
         const s = get();
@@ -378,6 +388,7 @@ export const useInstrument = create<InstrumentState>()(
         vibratoRate: s.vibratoRate,
         vibratoDepth: s.vibratoDepth,
         orbitRate: s.orbitRate,
+        listen: s.listen,
         volume: s.volume,
         tdUrl: s.tdUrl,
         tdGrid: s.tdGrid,
@@ -434,9 +445,11 @@ export const useInstrument = create<InstrumentState>()(
         if (typeof state.vibratoRate !== "number") state.vibratoRate = DEFAULT_VIBRATO_RATE;
         if (typeof state.vibratoDepth !== "number") state.vibratoDepth = DEFAULT_VIBRATO_DEPTH;
         if (typeof state.orbitRate !== "number") state.orbitRate = DEFAULT_ORBIT_RATE;
+        if (typeof state.listen !== "number") state.listen = DEFAULT_LISTEN;
         runtime.vibratoRate = state.vibratoRate;
         runtime.vibratoDepth = state.vibratoDepth;
         runtime.orbitRate = state.orbitRate;
+        runtime.listen = state.listen;
       },
     },
   ),
@@ -457,6 +470,7 @@ export function isFactoryInstrument(s: InstrumentState): boolean {
     Math.abs(s.vibratoRate - DEFAULT_VIBRATO_RATE) < 0.05 &&
     s.vibratoDepth < 0.005 &&
     Math.abs(s.orbitRate - DEFAULT_ORBIT_RATE) < 0.05 &&
+    Math.abs(s.listen - DEFAULT_LISTEN) < 0.05 &&
     Math.abs(s.volume - 0.7) < 1e-6 &&
     !s.muted &&
     s.audioOn &&

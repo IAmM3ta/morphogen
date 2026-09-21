@@ -564,7 +564,6 @@ export class RDEngine {
 
     if (!runtime.paused) {
       const inner = Math.max(4, Math.min(40, params.steps | 0));
-      const simDt = Math.max(0.35, Math.min(1.2, params.speed));
       for (let step = 0; step < inner; step++) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.simB.fbo);
         gl.viewport(0, 0, this.simW, this.simH);
@@ -580,12 +579,21 @@ export class RDEngine {
         gl.bindTexture(gl.TEXTURE_2D, this.imageOrDummy());
         gl.uniform1i(u.uImage, 1);
         gl.uniform2f(u.uResolution, this.simW, this.simH);
-        gl.uniform1f(u.uFeed, params.feed);
-        gl.uniform1f(u.uKill, params.kill);
-        gl.uniform1f(u.uDu, params.du);
-        gl.uniform1f(u.uDv, params.dv);
+        const L = Math.max(0, Math.min(1, runtime.listen));
+        const b = runtime.bands;
+        const feed = params.feed + (b.bass - 0.18) * L * 0.012;
+        const kill = params.kill - (b.mid - 0.2) * L * 0.008;
+        const du = params.du * (1 + (b.high - 0.2) * L * 0.35);
+        const dv = params.dv * (1 - (b.bass - 0.2) * L * 0.18);
+        const simDt = Math.max(0.35, Math.min(1.35, params.speed * (1 + b.rms * L * 0.45)));
+        gl.uniform1f(u.uFeed, Math.max(0.01, Math.min(0.09, feed)));
+        gl.uniform1f(u.uKill, Math.max(0.03, Math.min(0.08, kill)));
+        gl.uniform1f(u.uDu, Math.max(0.04, Math.min(0.28, du)));
+        gl.uniform1f(u.uDv, Math.max(0.02, Math.min(0.16, dv)));
         gl.uniform1f(u.uDt, simDt);
-        gl.uniform2f(u.uAdvect, runtime.flowX, runtime.flowY);
+        const ax = runtime.flowX + (b.high - b.bass) * L * 0.14;
+        const ay = runtime.flowY + (b.centroid - 0.4) * L * 0.1;
+        gl.uniform2f(u.uAdvect, ax, ay);
         gl.uniform1f(u.uHasImage, runtime.hasImage && params.imageMode !== "palette" ? 1 : 0);
         gl.uniform1f(u.uImageMix, params.imageMix);
         gl.uniform1f(u.uImageMode, imageMode);
@@ -653,7 +661,7 @@ export class RDEngine {
     gl.uniform3f(du.uC1, pal.stops[1][0], pal.stops[1][1], pal.stops[1][2]);
     gl.uniform3f(du.uC2, pal.stops[2][0], pal.stops[2][1], pal.stops[2][2]);
     gl.uniform3f(du.uC3, pal.stops[3][0], pal.stops[3][1], pal.stops[3][2]);
-    gl.uniform1f(du.uGlow, params.glow);
+    gl.uniform1f(du.uGlow, Math.max(0.4, Math.min(2.4, params.glow * (1 + runtime.bands.rms * runtime.listen * 0.8))));
     gl.uniform1f(du.uVignette, params.vignette);
     gl.uniform1f(du.uFlash, this.flash);
     gl.uniform4f(du.uSense, runtime.sense.roll, runtime.sense.pitch, runtime.sense.spin, runtime.sense.pressure);

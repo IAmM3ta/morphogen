@@ -9,6 +9,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Listen.** Bass feeds, mids kill, highs sparkle and advect. Drop a track
+  on the Sound face (Null Diffuse) or open the mic — Listen is how much
+  the field hears. Glow rides RMS. The chemistry sliders stay the rest pitch.
 - **Outer billiards.** The mode is a regular n-gon. Centre of the glass is
   period 1 (a hold). Rings walk the scale at Orbit Hz — n, 2n, 4n.
   Freeze snapshots every live finger as an island; drag is an isometry.

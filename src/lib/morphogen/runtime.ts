@@ -57,6 +57,9 @@ export type Runtime = {
   pointerMotion: number;
   motion: number;
   mic: number;
+  listen: number;
+  bands: { rms: number; bass: number; mid: number; high: number; centroid: number };
+  trackOn: boolean;
   stats: FieldStats;
   started: boolean;
   paused: boolean;
@@ -87,6 +90,7 @@ export type Runtime = {
 export const DEFAULT_VIBRATO_RATE = 5.2;
 export const DEFAULT_VIBRATO_DEPTH = 0;
 export const DEFAULT_ORBIT_RATE = 1.25;
+export const DEFAULT_LISTEN = 0.55;
 
 export const runtime: Runtime = {
   params: { ...DEFAULT_PARAMS },
@@ -100,6 +104,9 @@ export const runtime: Runtime = {
   pointerMotion: 0,
   motion: 0,
   mic: 0,
+  listen: DEFAULT_LISTEN,
+  bands: { rms: 0, bass: 0, mid: 0, high: 0, centroid: 0 },
+  trackOn: false,
   stats: emptyStats(),
   started: false,
   paused: false,

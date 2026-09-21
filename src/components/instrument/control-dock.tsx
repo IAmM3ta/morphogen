@@ -88,6 +88,56 @@ function VibratoControls() {
   );
 }
 
+function ListenControls({
+  onLoadTrack,
+  onToggleTrack,
+  trackOn,
+  trackName,
+}: {
+  onLoadTrack: (file: File) => void;
+  onToggleTrack: () => void;
+  trackOn: boolean;
+  trackName: string;
+}) {
+  const listen = useInstrument((s) => s.listen);
+  const setListen = useInstrument((s) => s.setListen);
+  const fileRef = useRef<HTMLInputElement>(null);
+  return (
+    <div className="flex flex-col gap-3">
+      <ParamSlider
+        label="Listen"
+        value={listen}
+        min={0}
+        max={1}
+        step={0.01}
+        format={(n) => (n < 0.02 ? "off" : `${Math.round(n * 100)}%`)}
+        onChange={setListen}
+      />
+      <input
+        ref={fileRef}
+        type="file"
+        accept="audio/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          if (file) onLoadTrack(file);
+        }}
+      />
+      <div className="flex gap-2">
+        <Button variant="secondary" size="sm" className="flex-1" onClick={() => fileRef.current?.click()}>
+          {trackName || "Drop a track"}
+        </Button>
+        {trackName && (
+          <Button variant={trackOn ? "default" : "ghost"} size="sm" onClick={onToggleTrack}>
+            {trackOn ? "Pause" : "Play"}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function ControlDock({
   tab,
   onTab,
@@ -98,6 +148,10 @@ export function ControlDock({
   midiDevices,
   onMidiSelect,
   onToggleMic,
+  onLoadTrack,
+  onToggleTrack,
+  trackOn,
+  trackName,
   onToggleCamera,
   onHunt,
   onToggleGyro,
@@ -137,6 +191,10 @@ export function ControlDock({
   midiDevices: MidiDevice[];
   onMidiSelect: (id: string | null) => void;
   onToggleMic: (on: boolean) => void;
+  onLoadTrack: (file: File) => void;
+  onToggleTrack: () => void;
+  trackOn: boolean;
+  trackName: string;
   onToggleCamera: (on: boolean) => void;
   onHunt: () => void;
   onToggleGyro: (on: boolean) => void;
@@ -372,6 +430,7 @@ export function ControlDock({
             </div>
             <KeyPad compassLive={compassLive} compact />
             <VibratoControls />
+            <ListenControls onLoadTrack={onLoadTrack} onToggleTrack={onToggleTrack} trackOn={trackOn} trackName={trackName} />
             <div className="flex gap-2">
               <Button
                 variant={atDefaults ? "secondary" : "ghost"}
@@ -488,7 +547,7 @@ export function ControlDock({
             />
             <ToggleRow
               label="Microphone"
-              hint="Voice and room tone frequency-modulate the lead and inoculate the field."
+              hint="Room and voice drive the field when Listen is up. Bass feeds, mids kill, highs sparkle."
               checked={micOn}
               onCheckedChange={onToggleMic}
             />
@@ -583,6 +642,7 @@ export function ControlDock({
             </div>
             <KeyPad compassLive={compassLive} />
             <VibratoControls />
+            <ListenControls onLoadTrack={onLoadTrack} onToggleTrack={onToggleTrack} trackOn={trackOn} trackName={trackName} />
             <LoopRack
               clips={loops}
               recording={layerRecording}

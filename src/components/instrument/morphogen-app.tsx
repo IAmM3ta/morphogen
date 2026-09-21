@@ -118,6 +118,8 @@ export function MorphogenApp() {
   const [compassLive, setCompassLive] = useState(false);
   const [edition, setEdition] = useState<Glyph | null>(lastRecalledGlyph);
   const [hunting, setHunting] = useState(false);
+  const [trackName, setTrackName] = useState("");
+  const [trackOn, setTrackOn] = useState(false);
   const [webAr, setWebAr] = useState(false);
   const factory = useInstrument(isFactoryInstrument);
   const atDefaults = factory && lockCount === 0 && loops.length === 0;
@@ -840,6 +842,7 @@ export function MorphogenApp() {
               {loops.length > 0 ? ` · LAY ${loops.length}` : ""}
               {voices > 0 ? ` · ${Math.round(hz)} Hz · ${voices}v` : ""}
               {runtime.orbitPeriod > 1 ? ` · P${runtime.orbitPeriod}` : ""}
+              {runtime.listen > 0.02 && runtime.bands.rms > 0.04 ? " · LISTEN" : ""}
             </p>
           </div>
           <div className="pointer-events-auto hidden flex-wrap justify-end gap-1 rounded-md bg-bg-elevated/90 p-1 shadow-[var(--shadow-border)] sm:flex">
@@ -920,6 +923,23 @@ export function MorphogenApp() {
             midiDevices={midiDevices}
             onMidiSelect={onMidiSelect}
             onToggleMic={(on) => void onToggleMic(on)}
+            onLoadTrack={(file) => {
+              void audioRef.current?.loadTrack(file).then((ok) => {
+                if (!ok) {
+                  toast("Track would not play");
+                  return;
+                }
+                setTrackName(file.name.replace(/\.[^.]+$/, ""));
+                setTrackOn(true);
+                toast("The field is listening");
+              });
+            }}
+            onToggleTrack={() => {
+              const on = audioRef.current?.toggleTrack() ?? false;
+              setTrackOn(on);
+            }}
+            trackOn={trackOn}
+            trackName={trackName}
             onToggleCamera={(on) => patch({ cameraOn: on })}
             onHunt={() => {
               patch({ cameraOn: false, uiHidden: true, panelOpen: false });

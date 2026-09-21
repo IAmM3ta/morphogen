@@ -197,6 +197,10 @@ export class AudioEngine {
   private loopSeq = 0;
   private voicedUntil = 0;
   private lastOrbitAt = 0;
+  private trackEl: HTMLAudioElement | null = null;
+  private trackSrc: MediaElementAudioSourceNode | null = null;
+  private trackGain: GainNode | null = null;
+  private trackUrl: string | null = null;
   onLoops: ((clips: LoopClip[], recording: boolean) => void) | null = null;
   volume = 0.7;
   muted = false;
@@ -284,6 +288,9 @@ export class AudioEngine {
     this.tiltFilter.connect(this.compressor);
     this.leadBus.connect(this.compressor);
     this.loopBus.connect(this.compressor);
+    this.trackGain = ctx.createGain();
+    this.trackGain.gain.value = 0.85;
+    this.trackGain.connect(this.compressor);
     this.compressor.connect(this.master);
     this.master.connect(ctx.destination);
     this.capture = ctx.createMediaStreamDestination();
@@ -592,7 +599,7 @@ export class AudioEngine {
     if (!ctx || !this.analyser) return false;
     try {
       this.micStream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true },
+        audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
         video: false,
       });
       this.micSource = ctx.createMediaStreamSource(this.micStream);
@@ -631,14 +638,65 @@ export class AudioEngine {
       magSum += mag;
     }
     const rms = sum / n;
-    runtime.mic = rms;
-    return {
+    const bands = {
       rms,
       bass: bass / Math.max(1, n * 0.15),
       mid: mid / Math.max(1, n * 0.3),
       high: high / Math.max(1, n * 0.55),
       centroid: magSum > 1e-5 ? weighted / magSum / n : 0.3,
     };
+    runtime.mic = rms;
+    runtime.bands = bands;
+    return bands;
+  }
+
+  async loadTrack(file: File): Promise<boolean> {
+    this.unlock();
+    const ctx = this.ctx;
+    if (!ctx || !this.analyser || !this.trackGain) return false;
+    this.stopTrack();
+    const url = URL.createObjectURL(file);
+    this.trackUrl = url;
+    const el = new Audio();
+    el.src = url;
+    el.loop = true;
+    el.crossOrigin = "anonymous";
+    el.setAttribute("playsinline", "true");
+    this.trackEl = el;
+    try {
+      this.trackSrc = ctx.createMediaElementSource(el);
+      this.trackSrc.connect(this.analyser);
+      this.trackSrc.connect(this.trackGain);
+      await el.play();
+      runtime.trackOn = true;
+      return true;
+    } catch {
+      this.stopTrack();
+      return false;
+    }
+  }
+
+  toggleTrack(): boolean {
+    const el = this.trackEl;
+    if (!el) return false;
+    if (el.paused) {
+      void el.play();
+      runtime.trackOn = true;
+      return true;
+    }
+    el.pause();
+    runtime.trackOn = false;
+    return false;
+  }
+
+  stopTrack() {
+    this.trackEl?.pause();
+    this.trackSrc?.disconnect();
+    this.trackSrc = null;
+    this.trackEl = null;
+    if (this.trackUrl) URL.revokeObjectURL(this.trackUrl);
+    this.trackUrl = null;
+    runtime.trackOn = false;
   }
 
   private applyWave(v: LiveVoice, wave: WaveformId) {

@@ -7,7 +7,9 @@ import {
   modeById,
   tonicHz,
   yToScaleHz,
+  orbitHz,
 } from "./theory";
+import { glassToPlane, islandPeriod, nearestDegree, tableRot } from "./billiards";
 import { MAX_LOOPS, pickAudioRecorderMime, type LoopClip } from "./loops";
 import { configurePanner, glassToWorld, placePanner, poseInstrumentListener } from "./space";
 
@@ -130,10 +132,17 @@ type LiveVoice = {
   pan: PannerNode;
   gate: GainNode;
   wave: WaveformId;
+  degree: number;
+  phase: number;
 };
 
 type FrozenVoice = {
   osc: OscillatorNode[];
+  degrees: number[];
+  ys: number[];
+  period: number;
+  k0: number;
+  phase: number;
   gain: GainNode;
   pan: PannerNode;
   x: number;
@@ -187,6 +196,7 @@ export class AudioEngine {
   private layerChunks: Blob[] = [];
   private loopSeq = 0;
   private voicedUntil = 0;
+  private lastOrbitAt = 0;
   onLoops: ((clips: LoopClip[], recording: boolean) => void) | null = null;
   volume = 0.7;
   muted = false;
@@ -732,6 +742,8 @@ export class AudioEngine {
       pan,
       gate,
       wave: DEFAULT_WAVEFORM,
+      degree: 0,
+      phase: 0,
     };
     this.applyWave(v, runtime.waveform);
     this.live.set(id, v);
@@ -766,22 +778,42 @@ export class AudioEngine {
     this.live.delete(id);
   }
 
-  private driveVoice(v: LiveVoice, x: number, y: number, pressure: number, radius: number, now: number) {
+  private driveVoice(v: LiveVoice, x: number, y: number, pressure: number, radius: number, now: number, dt: number) {
     const wave = runtime.waveform;
     if (v.wave !== wave) this.applyWave(v, wave);
     const sense = runtime.sense;
     const key = keyById(runtime.keyId);
     const mode = modeById(runtime.modeId);
+    const n = Math.max(3, mode.intervals.length);
+    const rot = tableRot(sense.heading, sense.roll, sense.compass);
+    const p = glassToPlane(x, y);
+    const period = islandPeriod(p, n);
+    const k0 = nearestDegree(p, n, rot);
+    const rate = Number.isFinite(runtime.orbitRate) ? Math.max(0, Math.min(8, runtime.orbitRate)) : 1.25;
+    if (period > 1 && rate > 0.02) {
+      v.phase += dt * rate;
+      const step = Math.floor(v.phase) % period;
+      v.degree = (k0 + step) % n;
+    } else {
+      v.phase = 0;
+      v.degree = k0;
+    }
+    runtime.orbitN = n;
+    runtime.orbitRot = rot;
+    runtime.orbitPeriod = period;
     const shape = SHAPE[wave];
-    const hzRaw = yToScaleHz(
-      y,
-      sense.pitch,
-      key.pc,
-      mode.intervals,
-      wave === "sine" ? 0.7 : 0.9,
-      runtime.pitchMinHz,
-      runtime.pitchMaxHz,
-    );
+    const hzRaw =
+      period === 1 || rate < 0.02
+        ? yToScaleHz(
+            y,
+            sense.pitch,
+            key.pc,
+            mode.intervals,
+            wave === "sine" ? 0.7 : 0.9,
+            runtime.pitchMinHz,
+            runtime.pitchMaxHz,
+          )
+        : orbitHz(v.degree, y, sense.pitch, key.pc, mode.intervals, runtime.pitchMinHz, runtime.pitchMaxHz);
     const lo = Math.min(runtime.pitchMinHz, runtime.pitchMaxHz);
     const hi = Math.max(runtime.pitchMinHz, runtime.pitchMaxHz);
     const hz = Number.isFinite(hzRaw) ? Math.max(lo, Math.min(hi, hzRaw)) : Math.max(lo, Math.min(hi, HUM_X64));
@@ -842,6 +874,8 @@ export class AudioEngine {
       return;
     const ctx = this.ctx;
     const now = ctx.currentTime;
+    const dt = this.lastOrbitAt > 0 ? Math.max(0.001, Math.min(0.08, now - this.lastOrbitAt)) : 0.016;
+    this.lastOrbitAt = now;
     this.punchMaster();
     const s = runtime.stats;
     const energy = s.energy;
@@ -877,15 +911,35 @@ export class AudioEngine {
     }
 
     const seen = new Set<number>();
+    const degrees: number[] = [];
     for (const b of hands) {
       seen.add(b.id);
       const voice = this.live.get(b.id) ?? this.allocVoice(b.id);
-      this.driveVoice(voice, b.x, b.y, b.pressure, b.radius, now);
+      this.driveVoice(voice, b.x, b.y, b.pressure, b.radius, now, dt);
+      degrees.push(voice.degree);
     }
+    runtime.orbitDegrees = degrees;
     for (const id of [...this.live.keys()]) {
       if (!seen.has(id)) this.releaseLive(id);
     }
     this.voiceCount = this.live.size;
+
+    const rate = Number.isFinite(runtime.orbitRate) ? Math.max(0, Math.min(8, runtime.orbitRate)) : 1.25;
+    if (rate > 0.02 && this.frozen.length) {
+      const key = keyById(runtime.keyId);
+      const mode = modeById(runtime.modeId);
+      const nn = Math.max(3, mode.intervals.length);
+      for (const island of this.frozen) {
+        if (island.period <= 1) continue;
+        island.phase += dt * rate * 0.5;
+        const step = Math.floor(island.phase) % island.period;
+        for (let i = 0; i < island.osc.length; i++) {
+          const deg = ((island.degrees[i] ?? 0) + step) % nn;
+          const hz = orbitHz(deg, island.y, sense.pitch, key.pc, mode.intervals, runtime.pitchMinHz, runtime.pitchMaxHz);
+          ramp(island.osc[i]!.frequency, hz, now, 0.04);
+        }
+      }
+    }
 
     const touching = this.live.size > 0 || this.frozen.length > 0;
     if (touching) this.voicedUntil = now + 2.6;
@@ -933,41 +987,50 @@ export class AudioEngine {
     placePanner(pan, glassToWorld(x, y), now, 0.01);
 
     const key = keyById(runtime.keyId);
+    const mode = modeById(runtime.modeId);
     const lo = runtime.pitchMinHz;
     const hi = runtime.pitchMaxHz;
-    const tonic = tonicHz(key.pc, lo, hi);
-    let root = this.lastHz > SCHUMANN ? this.lastHz : tonic;
-    if (!Number.isFinite(root) || root < SCHUMANN) root = tonic;
-    root = Math.max(lo, Math.min(hi, root));
-    this.lastHz = root;
+    const live = [...this.live.values()];
+    const degrees = live.length ? live.map((v) => v.degree) : [nearestDegree(glassToPlane(x, y), Math.max(3, mode.intervals.length), runtime.orbitRot)];
+    const ys = live.length ? runtime.brushes.map((b) => b.y) : [y];
+    const p = glassToPlane(x, y);
+    const period = islandPeriod(p, Math.max(3, mode.intervals.length));
+    const k0 = degrees[0] ?? 0;
 
-    const freqs = [root];
-    if (root * 2 <= hi * 1.02) freqs.push(root * 2);
     const osc: OscillatorNode[] = [];
     const wave = runtime.waveform;
-    for (let i = 0; i < freqs.length; i++) {
+    for (let i = 0; i < degrees.length; i++) {
+      const hz = orbitHz(degrees[i]!, ys[i] ?? y, runtime.sense.pitch, key.pc, mode.intervals, lo, hi);
       const o = ctx.createOscillator();
       applyOscShape(o, wave === "spectrum" ? "sine" : wave, this.pulse, this.spec, this.chant);
-      o.frequency.value = freqs[i]!;
+      o.frequency.value = hz;
       const og = ctx.createGain();
-      og.gain.value = i === 0 ? 0.28 : 0.07;
+      og.gain.value = i === 0 ? 0.26 : 0.16;
       o.connect(og);
       og.connect(gain);
       o.start(now);
       osc.push(o);
+      this.lastHz = hz;
     }
 
-    this.frozen.push({ osc, gain, pan, x, y });
+    this.frozen.push({ osc, degrees, ys: ys.length ? ys : [y], period, k0, phase: 0, gain, pan, x, y });
     return this.frozen.length;
   }
 
-  /** Drag a locked drone through instrument space (pitch stays until a later bind). */
+  /** Drag a locked island. Shape is preserved — an isometry. Y walks the scale. */
   moveLock(index: number, x: number, y: number) {
     const v = this.frozen[index];
     if (!v || !this.ctx) return;
     v.x = x;
     v.y = y;
-    placePanner(v.pan, glassToWorld(x, y), this.ctx.currentTime);
+    const now = this.ctx.currentTime;
+    placePanner(v.pan, glassToWorld(x, y), now);
+    const key = keyById(runtime.keyId);
+    const mode = modeById(runtime.modeId);
+    for (let i = 0; i < v.osc.length; i++) {
+      const hz = orbitHz(v.degrees[i] ?? 0, y, runtime.sense.pitch, key.pc, mode.intervals, runtime.pitchMinHz, runtime.pitchMaxHz);
+      ramp(v.osc[i]!.frequency, hz, now, 0.08);
+    }
   }
 
   /** Drop or drag a recorded loop on the glass. */

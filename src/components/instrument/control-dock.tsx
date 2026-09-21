@@ -51,10 +51,21 @@ type TabId = (typeof TABS)[number]["id"];
 function VibratoControls() {
   const rate = useInstrument((s) => s.vibratoRate);
   const depth = useInstrument((s) => s.vibratoDepth);
+  const orbit = useInstrument((s) => s.orbitRate);
   const setRate = useInstrument((s) => s.setVibratoRate);
   const setDepth = useInstrument((s) => s.setVibratoDepth);
+  const setOrbit = useInstrument((s) => s.setOrbitRate);
   return (
     <div className="flex flex-col gap-3">
+      <ParamSlider
+        label="Orbit"
+        value={orbit}
+        min={0}
+        max={8}
+        step={0.05}
+        format={(n) => (n < 0.03 ? "hold" : `${n.toFixed(2)} Hz`)}
+        onChange={setOrbit}
+      />
       <ParamSlider
         label="Vibrato rate"
         value={rate}
@@ -279,8 +290,9 @@ export function ControlDock({
           (face === "field" ? (
           <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="text-xs leading-relaxed text-muted">
-              Freeze holds the last pitch as a quiet drone — not noise. Release
-              peels one layer. Colour circles retune The Hum.
+              Freeze captures every sounding finger as an island. Drag
+              that chord — an isometry, the intervals stay. Centre of the
+              glass is a hold; the rim walks the mode.
             </p>
             <button
               type="button"
@@ -335,9 +347,9 @@ export function ControlDock({
         ) : (
           <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
             <p className="text-xs leading-relaxed text-muted">
-              Sine is a warm voice, D dorian at rest. Height is pitch.
-              First tap voices it; lift and it recedes. Two fingers, two
-              voices. C♯, Aeolian, and pentatonic live here.
+              The scale is a polygon. Center is a hold. Outer rings walk
+              the mode — period n, 2n, 4n. Freeze captures the island;
+              drag it and the shape stays. Orbit 0 is a drone.
             </p>
             <div>
               <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Waveform</p>

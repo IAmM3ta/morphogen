@@ -76,10 +76,17 @@ export type Runtime = {
   /** Vibrato LFO in Hz. Depth 0 = off (default). */
   vibratoRate: number;
   vibratoDepth: number;
+  /** Outer-billiard walk rate. 0 = hold (period 1). */
+  orbitRate: number;
+  orbitN: number;
+  orbitRot: number;
+  orbitDegrees: number[];
+  orbitPeriod: number;
 };
 
 export const DEFAULT_VIBRATO_RATE = 5.2;
 export const DEFAULT_VIBRATO_DEPTH = 0;
+export const DEFAULT_ORBIT_RATE = 1.25;
 
 export const runtime: Runtime = {
   params: { ...DEFAULT_PARAMS },
@@ -111,6 +118,11 @@ export const runtime: Runtime = {
   pitchMaxHz: DEFAULT_PITCH_MAX,
   vibratoRate: DEFAULT_VIBRATO_RATE,
   vibratoDepth: DEFAULT_VIBRATO_DEPTH,
+  orbitRate: DEFAULT_ORBIT_RATE,
+  orbitN: 7,
+  orbitRot: 0,
+  orbitDegrees: [],
+  orbitPeriod: 1,
 };
 
 export function resetRuntimeParams(partial: Partial<SimParams>) {

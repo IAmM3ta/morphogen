@@ -191,6 +191,32 @@ export function yToScaleHz(
   return Math.max(lo, Math.min(hi, hz));
 }
 
+/**
+ * One vertex of the scale polygon, in the chant window.
+ * y still picks which octave of that degree.
+ */
+export function orbitHz(
+  degree: number,
+  y: number,
+  pitchTilt: number,
+  tonicPc: number,
+  intervals: number[],
+  minHz = DEFAULT_PITCH_MIN,
+  maxHz = DEFAULT_PITCH_MAX,
+): number {
+  const lo = Math.max(ABSOLUTE_PITCH_MIN, Math.min(minHz, maxHz));
+  const hi = Math.max(lo + 1, Math.max(minHz, maxHz));
+  const n = Math.max(1, intervals.length);
+  const d = ((Math.round(degree) % n) + n) % n;
+  const pc = ((tonicPc + (intervals[d] ?? 0)) % 12 + 12) % 12;
+  const notes = scaleMidisInRange(tonicPc, intervals, lo, hi).filter((m) => (((m % 12) + 12) % 12) === pc);
+  if (notes.length === 0) return yToScaleHz(y, pitchTilt, tonicPc, intervals, 0.88, minHz, maxHz);
+  const ny = Math.max(0, Math.min(1, 1 - y + pitchTilt * 0.22));
+  const i = Math.max(0, Math.min(notes.length - 1, Math.round(ny * (notes.length - 1))));
+  const hz = midiToHz(notes[i]!);
+  return Math.max(lo, Math.min(hi, hz));
+}
+
 export function tonicHz(tonicPc: number, minHz = DEFAULT_PITCH_MIN, maxHz = DEFAULT_PITCH_MAX): number {
   return chantTonicHz(tonicPc, minHz, maxHz);
 }

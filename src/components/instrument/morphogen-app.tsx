@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { ControlDock } from "./control-dock";
 import { StartGate } from "./start-gate";
 import { ArOverlay } from "./ar-overlay";
+import { OrbitGlass } from "./orbit-glass";
 import { LivingField, MorphoMark, Wordmark } from "./wordmark";
 import { RDEngine } from "@/lib/morphogen/rd-engine";
 import { AudioEngine } from "@/lib/morphogen/audio-engine";
@@ -747,6 +748,9 @@ export function MorphogenApp() {
     <div className="relative h-dvh w-full overflow-hidden bg-bg text-fg select-none">
       <div ref={canvasWrapRef} className="absolute inset-0 touch-none" style={{ touchAction: "none" }}>
         <canvas ref={canvasRef} className={cn("block h-full w-full touch-none", hunting && "opacity-0")} />
+        {started && !hunting && (
+          <OrbitGlass n={runtime.orbitN} rot={runtime.orbitRot} degrees={runtime.orbitDegrees} />
+        )}
         <video ref={videoRef} className="hidden" playsInline muted />
         {charge.v > 0.02 && (
           <div
@@ -835,6 +839,7 @@ export function MorphogenApp() {
               {lockCount > 0 ? ` · DRONE ${lockCount}` : ""}
               {loops.length > 0 ? ` · LAY ${loops.length}` : ""}
               {voices > 0 ? ` · ${Math.round(hz)} Hz · ${voices}v` : ""}
+              {runtime.orbitPeriod > 1 ? ` · P${runtime.orbitPeriod}` : ""}
             </p>
           </div>
           <div className="pointer-events-auto hidden flex-wrap justify-end gap-1 rounded-md bg-bg-elevated/90 p-1 shadow-[var(--shadow-border)] sm:flex">

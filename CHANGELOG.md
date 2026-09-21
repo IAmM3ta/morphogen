@@ -9,6 +9,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Outer billiards.** The mode is a regular n-gon. Centre of the glass is
+  period 1 (a hold). Rings walk the scale at Orbit Hz — n, 2n, 4n.
+  Freeze snapshots every live finger as an island; drag is an isometry.
+  Compass spins the table. Orbit 0 is the old drone.
 - **Releases.** Visual + audio credits stamp the glyph. Tracks stack into a
   sleeve — a sequence of ink plates, one per song. Print sticker inks the
   field into a maze-like QR. Capture sits on the Field face.

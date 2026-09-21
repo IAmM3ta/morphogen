@@ -12,7 +12,7 @@ import {
   type WaveformId,
 } from "./presets";
 import { isRestoring, maybeCheckpoint } from "./history";
-import { beginPresetMorph, resetRuntimeParams, runtime, DEFAULT_VIBRATO_DEPTH, DEFAULT_VIBRATO_RATE } from "./runtime";
+import { beginPresetMorph, resetRuntimeParams, runtime, DEFAULT_VIBRATO_DEPTH, DEFAULT_VIBRATO_RATE, DEFAULT_ORBIT_RATE } from "./runtime";
 import type { UndoSnap } from "./history";
 import { DEFAULT_KEY, DEFAULT_MODE, DEFAULT_PITCH_MAX, DEFAULT_PITCH_MIN, clampPitchRange, isLegacyPitchWindow, keyById, modeById, type KeyId, type ModeId } from "./theory";
 import type { Artist } from "./origin";
@@ -48,6 +48,7 @@ export type InstrumentState = {
   pitchMaxHz: number;
   vibratoRate: number;
   vibratoDepth: number;
+  orbitRate: number;
   gyroOn: boolean;
   micOn: boolean;
   cameraOn: boolean;
@@ -84,6 +85,7 @@ export type InstrumentState = {
   setPitchRange: (min: number, max: number) => void;
   setVibratoRate: (hz: number) => void;
   setVibratoDepth: (amt: number) => void;
+  setOrbitRate: (hz: number) => void;
   savePatch: (name?: string) => FieldPatch;
   loadPatch: (id: string) => void;
   deletePatch: (id: string) => void;
@@ -119,6 +121,7 @@ export const useInstrument = create<InstrumentState>()(
       pitchMaxHz: DEFAULT_PITCH_MAX,
       vibratoRate: DEFAULT_VIBRATO_RATE,
       vibratoDepth: DEFAULT_VIBRATO_DEPTH,
+      orbitRate: DEFAULT_ORBIT_RATE,
       gyroOn: true,
       micOn: false,
       cameraOn: false,
@@ -181,6 +184,7 @@ export const useInstrument = create<InstrumentState>()(
         runtime.pitchMaxHz = DEFAULT_PITCH_MAX;
         runtime.vibratoRate = DEFAULT_VIBRATO_RATE;
         runtime.vibratoDepth = DEFAULT_VIBRATO_DEPTH;
+        runtime.orbitRate = DEFAULT_ORBIT_RATE;
         set({
           params,
           presetId: DEFAULT_PRESET.id,
@@ -192,6 +196,7 @@ export const useInstrument = create<InstrumentState>()(
           pitchMaxHz: DEFAULT_PITCH_MAX,
           vibratoRate: DEFAULT_VIBRATO_RATE,
           vibratoDepth: DEFAULT_VIBRATO_DEPTH,
+          orbitRate: DEFAULT_ORBIT_RATE,
           volume: 0.7,
           muted: false,
           audioOn: true,
@@ -246,6 +251,11 @@ export const useInstrument = create<InstrumentState>()(
         const n = Math.max(0, Math.min(1, Number.isFinite(amt) ? amt : DEFAULT_VIBRATO_DEPTH));
         runtime.vibratoDepth = n;
         set({ vibratoDepth: n });
+      },
+      setOrbitRate: (hz) => {
+        const n = Math.max(0, Math.min(8, Number.isFinite(hz) ? hz : DEFAULT_ORBIT_RATE));
+        runtime.orbitRate = n;
+        set({ orbitRate: n });
       },
       savePatch: (name) => {
         const s = get();
@@ -355,7 +365,7 @@ export const useInstrument = create<InstrumentState>()(
       patch: (partial) => set(partial),
     }),
     {
-      name: "morphogen-v14",
+      name: "morphogen-v15",
       partialize: (s) => ({
         params: s.params,
         presetId: s.presetId,
@@ -367,6 +377,7 @@ export const useInstrument = create<InstrumentState>()(
         pitchMaxHz: s.pitchMaxHz,
         vibratoRate: s.vibratoRate,
         vibratoDepth: s.vibratoDepth,
+        orbitRate: s.orbitRate,
         volume: s.volume,
         tdUrl: s.tdUrl,
         tdGrid: s.tdGrid,
@@ -422,8 +433,10 @@ export const useInstrument = create<InstrumentState>()(
         if (typeof state.pitchMaxHz === "number") runtime.pitchMaxHz = state.pitchMaxHz;
         if (typeof state.vibratoRate !== "number") state.vibratoRate = DEFAULT_VIBRATO_RATE;
         if (typeof state.vibratoDepth !== "number") state.vibratoDepth = DEFAULT_VIBRATO_DEPTH;
+        if (typeof state.orbitRate !== "number") state.orbitRate = DEFAULT_ORBIT_RATE;
         runtime.vibratoRate = state.vibratoRate;
         runtime.vibratoDepth = state.vibratoDepth;
+        runtime.orbitRate = state.orbitRate;
       },
     },
   ),
@@ -443,6 +456,7 @@ export function isFactoryInstrument(s: InstrumentState): boolean {
     Math.abs(s.pitchMaxHz - DEFAULT_PITCH_MAX) < 0.5 &&
     Math.abs(s.vibratoRate - DEFAULT_VIBRATO_RATE) < 0.05 &&
     s.vibratoDepth < 0.005 &&
+    Math.abs(s.orbitRate - DEFAULT_ORBIT_RATE) < 0.05 &&
     Math.abs(s.volume - 0.7) < 1e-6 &&
     !s.muted &&
     s.audioOn &&

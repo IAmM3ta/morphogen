@@ -9,6 +9,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Field.** The solver matches the screen, up to 2048 on a phone and 2400
+  on a desktop, with a sharper edge. A sounding finger brightens and tints
+  the pattern. Still, on the glass, saves a high-resolution PNG.
 - **Sound sheet.** The waveform menu is glass, so the field stays visible.
   Hide menu closes it. Hide puts every control away; the eye brings them back.
 - **Phone play.** The dock sits on the thumb, not over the glass. Sound and

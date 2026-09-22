@@ -85,6 +85,8 @@ export type Runtime = {
   orbitRot: number;
   orbitDegrees: number[];
   orbitPeriod: number;
+  /** What the player is hearing, in 0–1, so the field can answer the note. */
+  play: { amp: number; pitch: number; timbre: number };
 };
 
 export const DEFAULT_VIBRATO_RATE = 5.2;
@@ -130,6 +132,7 @@ export const runtime: Runtime = {
   orbitRot: 0,
   orbitDegrees: [],
   orbitPeriod: 1,
+  play: { amp: 0, pitch: 0.5, timbre: 0.12 },
 };
 
 export function resetRuntimeParams(partial: Partial<SimParams>) {

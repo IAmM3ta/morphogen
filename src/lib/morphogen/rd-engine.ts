@@ -126,6 +126,7 @@ const DISPLAY_UNIFORMS = [
   "uFlash",
   "uLockCount",
   "uSense",
+  "uPlay",
 ];
 
 const EMPTY: Brush = {
@@ -563,7 +564,9 @@ export class RDEngine {
     const imageMode = params.imageMode === "develop" ? 0 : params.imageMode === "inoculate" ? 1 : 2;
 
     if (!runtime.paused) {
-      const inner = Math.max(4, Math.min(40, params.steps | 0));
+      const area = this.simW * this.simH;
+      const stepCap = area > 2_200_000 ? 12 : area > 1_600_000 ? 16 : 40;
+      const inner = Math.max(8, Math.min(stepCap, params.steps | 0));
       for (let step = 0; step < inner; step++) {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.simB.fbo);
         gl.viewport(0, 0, this.simW, this.simH);
@@ -629,44 +632,7 @@ export class RDEngine {
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, bw, bh);
-    gl.useProgram(this.displayProg.prog);
-    this.bindQuad();
-    const pal = this.currentPalette();
-    const du = this.displayProg.uniforms;
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-    gl.uniform1i(du.uField, 0);
-    const lp = new Float32Array(48);
-    for (let i = 0; i < 4; i++) {
-      const slot = (this.lockStart + i) % 4;
-      const layer = this.locks[slot];
-      gl.activeTexture(gl.TEXTURE1 + i);
-      gl.bindTexture(gl.TEXTURE_2D, i < this.lockCount && layer ? layer.tex : this.simA.tex);
-      gl.uniform1i(du[`uLock${i}` as "uLock0"], 1 + i);
-      const p = i < this.lockCount ? (this.lockPalettes[slot] ?? pal) : pal;
-      for (let s = 0; s < 4; s++) {
-        const stop = p.stops[s]!;
-        const o = (i * 4 + s) * 3;
-        lp[o] = stop[0];
-        lp[o + 1] = stop[1];
-        lp[o + 2] = stop[2];
-      }
-    }
-    if (this.lpLoc) gl.uniform3fv(this.lpLoc, lp);
-    gl.uniform1f(du.uLockCount, this.lockCount);
-    gl.uniform2f(du.uResolution, this.simW, this.simH);
-    gl.uniform1f(du.uTime, time);
-    gl.uniform3f(du.uC0, pal.stops[0][0], pal.stops[0][1], pal.stops[0][2]);
-    gl.uniform3f(du.uC1, pal.stops[1][0], pal.stops[1][1], pal.stops[1][2]);
-    gl.uniform3f(du.uC2, pal.stops[2][0], pal.stops[2][1], pal.stops[2][2]);
-    gl.uniform3f(du.uC3, pal.stops[3][0], pal.stops[3][1], pal.stops[3][2]);
-    gl.uniform1f(du.uGlow, Math.max(0.4, Math.min(2.4, params.glow * (1 + runtime.bands.rms * runtime.listen * 0.8))));
-    gl.uniform1f(du.uVignette, params.vignette);
-    gl.uniform1f(du.uFlash, this.flash);
-    gl.uniform4f(du.uSense, runtime.sense.roll, runtime.sense.pitch, runtime.sense.spin, runtime.sense.pressure);
-    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    this.drawDisplay(time);
     gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
@@ -727,9 +693,87 @@ export class RDEngine {
     runtime.stats.edge = Math.min(1, edge / 40);
   }
 
+  private drawDisplay(time: number) {
+    const gl = this.gl;
+    const params = runtime.params;
+    gl.useProgram(this.displayProg.prog);
+    this.bindQuad();
+    const pal = this.currentPalette();
+    const du = this.displayProg.uniforms;
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.uniform1i(du.uField, 0);
+    const lp = new Float32Array(48);
+    for (let i = 0; i < 4; i++) {
+      const slot = (this.lockStart + i) % 4;
+      const layer = this.locks[slot];
+      gl.activeTexture(gl.TEXTURE1 + i);
+      gl.bindTexture(gl.TEXTURE_2D, i < this.lockCount && layer ? layer.tex : this.simA.tex);
+      gl.uniform1i(du[`uLock${i}` as "uLock0"], 1 + i);
+      const p = i < this.lockCount ? (this.lockPalettes[slot] ?? pal) : pal;
+      for (let s = 0; s < 4; s++) {
+        const stop = p.stops[s]!;
+        const o = (i * 4 + s) * 3;
+        lp[o] = stop[0];
+        lp[o + 1] = stop[1];
+        lp[o + 2] = stop[2];
+      }
+    }
+    if (this.lpLoc) gl.uniform3fv(this.lpLoc, lp);
+    const play = runtime.play;
+    gl.uniform1f(du.uLockCount, this.lockCount);
+    gl.uniform2f(du.uResolution, this.simW, this.simH);
+    gl.uniform1f(du.uTime, time);
+    gl.uniform3f(du.uC0, pal.stops[0][0], pal.stops[0][1], pal.stops[0][2]);
+    gl.uniform3f(du.uC1, pal.stops[1][0], pal.stops[1][1], pal.stops[1][2]);
+    gl.uniform3f(du.uC2, pal.stops[2][0], pal.stops[2][1], pal.stops[2][2]);
+    gl.uniform3f(du.uC3, pal.stops[3][0], pal.stops[3][1], pal.stops[3][2]);
+    gl.uniform1f(
+      du.uGlow,
+      Math.max(0.4, Math.min(2.6, params.glow * (1 + play.amp * 0.75 + runtime.bands.rms * runtime.listen * 0.35))),
+    );
+    gl.uniform1f(du.uVignette, params.vignette);
+    gl.uniform1f(du.uFlash, this.flash);
+    gl.uniform4f(du.uSense, runtime.sense.roll, runtime.sense.pitch, runtime.sense.spin, runtime.sense.pressure);
+    gl.uniform4f(du.uPlay, play.amp, play.pitch, play.timbre, 0);
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+  }
+
   capturePng(): Promise<Blob> {
+    const gl = this.gl;
+    const cssW = Math.max(1, this.canvas.clientWidth || 1);
+    const cssH = Math.max(1, this.canvas.clientHeight || 1);
+    const aspect = cssW / cssH;
+    const dpr = Math.min(3, window.devicePixelRatio || 1);
+    const screenLong = Math.max(cssW, cssH) * dpr;
+    const simLong = Math.max(this.simW, this.simH);
+    const capLong = Math.min(3200, Math.max(2048, screenLong, simLong));
+    const cw = aspect >= 1 ? Math.round(capLong) : Math.max(1, Math.round(capLong * aspect));
+    const ch = aspect >= 1 ? Math.max(1, Math.round(capLong / aspect)) : Math.round(capLong);
+    const target = makeTarget(gl, cw, ch, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, gl.LINEAR);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, target.fbo);
+    gl.viewport(0, 0, cw, ch);
+    this.drawDisplay(performance.now() / 1000);
+    const pixels = new Uint8Array(cw * ch * 4);
+    gl.readPixels(0, 0, cw, ch, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    this.deleteTarget(target);
+
+    const row = cw * 4;
+    const flipped = new Uint8ClampedArray(pixels.length);
+    for (let y = 0; y < ch; y++) {
+      flipped.set(pixels.subarray((ch - 1 - y) * row, (ch - y) * row), y * row);
+    }
+    const plate = document.createElement("canvas");
+    plate.width = cw;
+    plate.height = ch;
+    const ctx = plate.getContext("2d");
+    if (!ctx) return Promise.reject(new Error("Could not capture the field."));
+    ctx.putImageData(new ImageData(flipped, cw, ch), 0, 0);
     return new Promise((resolve, reject) => {
-      this.canvas.toBlob((blob) => {
+      plate.toBlob((blob) => {
         if (blob) resolve(blob);
         else reject(new Error("Could not capture the field."));
       }, "image/png");

@@ -209,6 +209,7 @@ uniform float uGlow;
 uniform float uVignette;
 uniform float uFlash;
 uniform vec4 uSense;
+uniform vec4 uPlay;
 in vec2 vUv;
 out vec4 fragColor;
 
@@ -229,21 +230,25 @@ vec3 colorize(sampler2D field, vec3 c0, vec3 c1, vec3 c2, vec3 c3, float glowAmt
   float vE = texture(field, uv + vec2(px.x, 0.0)).g;
   float vW = texture(field, uv - vec2(px.x, 0.0)).g;
   float edge = abs(vN - vS) + abs(vE - vW);
-  float t = smoothstep(0.0, 0.48, v);
+  float sharp = clamp(v * 1.6 - (vN + vS + vE + vW) * 0.15, 0.0, 1.0);
+  v = mix(v, sharp, 0.42 + uPlay.z * 0.28);
+  float t = smoothstep(0.02, 0.42, v);
   vec3 col = paletteStops(t, c0, c1, c2, c3);
   vec3 nrm = normalize(vec3(-(vE - vW) * (3.4 + glowAmt * 2.8), (vN - vS) * (3.4 + glowAmt * 2.8), 0.16));
   float ndl = max(0.0, dot(nrm, normalize(vec3(-0.42, 0.68, 0.78))));
   float rim = pow(1.0 - ndl, 2.4) * edge * 1.8;
+  float bite = 1.0 + uPlay.z * 0.7;
+  float bloom = 1.0 + uPlay.x * 0.55;
   col *= 0.42 + 1.05 * ndl;
-  col += paletteStops(min(1.0, t + 0.2), c0, c1, c2, c3) * (edge * (0.55 + glowAmt * 0.4) + rim * 0.35);
-  col += vec3(0.85, 0.92, 1.0) * pow(ndl, 8.0) * v * 0.22;
+  col += paletteStops(min(1.0, t + 0.2), c0, c1, c2, c3) * (edge * (0.7 + glowAmt * 0.45) * bite + rim * 0.4 * bloom);
+  col += vec3(0.85, 0.92, 1.0) * pow(ndl, 8.0) * v * (0.18 + uPlay.x * 0.28);
   return col;
 }
 
 void main() {
   vec2 uv = vUv;
   vec2 px = 1.0 / uResolution;
-  float aberr = uSense.x * 1.6 * px.x;
+  float aberr = (uSense.x * 1.6 + uPlay.x * uPlay.z * 2.2) * px.x;
   vec3 live = colorize(uField, uC0, uC1, uC2, uC3, uGlow, uv);
   vec3 liveR = colorize(uField, uC0, uC1, uC2, uC3, uGlow * 0.85, uv + vec2(aberr, 0.0));
   vec3 liveB = colorize(uField, uC0, uC1, uC2, uC3, uGlow * 0.85, uv - vec2(aberr, 0.0));
@@ -265,6 +270,12 @@ void main() {
   vec2 q = vUv * 2.0 - 1.0;
   float vig = 1.0 - dot(q, q) * uVignette;
   col *= vig;
+  float hue = (uPlay.y - 0.5) * uPlay.x * 0.62;
+  float coss = cos(hue);
+  float sinn = sin(hue);
+  vec3 axis = vec3(0.57735);
+  col = col * coss + cross(axis, col) * sinn + axis * dot(axis, col) * (1.0 - coss);
+  col *= 1.0 + uPlay.x * 0.22;
   col += vec3(uFlash) * 0.06;
 
   fragColor = vec4(max(col, vec3(0.0)), 1.0);

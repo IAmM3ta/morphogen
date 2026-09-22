@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
+  Camera,
   Circle,
   Eye,
   EyeOff,
@@ -262,7 +263,7 @@ export function MorphogenApp() {
       setShots((prev) => [{ id, url, name, origin }, ...prev].slice(0, 6));
       downloadBlob(blob, name);
       downloadBlob(new Blob([`${JSON.stringify(origin, null, 2)}\n`], { type: "application/json" }), `MORPHOS-${stamp}-origin.json`);
-      toast("Still + origin saved");
+      toast("High-resolution still saved");
     } catch {
       toast("Could not capture the field");
     }
@@ -390,6 +391,29 @@ export function MorphogenApp() {
       if (runtime.sense.compass) setCompassLive(true);
       setEnergy((e) => (Math.abs(e - stats.energy) > 0.02 ? stats.energy : e));
       const a = audioRef.current;
+      const brushes = runtime.brushes;
+      const brushAmp = brushes.length
+        ? Math.min(1, brushes.reduce((sum, b) => sum + b.strength, 0) / brushes.length)
+        : 0;
+      const hzNow = a?.lastHz ?? 0;
+      const lo = runtime.pitchMinHz;
+      const hi = Math.max(lo + 1, runtime.pitchMaxHz);
+      const pitch = hzNow > 1 ? Math.log(Math.max(hzNow, lo) / lo) / Math.log(hi / lo) : 0.5;
+      const timbre =
+        runtime.waveform === "sine"
+          ? 0.12
+          : runtime.waveform === "triangle"
+            ? 0.34
+            : runtime.waveform === "sawtooth"
+              ? 0.72
+              : runtime.waveform === "square"
+                ? 0.86
+                : runtime.waveform === "pulse"
+                  ? 1
+                  : 0.48;
+      runtime.play.amp = Math.max(brushAmp, runtime.bands.rms * runtime.listen);
+      runtime.play.pitch = Math.max(0, Math.min(1, pitch));
+      runtime.play.timbre = timbre;
       if (a) {
         setHz((h) => (Math.abs(h - a.lastHz) > 1.5 ? a.lastHz : h));
         setVoices(a.voiceCount);
@@ -823,12 +847,28 @@ export function MorphogenApp() {
         </div>
       )}
 
+      {started && !hunting && (
+        <div data-ui className="pointer-events-auto absolute top-hud-t left-3 z-50">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="bg-bg/45 shadow-[var(--shadow-border)] backdrop-blur-sm"
+            onClick={() => void captureField()}
+            aria-label="Capture still"
+            title="Save a high-resolution still of the field"
+          >
+            <Camera />
+            Still
+          </Button>
+        </div>
+      )}
+
       {started && !uiHidden && (
         <header
           data-ui
           className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-center px-16 pt-hud-t sm:justify-between sm:px-4"
         >
-          <div className="pointer-events-none rounded-md bg-bg-elevated/90 px-2 py-1 shadow-[var(--shadow-border)]">
+          <div className="pointer-events-none max-w-[calc(100%-8.5rem)] rounded-md bg-bg-elevated/90 px-2 py-1 shadow-[var(--shadow-border)]">
             <p className="flex items-center gap-1.5 text-lg text-fg">
               <MorphoMark className="size-5" />
               <Wordmark variant="hud" />

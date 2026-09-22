@@ -233,13 +233,18 @@ export function emptyStats(): FieldStats {
 }
 
 export function pickSimMaxSide(): number {
-  if (typeof window === "undefined") return 1440;
+  if (typeof window === "undefined") return 1920;
   const dpr = Math.min(3, window.devicePixelRatio || 1);
-  const w = window.innerWidth || 1280;
-  const h = window.innerHeight || 720;
-  const longPx = Math.max(w, h) * dpr;
+  const cssW = window.innerWidth || 1280;
+  const cssH = window.innerHeight || 720;
+  const longCss = Math.max(cssW, cssH);
+  const shortCss = Math.max(1, Math.min(cssW, cssH));
+  const longPx = longCss * dpr;
   const mobile =
     window.matchMedia("(max-width: 640px)").matches || /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  if (mobile) return Math.max(960, Math.min(1600, Math.round(longPx * 0.78)));
-  return Math.max(1440, Math.min(2160, Math.round(longPx * 0.92)));
+  const budget = mobile ? 2_000_000 : 2_600_000;
+  const maxByBudget = Math.sqrt(budget * (longCss / shortCss));
+  const cap = mobile ? 2048 : 2400;
+  const floor = mobile ? 1280 : 1600;
+  return Math.round(Math.max(floor, Math.min(cap, longPx, maxByBudget)));
 }

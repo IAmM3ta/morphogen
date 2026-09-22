@@ -581,18 +581,19 @@ export class RDEngine {
         gl.uniform2f(u.uResolution, this.simW, this.simH);
         const L = Math.max(0, Math.min(1, runtime.listen));
         const b = runtime.bands;
-        const feed = params.feed + (b.bass - 0.18) * L * 0.012;
-        const kill = params.kill - (b.mid - 0.2) * L * 0.008;
-        const du = params.du * (1 + (b.high - 0.2) * L * 0.35);
-        const dv = params.dv * (1 - (b.bass - 0.2) * L * 0.18);
-        const simDt = Math.max(0.35, Math.min(1.35, params.speed * (1 + b.rms * L * 0.45)));
+        const heard = b.rms > 0.03 ? L : 0;
+        const feed = params.feed + b.bass * heard * 0.014;
+        const kill = params.kill - b.mid * heard * 0.01;
+        const du = params.du * (1 + b.high * heard * 0.4);
+        const dv = params.dv * (1 - b.bass * heard * 0.2);
+        const simDt = Math.max(0.35, Math.min(1.35, params.speed * (1 + b.rms * heard * 0.45)));
         gl.uniform1f(u.uFeed, Math.max(0.01, Math.min(0.09, feed)));
         gl.uniform1f(u.uKill, Math.max(0.03, Math.min(0.08, kill)));
-        gl.uniform1f(u.uDu, Math.max(0.04, Math.min(0.28, du)));
-        gl.uniform1f(u.uDv, Math.max(0.02, Math.min(0.16, dv)));
+        gl.uniform1f(u.uDu, Math.max(0.08, Math.min(0.36, du)));
+        gl.uniform1f(u.uDv, Math.max(0.04, Math.min(0.2, dv)));
         gl.uniform1f(u.uDt, simDt);
-        const ax = runtime.flowX + (b.high - b.bass) * L * 0.14;
-        const ay = runtime.flowY + (b.centroid - 0.4) * L * 0.1;
+        const ax = runtime.flowX + (b.high - b.bass) * heard * 0.14;
+        const ay = runtime.flowY + (b.centroid - 0.4) * heard * 0.1;
         gl.uniform2f(u.uAdvect, ax, ay);
         gl.uniform1f(u.uHasImage, runtime.hasImage && params.imageMode !== "palette" ? 1 : 0);
         gl.uniform1f(u.uImageMix, params.imageMix);
@@ -673,7 +674,7 @@ export class RDEngine {
     this.lockImpulse *= Math.exp(-3.2 * dt);
 
     this.statsEvery++;
-    if (this.statsEvery % 3 === 0) this.readStats();
+    if (this.statsEvery % 15 === 0) this.readStats();
     try {
       this.onFrame?.(dt, runtime.stats);
     } catch {

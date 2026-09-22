@@ -912,7 +912,7 @@ export function MorphogenApp() {
       )}
 
       {started && !uiHidden && (
-        <div className="pointer-events-none absolute inset-x-0 top-0 z-40 flex flex-col items-stretch gap-3 px-3 pt-hud-panel sm:static sm:inset-auto sm:p-0">
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-40 flex flex-col items-stretch justify-end px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:static sm:inset-auto sm:p-0">
           <ControlDock
             tab={tab}
             onTab={setTab}

@@ -271,8 +271,8 @@ export function ControlDock({
       <div
         data-ui
         className={cn(
-          "pointer-events-auto relative z-50 flex w-full flex-col overflow-hidden rounded-xl bg-bg-elevated px-3 pt-3 pb-3 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:bottom-3 sm:w-80",
-          sheetOpen && "max-h-[min(38dvh,22rem)] sm:max-h-[min(70dvh,36rem)]",
+          "pointer-events-auto relative z-50 flex w-full flex-col-reverse overflow-hidden rounded-xl bg-bg-elevated px-3 pt-3 pb-3 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:bottom-3 sm:w-80 sm:flex-col",
+          sheetOpen && "max-h-[min(72dvh,32rem)]",
         )}
       >
         <div className="flex shrink-0 flex-col gap-2">
@@ -346,7 +346,7 @@ export function ControlDock({
 
         {sheetOpen &&
           (face === "field" ? (
-          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+          <div className="mb-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto sm:mt-3 sm:mb-0">
             <p className="text-xs leading-relaxed text-muted">
               Freeze captures every sounding finger as an island. Drag
               that chord — an isometry, the intervals stay. Centre of the
@@ -403,7 +403,7 @@ export function ControlDock({
             </div>
           </div>
         ) : (
-          <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto">
+          <div className="mb-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto sm:mt-3 sm:mb-0">
             <p className="text-xs leading-relaxed text-muted">
               The scale is a polygon. Center is a hold. Outer rings walk
               the mode — period n, 2n, 4n. Freeze captures the island;
@@ -428,9 +428,9 @@ export function ControlDock({
                 ))}
               </div>
             </div>
-            <KeyPad compassLive={compassLive} compact />
             <VibratoControls />
             <ListenControls onLoadTrack={onLoadTrack} onToggleTrack={onToggleTrack} trackOn={trackOn} trackName={trackName} />
+            <KeyPad compassLive={compassLive} compact />
             <div className="flex gap-2">
               <Button
                 variant={atDefaults ? "secondary" : "ghost"}
@@ -454,7 +454,7 @@ export function ControlDock({
   return (
     <aside
       data-ui
-      className="pointer-events-auto relative z-50 flex max-h-[min(62dvh,34rem)] w-full flex-col overflow-hidden rounded-xl bg-bg-elevated text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:top-hud-t sm:bottom-3 sm:w-80 sm:max-h-none"
+      className="pointer-events-auto relative z-50 flex h-[min(72dvh,36rem)] w-full flex-col overflow-hidden rounded-xl bg-bg-elevated text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:top-hud-t sm:bottom-3 sm:h-auto sm:w-80"
     >
       <header className="flex items-center justify-between px-4 pt-3 pb-2">
         <p className="text-xs tracking-[0.28em] text-muted uppercase">Console</p>

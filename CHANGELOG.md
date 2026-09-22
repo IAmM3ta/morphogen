@@ -9,6 +9,10 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Phone play.** The dock sits on the thumb, not over the glass. Sound and
+  More actually scroll. Listen does nothing until there is sound — silence
+  is the chemistry you set. Field stats read back less often so the GPU
+  is not stalled every frame.
 - **TouchDesigner 087.** Sync packets are v2 with a `feedback` block mapped
   onto IIHQ Tutorial 087: Blur, Sharpen, Level, Transform, Feedback reset.
   Name those ops in the toe and the callbacks ride them. MIDI CCs 30–35

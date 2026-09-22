@@ -9,6 +9,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Sound sheet.** The waveform menu is glass, so the field stays visible.
+  Hide menu closes it. Hide puts every control away; the eye brings them back.
 - **Phone play.** The dock sits on the thumb, not over the glass. Sound and
   More actually scroll. Listen does nothing until there is sound — silence
   is the chemistry you set. Field stats read back less often so the GPU

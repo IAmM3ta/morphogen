@@ -897,15 +897,16 @@ export function MorphogenApp() {
               {isFs ? <Minimize2 /> : <Maximize2 />}
             </Button>
           </div>
-          <div className="pointer-events-auto absolute top-0 right-16 sm:hidden">
+          <div className="pointer-events-auto absolute top-hud-t right-3 z-40 sm:hidden">
             <Button
               variant="ghost"
-              size="icon-sm"
-              className="bg-bg-elevated/90 shadow-[var(--shadow-border)]"
+              size="sm"
+              className="bg-bg/55 shadow-[var(--shadow-border)] backdrop-blur-md"
               onClick={() => patch({ uiHidden: true, panelOpen: false })}
-              aria-label="Hide chrome"
+              aria-label="Hide controls"
             >
               <EyeOff />
+              Hide
             </Button>
           </div>
         </header>

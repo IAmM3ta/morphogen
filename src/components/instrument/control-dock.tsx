@@ -255,7 +255,10 @@ export function ControlDock({
   const [face, setFace] = useState<"field" | "sound">("sound");
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  const hideChrome = () => patch({ uiHidden: true, panelOpen: false });
+  const hideChrome = () => {
+    setSheetOpen(false);
+    patch({ uiHidden: true, panelOpen: false });
+  };
   const openFace = (next: "field" | "sound") => {
     if (face === next && sheetOpen) setSheetOpen(false);
     else {
@@ -271,7 +274,7 @@ export function ControlDock({
       <div
         data-ui
         className={cn(
-          "pointer-events-auto relative z-50 flex w-full flex-col-reverse overflow-hidden rounded-xl bg-bg-elevated px-3 pt-3 pb-3 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:bottom-3 sm:w-80 sm:flex-col",
+          "pointer-events-auto relative z-50 flex w-full flex-col-reverse overflow-hidden rounded-xl bg-bg/35 px-3 pt-3 pb-3 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:bottom-3 sm:w-80 sm:flex-col",
           sheetOpen && "max-h-[min(72dvh,32rem)]",
         )}
       >
@@ -344,9 +347,30 @@ export function ControlDock({
           </div>
         </div>
 
-        {sheetOpen &&
-          (face === "field" ? (
+        {sheetOpen && (
           <div className="mb-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto sm:mt-3 sm:mb-0">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 py-1">
+              <p className="text-xs tracking-[0.18em] text-muted uppercase">
+                {face === "sound" ? "Sound" : "Field"}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button variant="ghost" size="sm" onClick={() => setSheetOpen(false)} aria-label="Hide menu">
+                  Hide menu
+                </Button>
+                <Button
+                  variant="faint"
+                  size="sm"
+                  onClick={hideChrome}
+                  aria-label="Hide controls"
+                  title="Hide every control. Tap the eye to bring them back."
+                >
+                  <EyeOff />
+                  Hide
+                </Button>
+              </div>
+            </div>
+            {face === "field" ? (
+          <>
             <p className="text-xs leading-relaxed text-muted">
               Freeze captures every sounding finger as an island. Drag
               that chord — an isometry, the intervals stay. Centre of the
@@ -401,9 +425,9 @@ export function ControlDock({
                 <Camera />
               </Button>
             </div>
-          </div>
+          </>
         ) : (
-          <div className="mb-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto sm:mt-3 sm:mb-0">
+          <>
             <p className="text-xs leading-relaxed text-muted">
               The scale is a polygon. Center is a hold. Outer rings walk
               the mode — period n, 2n, 4n. Freeze captures the island;
@@ -419,7 +443,7 @@ export function ControlDock({
                     onClick={() => setWaveform(w.id)}
                     className={cn(
                       "rounded-sm px-2 py-2 text-center shadow-[var(--shadow-border)] transition-colors duration-150",
-                      waveform === w.id ? "bg-fg text-bg" : "bg-transparent text-fg hover:bg-fg/6",
+                      waveform === w.id ? "bg-fg/90 text-bg" : "bg-bg/25 text-fg hover:bg-fg/10",
                     )}
                     aria-pressed={waveform === w.id}
                   >
@@ -445,8 +469,10 @@ export function ControlDock({
                 <RotateCcw /> Reset
               </Button>
             </div>
+          </>
+            )}
           </div>
-        ))}
+        )}
       </div>
     );
   }
@@ -454,7 +480,7 @@ export function ControlDock({
   return (
     <aside
       data-ui
-      className="pointer-events-auto relative z-50 flex h-[min(72dvh,36rem)] w-full flex-col overflow-hidden rounded-xl bg-bg-elevated text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:top-hud-t sm:bottom-3 sm:h-auto sm:w-80"
+      className="pointer-events-auto relative z-50 flex h-[min(72dvh,36rem)] w-full flex-col overflow-hidden rounded-xl bg-bg/45 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:top-hud-t sm:bottom-3 sm:h-auto sm:w-80"
     >
       <header className="flex items-center justify-between px-4 pt-3 pb-2">
         <p className="text-xs tracking-[0.28em] text-muted uppercase">Console</p>

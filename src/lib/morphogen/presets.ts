@@ -89,6 +89,16 @@ export const PALETTES: Palette[] = [
       [0.98, 0.95, 0.72],
     ],
   },
+  {
+    id: "morpho",
+    name: "Morpho",
+    stops: [
+      [0.012, 0.018, 0.03],
+      [0.0, 0.1, 0.26],
+      [0.0, 0.45, 0.98],
+      [0.78, 0.93, 1.0],
+    ],
+  },
 ];
 
 export const PRESETS: SimPreset[] = [
@@ -100,11 +110,12 @@ export const PRESETS: SimPreset[] = [
   { id: "fingerprint", name: "Fingerprint", blurb: "Ridge fields", feed: 0.026, kill: 0.061, du: 0.21, dv: 0.105, paletteId: "porcelain" },
   { id: "spirals", name: "Spirals", blurb: "Rotating arms", feed: 0.018, kill: 0.051, du: 0.21, dv: 0.105, paletteId: "ember" },
   { id: "worms", name: "Worms", blurb: "Wandering filaments", feed: 0.046, kill: 0.063, du: 0.21, dv: 0.105, paletteId: "chlorophyll" },
+  { id: "scale", name: "Scale", blurb: "Morpho ridges", feed: 0.046, kill: 0.063, du: 0.21, dv: 0.105, paletteId: "morpho" },
   { id: "coral", name: "Coral", blurb: "Branching reefs", feed: 0.0545, kill: 0.062, du: 0.21, dv: 0.105, paletteId: "abyss" },
   { id: "uskate", name: "Skate", blurb: "U-skate world", feed: 0.062, kill: 0.0609, du: 0.21, dv: 0.105, paletteId: "ember" },
 ];
 
-export const DEFAULT_PRESET = PRESETS.find((p) => p.id === "mitosis") ?? PRESETS[0]!;
+export const DEFAULT_PRESET = PRESETS.find((p) => p.id === "scale") ?? PRESETS[0]!;
 
 export const WAVEFORMS = [
   { id: "sine", name: "Sine", tag: "HUM", blurb: "Warm voice — almost pure" },
@@ -191,7 +202,7 @@ export const DEFAULT_PARAMS: SimParams = {
   imageMode: "inoculate",
   paletteId: DEFAULT_PRESET.paletteId,
   glow: 1.35,
-  vignette: 0.16,
+  vignette: 0.46,
   steps: 22,
 };
 

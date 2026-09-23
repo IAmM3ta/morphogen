@@ -420,22 +420,28 @@ export const useInstrument = create<InstrumentState>()(
           state.modeId = DEFAULT_MODE;
           state.compassKey = false;
         }
-        const dullField = state.presetId === "mitosis" && state.params?.paletteId === "field";
-        if (dullField) {
-          const coral = presetById("coral");
-          state.presetId = coral.id;
+        const p0 = state.params;
+        const factoryLook =
+          !!p0 &&
+          (p0.paletteId === "abyss" || p0.paletteId === "field") &&
+          Math.abs((p0.vignette ?? 0.16) - 0.16) < 0.02 &&
+          ((state.presetId === "mitosis" && Math.abs(p0.feed - 0.037) < 0.001 && Math.abs(p0.kill - 0.06) < 0.001) ||
+            (state.presetId === "coral" && Math.abs(p0.feed - 0.0545) < 0.001 && Math.abs(p0.kill - 0.062) < 0.001));
+        if (factoryLook && p0) {
+          const scale = presetById("scale");
+          state.presetId = scale.id;
           state.params = {
-            ...state.params,
-            feed: coral.feed,
-            kill: coral.kill,
-            du: coral.du,
-            dv: coral.dv,
-            paletteId: coral.paletteId,
+            ...p0,
+            feed: scale.feed,
+            kill: scale.kill,
+            du: scale.du,
+            dv: scale.dv,
+            paletteId: scale.paletteId,
             glow: DEFAULT_PARAMS.glow,
+            vignette: DEFAULT_PARAMS.vignette,
             steps: DEFAULT_PARAMS.steps,
           };
         }
-        if (state.waveform !== "sine" && dullField) state.waveform = DEFAULT_WAVEFORM;
         resetRuntimeParams(state.params);
         runtime.waveform = state.waveform;
         runtime.keyId = state.keyId;

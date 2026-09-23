@@ -102,7 +102,7 @@ export const PALETTES: Palette[] = [
 ];
 
 export const PRESETS: SimPreset[] = [
-  { id: "mitosis", name: "Mitosis", blurb: "Soft dividing cells", feed: 0.037, kill: 0.06, du: 0.21, dv: 0.105, paletteId: "abyss" },
+  { id: "living", name: "Living", blurb: "Keeps moving. Grows finer.", feed: 0.062, kill: 0.0609, du: 0.16, dv: 0.08, paletteId: "abyss" },
   { id: "solitons", name: "Solitons", blurb: "Quiet stable spots", feed: 0.0353, kill: 0.0653, du: 0.21, dv: 0.105, paletteId: "spore" },
   { id: "pulsing", name: "Pulsing", blurb: "Breathing spots", feed: 0.025, kill: 0.06, du: 0.18, dv: 0.09, paletteId: "spore" },
   { id: "holes", name: "Holes", blurb: "Perforated sheet", feed: 0.039, kill: 0.058, du: 0.21, dv: 0.105, paletteId: "abyss" },
@@ -115,7 +115,7 @@ export const PRESETS: SimPreset[] = [
   { id: "uskate", name: "Skate", blurb: "U-skate world", feed: 0.062, kill: 0.0609, du: 0.21, dv: 0.105, paletteId: "ember" },
 ];
 
-export const DEFAULT_PRESET = PRESETS.find((p) => p.id === "coral") ?? PRESETS[0]!;
+export const DEFAULT_PRESET = PRESETS.find((p) => p.id === "living") ?? PRESETS[0]!;
 
 export const WAVEFORMS = [
   { id: "sine", name: "Sine", tag: "HUM", blurb: "Warm voice — almost pure" },

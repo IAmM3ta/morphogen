@@ -421,25 +421,38 @@ export const useInstrument = create<InstrumentState>()(
           state.compassKey = false;
         }
         const p0 = state.params;
+        const mitosisRest =
+          !!p0 &&
+          state.presetId === "mitosis" &&
+          p0.paletteId === "abyss" &&
+          Math.abs(p0.feed - 0.037) < 0.001 &&
+          Math.abs(p0.kill - 0.06) < 0.001;
+        const coralRest =
+          !!p0 &&
+          state.presetId === "coral" &&
+          p0.paletteId === "abyss" &&
+          Math.abs(p0.feed - 0.0545) < 0.0015 &&
+          Math.abs(p0.kill - 0.062) < 0.0015;
         const stranded =
           !!p0 &&
           (state.presetId === "scale" || p0.paletteId === "morpho") &&
           Math.abs(p0.feed - 0.046) < 0.002 &&
           Math.abs(p0.kill - 0.063) < 0.002;
-        if (stranded && p0) {
-          const coral = presetById("coral");
-          state.presetId = coral.id;
+        if ((mitosisRest || coralRest || stranded) && p0) {
+          const living = presetById("living");
+          state.presetId = living.id;
           state.params = {
             ...p0,
-            feed: coral.feed,
-            kill: coral.kill,
-            du: coral.du,
-            dv: coral.dv,
-            paletteId: coral.paletteId,
+            feed: living.feed,
+            kill: living.kill,
+            du: living.du,
+            dv: living.dv,
+            paletteId: living.paletteId,
             glow: DEFAULT_PARAMS.glow,
             vignette: DEFAULT_PARAMS.vignette,
             steps: DEFAULT_PARAMS.steps,
           };
+          runtime.seedNonce += 1;
         }
         resetRuntimeParams(state.params);
         runtime.waveform = state.waveform;

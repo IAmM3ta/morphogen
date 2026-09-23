@@ -9,8 +9,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- **Field restored.** The ridge-only picture is gone. Colour fills the
-  pattern again. Resting chemistry is Coral, not the thin Scale preset.
+- **Living.** The resting field no longer grows and then stops. It keeps
+  moving, shifts scale, and breaks into finer structure. A drag stirs it.
   tab audio on a computer. A hit seeds the field under the fingers; bass
   blooms and mids open it. Spotify's stream stays inside Spotify.
 - **Field.** The solver matches the screen, up to 2048 on a phone and 2400

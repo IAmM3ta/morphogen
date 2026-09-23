@@ -1,5 +1,5 @@
 import { DISPLAY_FRAG, SEED_FRAG, SIM_FRAG, STATS_FRAG, VERT } from "./shaders";
-import { MAX_BRUSHES, paletteById, type Brush, type FieldStats, type Palette } from "./presets";
+import { MAX_BRUSHES, paletteById, presetById, type Brush, type FieldStats, type Palette } from "./presets";
 import { runtime, tickMorph } from "./runtime";
 
 type GL = WebGL2RenderingContext;
@@ -347,21 +347,10 @@ export class RDEngine {
       data[o + 3] = 255;
     }
     const spots: [number, number, number][] = [
-      [0.5, 0.5, 0.1],
-      [0.32, 0.36, 0.085],
-      [0.68, 0.6, 0.082],
-      [0.28, 0.7, 0.075],
-      [0.72, 0.3, 0.072],
-      [0.18, 0.48, 0.068],
-      [0.82, 0.52, 0.065],
-      [0.42, 0.18, 0.07],
-      [0.58, 0.82, 0.068],
-      [0.12, 0.22, 0.055],
-      [0.88, 0.78, 0.055],
-      [0.5, 0.12, 0.06],
-      [0.5, 0.88, 0.058],
-      [0.22, 0.88, 0.05],
-      [0.78, 0.14, 0.05],
+      [0.5, 0.52, 0.13],
+      [0.3, 0.66, 0.07],
+      [0.72, 0.36, 0.055],
+      [0.22, 0.28, 0.04],
     ];
     const minSide = Math.min(w, h);
     const paint = (cx: number, cy: number, r: number, vAmt: number) => {
@@ -384,8 +373,11 @@ export class RDEngine {
       }
     };
     for (const [cx, cy, r] of spots) paint(cx, cy, r, 1);
+    for (let s = 0; s < 10; s++) {
+      paint(0.1 + Math.random() * 0.8, 0.1 + Math.random() * 0.8, 0.02 + Math.random() * 0.028, 1);
+    }
     for (let s = 0; s < 36; s++) {
-      paint(0.08 + Math.random() * 0.84, 0.08 + Math.random() * 0.84, 0.028 + Math.random() * 0.045, 1);
+      paint(0.06 + Math.random() * 0.88, 0.06 + Math.random() * 0.88, 0.007 + Math.random() * 0.012, 0.9);
     }
     gl.bindTexture(gl.TEXTURE_2D, this.simA.tex);
     gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
@@ -410,8 +402,8 @@ export class RDEngine {
       this.brushData[o + 1] = 1 - b.y;
       this.brushData[o + 2] = b.size;
       this.brushData[o + 3] = b.strength;
-      this.trailData[o] = b.px;
-      this.trailData[o + 1] = 1 - b.py;
+      this.trailData[o] = b.strength > 0 ? b.x - b.px : 0;
+      this.trailData[o + 1] = b.strength > 0 ? b.py - b.y : 0;
       this.trailData[o + 2] = 0;
       this.trailData[o + 3] = 0;
     }
@@ -589,16 +581,20 @@ export class RDEngine {
         const heard = b.rms > 0.03 ? L : 0;
         const feed = params.feed + b.bass * heard * 0.032;
         const kill = params.kill - b.mid * heard * 0.02;
-        const du = params.du * (1 + b.high * heard * 0.55);
-        const dv = params.dv * (1 - b.bass * heard * 0.28);
-        const simDt = Math.max(0.35, Math.min(1.45, params.speed * (1 + b.rms * heard * 0.7 + runtime.beat * 0.35)));
+        const live = presetById("living");
+        const living = Math.abs(params.feed - live.feed) < 0.0015 && Math.abs(params.kill - live.kill) < 0.0015;
+        const scale = living ? 0.78 + 0.4 * (0.5 + 0.5 * Math.sin(time * 0.23)) : 1;
+        const grain = living ? Math.max(1, Math.min(1.85, Math.min(this.simW, this.simH) / 980)) : 1;
+        const du = params.du * (1 + b.high * heard * 0.55) * scale * grain;
+        const dv = params.dv * (1 - b.bass * heard * 0.28) * scale * grain;
+        const simDt = Math.max(0.35, Math.min(living ? 2.1 : 1.45, params.speed * (living ? grain : 1) * (1 + b.rms * heard * 0.7 + runtime.beat * 0.35)));
         gl.uniform1f(u.uFeed, Math.max(0.01, Math.min(0.09, feed)));
         gl.uniform1f(u.uKill, Math.max(0.03, Math.min(0.08, kill)));
         gl.uniform1f(u.uDu, Math.max(0.08, Math.min(0.36, du)));
         gl.uniform1f(u.uDv, Math.max(0.04, Math.min(0.2, dv)));
         gl.uniform1f(u.uDt, simDt);
-        const ax = runtime.flowX + (b.high - b.bass) * heard * 0.22;
-        const ay = runtime.flowY + (b.centroid - 0.4) * heard * 0.16;
+        const ax = runtime.flowX + (b.high - b.bass) * heard * 0.22 + (living ? Math.sin(time * 0.37) * 0.16 : 0);
+        const ay = runtime.flowY + (b.centroid - 0.4) * heard * 0.16 + (living ? Math.cos(time * 0.29) * 0.12 : 0);
         gl.uniform2f(u.uAdvect, ax, ay);
         gl.uniform1f(u.uHasImage, runtime.hasImage && params.imageMode !== "palette" ? 1 : 0);
         gl.uniform1f(u.uImageMix, params.imageMix);

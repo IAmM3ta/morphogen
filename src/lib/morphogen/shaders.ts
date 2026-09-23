@@ -71,7 +71,17 @@ float finger(int i, vec2 uv, vec2 res) {
 void main() {
   vec2 uv = vUv;
   vec2 px = 1.0 / uResolution;
-  vec2 sampleUv = fract(uv - uAdvect * px * 0.28);
+  vec2 wake = vec2(0.0);
+  wake += uTrail[0].xy * finger(0, uv, uResolution);
+  wake += uTrail[1].xy * finger(1, uv, uResolution);
+  wake += uTrail[2].xy * finger(2, uv, uResolution);
+  wake += uTrail[3].xy * finger(3, uv, uResolution);
+  wake += uTrail[4].xy * finger(4, uv, uResolution);
+  wake += uTrail[5].xy * finger(5, uv, uResolution);
+  wake += uTrail[6].xy * finger(6, uv, uResolution);
+  wake += uTrail[7].xy * finger(7, uv, uResolution);
+  wake = clamp(wake, vec2(-0.06), vec2(0.06));
+  vec2 sampleUv = fract(uv - uAdvect * px * 0.28 - wake * 1.6);
   vec2 chem = texture(uPrev, sampleUv).rg;
   vec2 lap = lap9(sampleUv, px);
   float u = chem.r;

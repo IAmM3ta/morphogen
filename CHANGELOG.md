@@ -9,6 +9,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
+- **Ambience.** Room hears music playing out loud. Share takes system or
+  tab audio on a computer. A hit seeds the field under the fingers; bass
+  blooms and mids open it. Spotify's stream stays inside Spotify.
 - **Field.** The solver matches the screen, up to 2048 on a phone and 2400
   on a desktop, with a sharper edge. A sounding finger brightens and tints
   the pattern. Still, on the glass, saves a high-resolution PNG.

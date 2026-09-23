@@ -85,7 +85,8 @@ export type Runtime = {
   orbitRot: number;
   orbitDegrees: number[];
   orbitPeriod: number;
-  /** What the player is hearing, in 0–1, so the field can answer the note. */
+  /** Onset from the ambience, 0–1, decayed each frame. */
+  beat: number;
   play: { amp: number; pitch: number; timbre: number };
 };
 
@@ -132,6 +133,7 @@ export const runtime: Runtime = {
   orbitRot: 0,
   orbitDegrees: [],
   orbitPeriod: 1,
+  beat: 0,
   play: { amp: 0, pitch: 0.5, timbre: 0.12 },
 };
 

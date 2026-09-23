@@ -964,6 +964,14 @@ export function MorphogenApp() {
             midiDevices={midiDevices}
             onMidiSelect={onMidiSelect}
             onToggleMic={(on) => void onToggleMic(on)}
+            onShareSystem={() => {
+              void audioRef.current?.connectSystem().then((result) => {
+                if (result === "ok") toast("The field is hearing the shared audio");
+                else if (result === "unsupported") toast("This browser can't share audio. Use Room, or drop a file.");
+                else if (result === "silent") toast("That share had no audio. Include audio, or use Room.");
+                else toast("Share was cancelled");
+              });
+            }}
             onLoadTrack={(file) => {
               void audioRef.current?.loadTrack(file).then((ok) => {
                 if (!ok) {

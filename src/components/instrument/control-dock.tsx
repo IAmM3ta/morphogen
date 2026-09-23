@@ -91,19 +91,49 @@ function VibratoControls() {
 function ListenControls({
   onLoadTrack,
   onToggleTrack,
+  onToggleMic,
+  onShareSystem,
   trackOn,
   trackName,
+  micOn,
 }: {
   onLoadTrack: (file: File) => void;
   onToggleTrack: () => void;
+  onToggleMic: (on: boolean) => void;
+  onShareSystem: () => void;
   trackOn: boolean;
   trackName: string;
+  micOn: boolean;
 }) {
   const listen = useInstrument((s) => s.listen);
   const setListen = useInstrument((s) => s.setListen);
   const fileRef = useRef<HTMLInputElement>(null);
   return (
     <div className="flex flex-col gap-3">
+      <div>
+        <p className="mb-1 text-xs tracking-[0.18em] text-muted uppercase">Ambience</p>
+        <p className="text-xs leading-relaxed text-muted">
+          Play along with music that is already on. Room hears it out loud.
+          A computer can share its audio. The phone cannot open Spotify’s stream.
+        </p>
+      </div>
+      <div className="flex gap-1.5">
+        <Button
+          variant={micOn ? "secondary" : "ghost"}
+          size="sm"
+          className="flex-1"
+          aria-pressed={micOn}
+          onClick={() => onToggleMic(!micOn)}
+        >
+          Room
+        </Button>
+        <Button variant="ghost" size="sm" className="flex-1" onClick={() => fileRef.current?.click()}>
+          Track
+        </Button>
+        <Button variant="ghost" size="sm" className="flex-1" onClick={onShareSystem}>
+          Share
+        </Button>
+      </div>
       <ParamSlider
         label="Listen"
         value={listen}
@@ -124,16 +154,17 @@ function ListenControls({
           if (file) onLoadTrack(file);
         }}
       />
-      <div className="flex gap-2">
-        <Button variant="secondary" size="sm" className="flex-1" onClick={() => fileRef.current?.click()}>
-          {trackName || "Drop a track"}
-        </Button>
-        {trackName && (
+      {trackName && (
+        <div className="flex gap-2">
+          <p className="min-w-0 flex-1 truncate text-xs text-fg">{trackName}</p>
           <Button variant={trackOn ? "default" : "ghost"} size="sm" onClick={onToggleTrack}>
             {trackOn ? "Pause" : "Play"}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
+      <p className="text-[11px] leading-relaxed text-faint">
+        Bass blooms, mids open the field, a hit drops a seed under your fingers. Headphones if you play too.
+      </p>
     </div>
   );
 }
@@ -148,6 +179,7 @@ export function ControlDock({
   midiDevices,
   onMidiSelect,
   onToggleMic,
+  onShareSystem,
   onLoadTrack,
   onToggleTrack,
   trackOn,
@@ -191,6 +223,7 @@ export function ControlDock({
   midiDevices: MidiDevice[];
   onMidiSelect: (id: string | null) => void;
   onToggleMic: (on: boolean) => void;
+  onShareSystem: () => void;
   onLoadTrack: (file: File) => void;
   onToggleTrack: () => void;
   trackOn: boolean;
@@ -453,7 +486,15 @@ export function ControlDock({
               </div>
             </div>
             <VibratoControls />
-            <ListenControls onLoadTrack={onLoadTrack} onToggleTrack={onToggleTrack} trackOn={trackOn} trackName={trackName} />
+            <ListenControls
+              onLoadTrack={onLoadTrack}
+              onToggleTrack={onToggleTrack}
+              onToggleMic={onToggleMic}
+              onShareSystem={onShareSystem}
+              trackOn={trackOn}
+              trackName={trackName}
+              micOn={micOn}
+            />
             <KeyPad compassLive={compassLive} compact />
             <div className="flex gap-2">
               <Button
@@ -668,7 +709,15 @@ export function ControlDock({
             </div>
             <KeyPad compassLive={compassLive} />
             <VibratoControls />
-            <ListenControls onLoadTrack={onLoadTrack} onToggleTrack={onToggleTrack} trackOn={trackOn} trackName={trackName} />
+            <ListenControls
+              onLoadTrack={onLoadTrack}
+              onToggleTrack={onToggleTrack}
+              onToggleMic={onToggleMic}
+              onShareSystem={onShareSystem}
+              trackOn={trackOn}
+              trackName={trackName}
+              micOn={micOn}
+            />
             <LoopRack
               clips={loops}
               recording={layerRecording}

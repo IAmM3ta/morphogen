@@ -181,6 +181,9 @@ export class AudioEngine {
   private analyser: AnalyserNode | null = null;
   private micSource: MediaStreamAudioSourceNode | null = null;
   private micStream: MediaStream | null = null;
+  private systemSource: MediaStreamAudioSourceNode | null = null;
+  private systemStream: MediaStream | null = null;
+  private prevBass = 0;
   private fft = new Float32Array(64);
   private frozen: FrozenVoice[] = [];
   private live = new Map<number, LiveVoice>();
@@ -617,6 +620,41 @@ export class AudioEngine {
     this.micStream = null;
   }
 
+  /** Desktop browsers can share a tab or the system. Phones cannot open Spotify's stream. */
+  async connectSystem(): Promise<"ok" | "unsupported" | "silent" | "denied"> {
+    this.unlock();
+    const ctx = this.ctx;
+    if (!ctx || !this.analyser) return "denied";
+    if (!navigator.mediaDevices?.getDisplayMedia) return "unsupported";
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true,
+      });
+      const audio = stream.getAudioTracks();
+      stream.getVideoTracks().forEach((t) => t.stop());
+      if (!audio.length) {
+        stream.getTracks().forEach((t) => t.stop());
+        return "silent";
+      }
+      this.stopSystem();
+      this.systemStream = new MediaStream(audio);
+      this.systemSource = ctx.createMediaStreamSource(this.systemStream);
+      this.systemSource.connect(this.analyser);
+      audio[0]!.addEventListener("ended", () => this.stopSystem());
+      return "ok";
+    } catch {
+      return "denied";
+    }
+  }
+
+  stopSystem() {
+    this.systemSource?.disconnect();
+    this.systemSource = null;
+    this.systemStream?.getTracks().forEach((t) => t.stop());
+    this.systemStream = null;
+  }
+
   readMic(): { rms: number; bass: number; mid: number; high: number; centroid: number } {
     const empty = { rms: 0, bass: 0, mid: 0, high: 0, centroid: 0 };
     if (!this.analyser) return empty;
@@ -645,6 +683,10 @@ export class AudioEngine {
       high: high / Math.max(1, n * 0.55),
       centroid: magSum > 1e-5 ? weighted / magSum / n : 0.3,
     };
+    const flux = Math.max(0, bands.bass - this.prevBass);
+    this.prevBass = bands.bass;
+    const onset = flux > 0.045 ? Math.min(1, (flux - 0.045) * 6) : 0;
+    runtime.beat = Math.max(runtime.beat * 0.78, onset);
     runtime.mic = rms;
     runtime.bands = bands;
     return bands;
@@ -1141,6 +1183,8 @@ export class AudioEngine {
 
   dispose() {
     this.stopMic();
+    this.stopSystem();
+    this.stopTrack();
     this.clearLocks();
     this.clearLoops();
     if (this.layerRec && this.layerRec.state !== "inactive") {

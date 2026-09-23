@@ -106,6 +106,8 @@ const SIM_UNIFORMS = [
   "uMotion",
   "uLockImpulse",
   "uLockPoint",
+  "uBeat",
+  "uBeatAt",
 ];
 
 const DISPLAY_UNIFORMS = [
@@ -585,18 +587,18 @@ export class RDEngine {
         const L = Math.max(0, Math.min(1, runtime.listen));
         const b = runtime.bands;
         const heard = b.rms > 0.03 ? L : 0;
-        const feed = params.feed + b.bass * heard * 0.014;
-        const kill = params.kill - b.mid * heard * 0.01;
-        const du = params.du * (1 + b.high * heard * 0.4);
-        const dv = params.dv * (1 - b.bass * heard * 0.2);
-        const simDt = Math.max(0.35, Math.min(1.35, params.speed * (1 + b.rms * heard * 0.45)));
+        const feed = params.feed + b.bass * heard * 0.032;
+        const kill = params.kill - b.mid * heard * 0.02;
+        const du = params.du * (1 + b.high * heard * 0.55);
+        const dv = params.dv * (1 - b.bass * heard * 0.28);
+        const simDt = Math.max(0.35, Math.min(1.45, params.speed * (1 + b.rms * heard * 0.7 + runtime.beat * 0.35)));
         gl.uniform1f(u.uFeed, Math.max(0.01, Math.min(0.09, feed)));
         gl.uniform1f(u.uKill, Math.max(0.03, Math.min(0.08, kill)));
         gl.uniform1f(u.uDu, Math.max(0.08, Math.min(0.36, du)));
         gl.uniform1f(u.uDv, Math.max(0.04, Math.min(0.2, dv)));
         gl.uniform1f(u.uDt, simDt);
-        const ax = runtime.flowX + (b.high - b.bass) * heard * 0.14;
-        const ay = runtime.flowY + (b.centroid - 0.4) * heard * 0.1;
+        const ax = runtime.flowX + (b.high - b.bass) * heard * 0.22;
+        const ay = runtime.flowY + (b.centroid - 0.4) * heard * 0.16;
         gl.uniform2f(u.uAdvect, ax, ay);
         gl.uniform1f(u.uHasImage, runtime.hasImage && params.imageMode !== "palette" ? 1 : 0);
         gl.uniform1f(u.uImageMix, params.imageMix);
@@ -614,6 +616,21 @@ export class RDEngine {
         gl.uniform1f(u.uMotion, runtime.motion);
         gl.uniform1f(u.uLockImpulse, this.lockImpulse);
         gl.uniform2f(u.uLockPoint, this.lockPoint[0], this.lockPoint[1]);
+        const hands = runtime.brushes;
+        let bx = 0.5;
+        let by = 0.5;
+        if (hands.length) {
+          let sx = 0;
+          let sy = 0;
+          for (const h of hands) {
+            sx += h.x;
+            sy += h.y;
+          }
+          bx = sx / hands.length;
+          by = 1 - sy / hands.length;
+        }
+        gl.uniform1f(u.uBeat, runtime.beat);
+        gl.uniform2f(u.uBeatAt, bx, by);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         const tmp = this.simA;
         this.simA = this.simB;

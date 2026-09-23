@@ -30,6 +30,8 @@ uniform float uLockGrow;
 uniform float uMotion;
 uniform float uLockImpulse;
 uniform vec2 uLockPoint;
+uniform float uBeat;
+uniform vec2 uBeatAt;
 in vec2 vUv;
 out vec4 fragColor;
 
@@ -94,6 +96,12 @@ void main() {
 
   u = mix(u, 0.50, s);
   v = mix(v, 1.0, s);
+
+  vec2 bd = (uv - uBeatAt) * uResolution;
+  float minSide = min(uResolution.x, uResolution.y);
+  float beat = uBeat * exp(-dot(bd, bd) / max(minSide * minSide * 0.014, 1.0));
+  v = mix(v, 1.0, beat * 0.9);
+  u = mix(u, 0.48, beat * 0.5);
 
   if (uHasLock > 0.5) {
     vec2 locked = texture(uLock, uv).rg;

@@ -111,7 +111,7 @@ export const useInstrument = create<InstrumentState>()(
   persist(
     (set, get) => ({
       started: false,
-      uiHidden: false,
+      uiHidden: true,
       panelOpen: false,
       presetId: DEFAULT_PRESET.id,
       params: { ...DEFAULT_PARAMS },
@@ -438,7 +438,12 @@ export const useInstrument = create<InstrumentState>()(
           (state.presetId === "scale" || p0.paletteId === "morpho") &&
           Math.abs(p0.feed - 0.046) < 0.002 &&
           Math.abs(p0.kill - 0.063) < 0.002;
-        if ((mitosisRest || coralRest || stranded) && p0) {
+        const fernFromSpots =
+          !!p0 &&
+          state.presetId === "living" &&
+          Math.abs(p0.feed - 0.062) < 0.0015 &&
+          Math.abs(p0.kill - 0.0609) < 0.0015;
+        if ((mitosisRest || coralRest || stranded || fernFromSpots) && p0) {
           const living = presetById("living");
           state.presetId = living.id;
           state.params = {
@@ -462,7 +467,9 @@ export const useInstrument = create<InstrumentState>()(
         if (typeof state.pitchMaxHz === "number") runtime.pitchMaxHz = state.pitchMaxHz;
         if (typeof state.vibratoRate !== "number") state.vibratoRate = DEFAULT_VIBRATO_RATE;
         if (typeof state.vibratoDepth !== "number") state.vibratoDepth = DEFAULT_VIBRATO_DEPTH;
-        if (typeof state.orbitRate !== "number") state.orbitRate = DEFAULT_ORBIT_RATE;
+        if (typeof state.orbitRate !== "number" || Math.abs(state.orbitRate - 1.25) < 0.051) {
+          state.orbitRate = DEFAULT_ORBIT_RATE;
+        }
         if (typeof state.listen !== "number") state.listen = DEFAULT_LISTEN;
         runtime.vibratoRate = state.vibratoRate;
         runtime.vibratoDepth = state.vibratoDepth;

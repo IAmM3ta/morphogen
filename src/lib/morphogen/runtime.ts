@@ -87,12 +87,14 @@ export type Runtime = {
   orbitPeriod: number;
   /** Onset from the ambience, 0–1, decayed each frame. */
   beat: number;
+  /** When false, pose does not tune the chemistry. */
+  gyroOn: boolean;
   play: { amp: number; pitch: number; timbre: number };
 };
 
 export const DEFAULT_VIBRATO_RATE = 5.2;
 export const DEFAULT_VIBRATO_DEPTH = 0;
-export const DEFAULT_ORBIT_RATE = 1.25;
+export const DEFAULT_ORBIT_RATE = 0;
 export const DEFAULT_LISTEN = 0.55;
 
 export const runtime: Runtime = {
@@ -134,6 +136,7 @@ export const runtime: Runtime = {
   orbitDegrees: [],
   orbitPeriod: 1,
   beat: 0,
+  gyroOn: true,
   play: { amp: 0, pitch: 0.5, timbre: 0.12 },
 };
 

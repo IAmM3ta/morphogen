@@ -32,6 +32,8 @@ uniform float uLockImpulse;
 uniform vec2 uLockPoint;
 uniform float uBeat;
 uniform vec2 uBeatAt;
+uniform vec2 uAxis;
+uniform float uFern;
 in vec2 vUv;
 out vec4 fragColor;
 
@@ -84,6 +86,17 @@ void main() {
   vec2 sampleUv = fract(uv - uAdvect * px * 0.28 - wake * 1.6);
   vec2 chem = texture(uPrev, sampleUv).rg;
   vec2 lap = lap9(sampleUv, px);
+  vec2 axis = uAxis;
+  float alen = length(axis);
+  axis = alen > 0.001 ? axis / alen : vec2(0.0, 1.0);
+  vec2 along = axis * px * (2.4 + uFern * 4.2);
+  vec2 across = vec2(-axis.y, axis.x) * px * (0.7 + (1.0 - uFern) * 0.55);
+  vec2 tip = texture(uPrev, fract(sampleUv + along)).rg;
+  vec2 tail = texture(uPrev, fract(sampleUv - along * 0.62)).rg;
+  vec2 sideA = texture(uPrev, fract(sampleUv + across)).rg;
+  vec2 sideB = texture(uPrev, fract(sampleUv - across)).rg;
+  vec2 fernLap = (tip * 0.42 + tail * 0.22 + sideA * 0.18 + sideB * 0.18) - chem;
+  lap += fernLap * clamp(uFern, 0.0, 1.0);
   float u = chem.r;
   float v = chem.g;
 

@@ -113,11 +113,12 @@ export function attachSensors(): () => void {
     let dz = alpha - restA;
     if (dz > 180) dz -= 360;
     if (dz < -180) dz += 360;
-    if (Math.abs(dx) < 3) dx = 0;
-    if (Math.abs(dy) < 3) dy = 0;
-    runtime.sense.yaw = Math.max(-1, Math.min(1, dz / 80));
-    runtime.flowX = Math.max(-0.22, Math.min(0.22, (dx / 45) * 0.18));
-    runtime.flowY = Math.max(-0.22, Math.min(0.22, (dy / 50) * 0.18));
+    const soften = (v: number) => (Math.abs(v) < 1.1 ? v * 0.4 : v);
+    dx = soften(dx);
+    dy = soften(dy);
+    runtime.sense.yaw = Math.max(-1, Math.min(1, dz / 70));
+    runtime.flowX = Math.max(-0.55, Math.min(0.55, (dx / 26) * 0.34 + (dz / 80) * 0.22));
+    runtime.flowY = Math.max(-0.55, Math.min(0.55, (dy / 30) * 0.34));
   };
 
   const onOrient = (e: DeviceOrientationEvent) => applyOrient(e as OrientEvent);

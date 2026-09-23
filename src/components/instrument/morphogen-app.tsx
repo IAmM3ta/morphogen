@@ -9,6 +9,7 @@ import {
   Minimize2,
   Pause,
   Play,
+  Repeat,
   RotateCcw,
   Square,
   Undo2,
@@ -94,6 +95,7 @@ export function MorphogenApp() {
   const waveform = useInstrument((s) => s.waveform);
   const keyId = useInstrument((s) => s.keyId);
   const modeId = useInstrument((s) => s.modeId);
+  const orbitRate = useInstrument((s) => s.orbitRate);
   const applySnapshot = useInstrument((s) => s.applySnapshot);
 
   const [tab, setTab] = useState<TabId>("field");
@@ -241,6 +243,29 @@ export function MorphogenApp() {
     }
   }, []);
 
+  const toggleLayer = useCallback(() => {
+    if (layerRecording) {
+      void audioRef.current?.stopLayerRecord().then((clip) => {
+        setLayerRecording(false);
+        if (clip) toast("Loop is ready");
+      });
+      return;
+    }
+    const ok = audioRef.current?.startLayerRecord();
+    if (!ok) toast("Could not record a loop");
+    else setLayerRecording(true);
+  }, [layerRecording]);
+
+  const togglePlayback = useCallback(() => {
+    const clips = audioRef.current?.getLoops() ?? loops;
+    if (!clips.length) {
+      toast("Record a loop first");
+      return;
+    }
+    const playing = clips.some((c) => c.playing);
+    for (const c of clips) audioRef.current?.setLoopPlaying(c.id, !playing);
+  }, [loops]);
+
   const captureField = useCallback(async () => {
     try {
       const blob = await engineRef.current?.capturePng();
@@ -283,6 +308,8 @@ export function MorphogenApp() {
       runtime.modeId = s.modeId;
       runtime.pitchMinHz = s.pitchMinHz;
       runtime.pitchMaxHz = s.pitchMaxHz;
+      runtime.orbitRate = s.orbitRate;
+      runtime.gyroOn = s.gyroOn;
     };
     sync();
     return useInstrument.persist.onFinishHydration(sync);
@@ -526,7 +553,8 @@ export function MorphogenApp() {
       runtime.pointerFlowX *= 0.72;
       runtime.pointerFlowY *= 0.72;
       runtime.pointerMotion *= 0.82;
-      if (!useInstrument.getState().gyroOn) {
+      runtime.gyroOn = useInstrument.getState().gyroOn;
+      if (!runtime.gyroOn) {
         runtime.flowX = 0;
         runtime.flowY = 0;
       }
@@ -686,7 +714,7 @@ export function MorphogenApp() {
     }
 
     runtime.started = true;
-    patch({ started: true, panelOpen: false });
+    patch({ started: true, panelOpen: false, uiHidden: true });
     const sensePromise = requestSensorPermission();
     await sensePromise;
     audio?.resume();
@@ -774,7 +802,7 @@ export function MorphogenApp() {
     <div className="relative h-dvh w-full overflow-hidden bg-bg text-fg select-none">
       <div ref={canvasWrapRef} className="absolute inset-0 touch-none" style={{ touchAction: "none" }}>
         <canvas ref={canvasRef} className={cn("block h-full w-full touch-none", hunting && "opacity-0")} />
-        {started && !hunting && (
+        {started && !hunting && orbitRate > 0.05 && (
           <OrbitGlass n={runtime.orbitN} rot={runtime.orbitRot} degrees={runtime.orbitDegrees} />
         )}
         <video ref={videoRef} className="hidden" playsInline muted />
@@ -847,7 +875,7 @@ export function MorphogenApp() {
         </div>
       )}
 
-      {started && !hunting && (
+      {started && !hunting && !uiHidden && (
         <div data-ui className="pointer-events-auto absolute top-hud-t left-3 z-50">
           <Button
             variant="ghost"
@@ -1057,16 +1085,57 @@ export function MorphogenApp() {
         </div>
       )}
 
-      {started && uiHidden && (
-        <button
-          type="button"
+      {started && uiHidden && !hunting && (
+        <div
           data-ui
-          className="fixed top-hud-t left-1/2 z-50 flex size-11 -translate-x-1/2 items-center justify-center rounded-md bg-bg-elevated text-fg shadow-[var(--shadow-border)]"
-          onClick={() => patch({ uiHidden: false })}
-          aria-label="Show chrome"
+          className="pointer-events-auto fixed top-hud-t left-1/2 z-50 flex -translate-x-1/2 items-end gap-0.5 rounded-full bg-bg/28 px-1 py-1 text-fg shadow-[var(--shadow-border)] backdrop-blur-md"
         >
-          <Eye className="size-4" />
-        </button>
+          <button
+            type="button"
+            className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1 text-fg"
+            onClick={() => patch({ uiHidden: false })}
+            aria-label="Show controls"
+          >
+            <Eye className="size-4" />
+            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">View</span>
+          </button>
+          <button
+            type="button"
+            className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
+            onClick={onDefaults}
+            aria-label="Default settings"
+          >
+            <House className="size-4" />
+            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Reset</span>
+          </button>
+          <button
+            type="button"
+            className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
+            onClick={toggleRecord}
+            aria-label={recording ? "Stop recording" : "Record"}
+          >
+            {recording ? <Square className="size-4 text-destructive" /> : <Circle className="size-4" />}
+            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">{recording ? "Stop" : "Rec"}</span>
+          </button>
+          <button
+            type="button"
+            className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
+            onClick={toggleLayer}
+            aria-label={layerRecording ? "Stop loop" : "Record a loop"}
+          >
+            <Repeat className={cn("size-4", layerRecording && "text-destructive")} />
+            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Loop</span>
+          </button>
+          <button
+            type="button"
+            className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
+            onClick={togglePlayback}
+            aria-label={loops.some((c) => c.playing) ? "Pause loops" : "Play loops"}
+          >
+            {loops.some((c) => c.playing) ? <Pause className="size-4" /> : <Play className="size-4" />}
+            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Play</span>
+          </button>
+        </div>
       )}
 
       <div

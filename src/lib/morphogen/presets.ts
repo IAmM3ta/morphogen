@@ -102,7 +102,7 @@ export const PALETTES: Palette[] = [
 ];
 
 export const PRESETS: SimPreset[] = [
-  { id: "living", name: "Living", blurb: "Keeps moving. Grows finer.", feed: 0.062, kill: 0.0609, du: 0.16, dv: 0.08, paletteId: "abyss" },
+  { id: "living", name: "Living", blurb: "Ferns. The phone tunes them.", feed: 0.048, kill: 0.0615, du: 0.19, dv: 0.095, paletteId: "abyss" },
   { id: "solitons", name: "Solitons", blurb: "Quiet stable spots", feed: 0.0353, kill: 0.0653, du: 0.21, dv: 0.105, paletteId: "spore" },
   { id: "pulsing", name: "Pulsing", blurb: "Breathing spots", feed: 0.025, kill: 0.06, du: 0.18, dv: 0.09, paletteId: "spore" },
   { id: "holes", name: "Holes", blurb: "Perforated sheet", feed: 0.039, kill: 0.058, du: 0.21, dv: 0.105, paletteId: "abyss" },

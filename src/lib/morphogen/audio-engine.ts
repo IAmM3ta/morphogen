@@ -878,7 +878,17 @@ export class AudioEngine {
     this.live.delete(id);
   }
 
-  private driveVoice(v: LiveVoice, x: number, y: number, pressure: number, radius: number, now: number, dt: number) {
+  private driveVoice(
+    v: LiveVoice,
+    x: number,
+    y: number,
+    pressure: number,
+    radius: number,
+    now: number,
+    dt: number,
+    index = 0,
+    leadHz = 0,
+  ) {
     const wave = runtime.waveform;
     if (v.wave !== wave) this.applyWave(v, wave);
     const sense = runtime.sense;
@@ -889,7 +899,7 @@ export class AudioEngine {
     const p = glassToPlane(x, y);
     const period = islandPeriod(p, n);
     const k0 = nearestDegree(p, n, rot);
-    const rate = Number.isFinite(runtime.orbitRate) ? Math.max(0, Math.min(8, runtime.orbitRate)) : 1.25;
+    const rate = Number.isFinite(runtime.orbitRate) ? Math.max(0, Math.min(8, runtime.orbitRate)) : 0;
     if (period > 1 && rate > 0.02) {
       v.phase += dt * rate;
       const step = Math.floor(v.phase) % period;
@@ -904,19 +914,21 @@ export class AudioEngine {
     const shape = SHAPE[wave];
     const hzRaw =
       period === 1 || rate < 0.02
-        ? yToScaleHz(
-            y,
-            sense.pitch,
-            key.pc,
-            mode.intervals,
-            wave === "sine" ? 0.7 : 0.9,
-            runtime.pitchMinHz,
-            runtime.pitchMaxHz,
-          )
-        : orbitHz(v.degree, y, sense.pitch, key.pc, mode.intervals, runtime.pitchMinHz, runtime.pitchMaxHz);
+        ? yToScaleHz(y, 0, key.pc, mode.intervals, 0.4, runtime.pitchMinHz, runtime.pitchMaxHz)
+        : orbitHz(v.degree, y, 0, key.pc, mode.intervals, runtime.pitchMinHz, runtime.pitchMaxHz);
     const lo = Math.min(runtime.pitchMinHz, runtime.pitchMaxHz);
     const hi = Math.max(runtime.pitchMinHz, runtime.pitchMaxHz);
-    const hz = Number.isFinite(hzRaw) ? Math.max(lo, Math.min(hi, hzRaw)) : Math.max(lo, Math.min(hi, HUM_X64));
+    let hz = Number.isFinite(hzRaw) ? Math.max(lo, Math.min(hi, hzRaw)) : Math.max(lo, Math.min(hi, HUM_X64));
+    if (index > 0 && leadHz > 20) {
+      const earth = [1, 3 / 2, 2, 5 / 2, 3];
+      const ratio = earth[Math.min(index, earth.length - 1)] ?? 2;
+      const lean = (0.5 - y) * 0.05;
+      const cents = [0, 5, -4, 7, 3][index] ?? 0;
+      let chord = leadHz * ratio * (1 + lean) * Math.pow(2, cents / 1200);
+      for (let guard = 0; chord > hi && guard < 6; guard++) chord *= 0.5;
+      for (let guard = 0; chord < lo && guard < 6; guard++) chord *= 2;
+      hz = Math.max(lo, Math.min(hi, chord));
+    }
     this.lastHz = hz;
     const stops =
       runtime.liveStops ??
@@ -1012,10 +1024,14 @@ export class AudioEngine {
 
     const seen = new Set<number>();
     const degrees: number[] = [];
-    for (const b of hands) {
+    const ordered = hands.slice().sort((a, b) => a.id - b.id);
+    let leadHz = 0;
+    for (let i = 0; i < ordered.length; i++) {
+      const b = ordered[i]!;
       seen.add(b.id);
       const voice = this.live.get(b.id) ?? this.allocVoice(b.id);
-      this.driveVoice(voice, b.x, b.y, b.pressure, b.radius, now, dt);
+      this.driveVoice(voice, b.x, b.y, b.pressure, b.radius, now, dt, i, leadHz);
+      if (i === 0) leadHz = this.lastHz;
       degrees.push(voice.degree);
     }
     runtime.orbitDegrees = degrees;
@@ -1024,7 +1040,7 @@ export class AudioEngine {
     }
     this.voiceCount = this.live.size;
 
-    const rate = Number.isFinite(runtime.orbitRate) ? Math.max(0, Math.min(8, runtime.orbitRate)) : 1.25;
+    const rate = Number.isFinite(runtime.orbitRate) ? Math.max(0, Math.min(8, runtime.orbitRate)) : 0;
     if (rate > 0.02 && this.frozen.length) {
       const key = keyById(runtime.keyId);
       const mode = modeById(runtime.modeId);

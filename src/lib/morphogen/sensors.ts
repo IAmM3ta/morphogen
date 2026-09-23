@@ -117,8 +117,8 @@ export function attachSensors(): () => void {
     dx = soften(dx);
     dy = soften(dy);
     runtime.sense.yaw = Math.max(-1, Math.min(1, dz / 70));
-    runtime.flowX = Math.max(-0.55, Math.min(0.55, (dx / 26) * 0.34 + (dz / 80) * 0.22));
-    runtime.flowY = Math.max(-0.55, Math.min(0.55, (dy / 30) * 0.34));
+    runtime.flowX = Math.max(-0.35, Math.min(0.35, (dx / 32) * 0.22));
+    runtime.flowY = Math.max(-0.35, Math.min(0.35, (dy / 36) * 0.22));
   };
 
   const onOrient = (e: DeviceOrientationEvent) => applyOrient(e as OrientEvent);

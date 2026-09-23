@@ -32,8 +32,6 @@ uniform float uLockImpulse;
 uniform vec2 uLockPoint;
 uniform float uBeat;
 uniform vec2 uBeatAt;
-uniform vec2 uAxis;
-uniform float uFern;
 in vec2 vUv;
 out vec4 fragColor;
 
@@ -86,17 +84,6 @@ void main() {
   vec2 sampleUv = fract(uv - uAdvect * px * 0.28 - wake * 1.6);
   vec2 chem = texture(uPrev, sampleUv).rg;
   vec2 lap = lap9(sampleUv, px);
-  vec2 axis = uAxis;
-  float alen = length(axis);
-  axis = alen > 0.001 ? axis / alen : vec2(0.0, 1.0);
-  vec2 along = axis * px * (2.4 + uFern * 4.2);
-  vec2 across = vec2(-axis.y, axis.x) * px * (0.7 + (1.0 - uFern) * 0.55);
-  vec2 tip = texture(uPrev, fract(sampleUv + along)).rg;
-  vec2 tail = texture(uPrev, fract(sampleUv - along * 0.62)).rg;
-  vec2 sideA = texture(uPrev, fract(sampleUv + across)).rg;
-  vec2 sideB = texture(uPrev, fract(sampleUv - across)).rg;
-  vec2 fernLap = (tip * 0.42 + tail * 0.22 + sideA * 0.18 + sideB * 0.18) - chem;
-  lap += fernLap * clamp(uFern, 0.0, 1.0);
   float u = chem.r;
   float v = chem.g;
 
@@ -261,18 +248,15 @@ vec3 colorize(sampler2D field, vec3 c0, vec3 c1, vec3 c2, vec3 c3, float glowAmt
   float vE = texture(field, uv + vec2(px.x, 0.0)).g;
   float vW = texture(field, uv - vec2(px.x, 0.0)).g;
   float edge = abs(vN - vS) + abs(vE - vW);
-  float sharp = clamp(v * 1.6 - (vN + vS + vE + vW) * 0.15, 0.0, 1.0);
-  v = mix(v, sharp, 0.42 + uPlay.z * 0.28);
-  float t = smoothstep(0.02, 0.42, v);
+  float sharp = clamp(v * 1.35 - (vN + vS + vE + vW) * 0.12, 0.0, 1.0);
+  v = mix(v, sharp, 0.18);
+  float body = smoothstep(0.05, 0.72, v);
+  float rim = clamp(edge * 4.5, 0.0, 1.0);
+  float t = clamp(body * 0.38 + rim * 0.34, 0.0, 0.9);
   vec3 col = paletteStops(t, c0, c1, c2, c3);
-  vec3 nrm = normalize(vec3(-(vE - vW) * (3.4 + glowAmt * 2.8), (vN - vS) * (3.4 + glowAmt * 2.8), 0.16));
+  vec3 nrm = normalize(vec3(-(vE - vW) * (2.2 + glowAmt), (vN - vS) * (2.2 + glowAmt), 0.28));
   float ndl = max(0.0, dot(nrm, normalize(vec3(-0.42, 0.68, 0.78))));
-  float rim = pow(1.0 - ndl, 2.4) * edge * 1.8;
-  float bite = 1.0 + uPlay.z * 0.7;
-  float bloom = 1.0 + uPlay.x * 0.55;
-  col *= 0.55 + 1.15 * ndl;
-  col += paletteStops(min(1.0, t + 0.22), c0, c1, c2, c3) * (edge * (0.85 + glowAmt * 0.5) * bite + rim * 0.45 * bloom);
-  col += vec3(0.85, 0.92, 1.0) * pow(ndl, 8.0) * v * (0.22 + uPlay.x * 0.32);
+  col *= 0.62 + 0.32 * ndl;
   return col;
 }
 

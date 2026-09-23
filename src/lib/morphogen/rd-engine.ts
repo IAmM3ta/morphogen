@@ -108,8 +108,6 @@ const SIM_UNIFORMS = [
   "uLockPoint",
   "uBeat",
   "uBeatAt",
-  "uAxis",
-  "uFern",
 ];
 
 const DISPLAY_UNIFORMS = [
@@ -166,7 +164,6 @@ export class RDEngine {
   private lockPoint: [number, number] = [0.5, 0.5];
   private lockImpulse = 0;
   private smoothScale = 1;
-  private smoothFern = 0.5;
   private lpLoc: WebGLUniformLocation | null = null;
   private brushLoc: WebGLUniformLocation | null = null;
   private trailLoc: WebGLUniformLocation | null = null;
@@ -593,10 +590,8 @@ export class RDEngine {
         const east = 0.5 + 0.5 * Math.sin(hRad);
         const breathe = 0.82 + 0.28 * (0.5 + 0.5 * Math.sin(time * 0.23));
         const stir = posed ? Math.min(1, sense.spin * 1.7 + Math.max(0, sense.gforce - 0.03) * 1.2) : 0;
-        const poseTarget = posed ? 0.52 + 0.7 * north + 0.34 * east : breathe;
-        const fernTarget = posed ? 0.62 + stir * 0.28 + north * 0.12 : 0.48;
+        const poseTarget = posed ? 0.82 + 0.34 * north + 0.14 * east : breathe;
         this.smoothScale += (poseTarget - this.smoothScale) * 0.018;
-        this.smoothFern += (fernTarget - this.smoothFern) * 0.018;
         const poseScale = this.smoothScale;
         const feed = params.feed + b.bass * heard * 0.032 + (posed ? sense.pitch * 0.016 + stir * 0.014 : 0);
         const kill = params.kill - b.mid * heard * 0.02 + (posed ? -sense.roll * 0.011 : 0);
@@ -612,14 +607,8 @@ export class RDEngine {
         gl.uniform1f(u.uDu, Math.max(0.08, Math.min(0.36, du)));
         gl.uniform1f(u.uDv, Math.max(0.04, Math.min(0.2, dv)));
         gl.uniform1f(u.uDt, simDt);
-        const ax =
-          runtime.flowX * (posed ? 2.2 : 1) +
-          (b.high - b.bass) * heard * 0.22 +
-          (posed ? sense.yaw * 0.18 : Math.sin(time * 0.37) * 0.16);
-        const ay =
-          runtime.flowY * (posed ? 2.2 : 1) +
-          (b.centroid - 0.4) * heard * 0.16 +
-          (posed ? sense.pitch * 0.12 : Math.cos(time * 0.29) * 0.12);
+        const ax = runtime.flowX * (posed ? 0.55 : 1) + (b.high - b.bass) * heard * 0.22 + (posed ? 0.0 : Math.sin(time * 0.37) * 0.1);
+        const ay = runtime.flowY * (posed ? 0.55 : 1) + (b.centroid - 0.4) * heard * 0.16 + (posed ? 0.0 : Math.cos(time * 0.29) * 0.08);
         gl.uniform2f(u.uAdvect, ax, ay);
         gl.uniform1f(u.uHasImage, runtime.hasImage && params.imageMode !== "palette" ? 1 : 0);
         gl.uniform1f(u.uImageMix, params.imageMix);
@@ -652,8 +641,6 @@ export class RDEngine {
         }
         gl.uniform1f(u.uBeat, runtime.beat);
         gl.uniform2f(u.uBeatAt, bx, by);
-        gl.uniform2f(u.uAxis, Math.sin(hRad), Math.cos(hRad));
-        gl.uniform1f(u.uFern, this.smoothFern);
         gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
         const tmp = this.simA;
         this.simA = this.simB;

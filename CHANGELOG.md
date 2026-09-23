@@ -9,10 +9,9 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- **Pose.** How the phone is held tunes the field. Facing changes the
-  scale. Tilt and a small movement change the growth. The glass opens
-  clear: View, Reset, Record, Loop, Play. One finger is the pitch. A
-  second and third add a fifth and an octave.
+- **Dark, separate.** Turning no longer smears the field along one
+  axis. The bodies of the pattern stay deep colour. White is no longer
+  the fill.
   tab audio on a computer. A hit seeds the field under the fingers; bass
   blooms and mids open it. Spotify's stream stays inside Spotify.
 - **Field.** The solver matches the screen, up to 2048 on a phone and 2400

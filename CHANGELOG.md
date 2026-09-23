@@ -7,150 +7,71 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+Where it stands, ahead of v0.1.0. The public name is **MORPHOS**, subtitle
+**Living Field**, at [morphos.grok.me](https://morphos.grok.me). The
+repository stays `IAmM3ta/morphogen`.
+
+The glass opens clear. A finger is a pitch. The way you hold the phone
+tunes the chemistry. The field stays dark.
+
 ### Added
 
-- **Dark, separate.** Turning no longer smears the field along one
-  axis. The bodies of the pattern stay deep colour. White is no longer
-  the fill.
-  tab audio on a computer. A hit seeds the field under the fingers; bass
-  blooms and mids open it. Spotify's stream stays inside Spotify.
-- **Field.** The solver matches the screen, up to 2048 on a phone and 2400
-  on a desktop, with a sharper edge. A sounding finger brightens and tints
-  the pattern. Still, on the glass, saves a high-resolution PNG.
-- **Sound sheet.** The waveform menu is glass, so the field stays visible.
-  Hide menu closes it. Hide puts every control away; the eye brings them back.
-- **Phone play.** The dock sits on the thumb, not over the glass. Sound and
-  More actually scroll. Listen does nothing until there is sound — silence
-  is the chemistry you set. Field stats read back less often so the GPU
-  is not stalled every frame.
-- **TouchDesigner 087.** Sync packets are v2 with a `feedback` block mapped
-  onto IIHQ Tutorial 087: Blur, Sharpen, Level, Transform, Feedback reset.
-  Name those ops in the toe and the callbacks ride them. MIDI CCs 30–35
-  (bands, listen, blur, opacity). Pixels stay NDI/Window; the socket is knobs.
-- **Listen.** Bass feeds, mids kill, highs sparkle and advect. Drop a track
-  on the Sound face (Null Diffuse) or open the mic — Listen is how much
-  the field hears. Glow rides RMS. The chemistry sliders stay the rest pitch.
-- **Outer billiards.** The mode is a regular n-gon. Centre of the glass is
-  period 1 (a hold). Rings walk the scale at Orbit Hz — n, 2n, 4n.
-  Freeze snapshots every live finger as an island; drag is an isometry.
-  Compass spins the table. Orbit 0 is the old drone.
-- **Releases.** Visual + audio credits stamp the glyph. Tracks stack into a
-  sleeve — a sequence of ink plates, one per song. Print sticker inks the
-  field into a maze-like QR. Capture sits on the Field face.
-- **WebAR, Artivive-style.** Sticker URLs carry `&ar=1`. Camera opens the
-  print in the browser — no gate. The living field is a transparent layer
-  on the paper (void punched out, like Bridge “remove background”). Tap
-  wakes the chant. Vuforia Area Targets remain the venue-scale next step
-  (`space.ts`).
-- **Find / AR overlay.** Image → Find sticker (or Enter → Find) opens the
-  rear camera. A MORPHOS glyph is tracked by its corners; the living field
-  is perspectively mapped onto the print (screen blend). Settings lock to
-  that origin. Lose the sticker, keep hunting. Geocache in the city.
-- **Venue stickers.** Print sticker fuses the living field into a Camera-readable
-  MORPHOS URL (`/?o=`). Phone Camera opens the instrument with that chemistry
-  and voice. Installed PWA reuses the window (`launch_handler`). Remix is the
-  Enter gate. Native App Store / Play can keep the same URL later.
-- **Glyph plates.** An edition pack includes `glyph.png` — a maze-like QR
-  of the origin (chemistry, voice, maker). Image → Scan (or `?o=`) restores
-  the instrument from a print, sticker, or capture. Mirroring is optional
-  (Flat is the default press). Maker name / URL / Instagram / X stamp into
-  the glyph. Same payload a Vuforia / Artvive target would carry.
-- **Atelier / origin.** Every still and session loop writes an `origin.json`
-  (chemistry, voice, pose, space, field stats). Field → Press packs a
-  2048² still (flat / book-match / kaleidoscope) plus origin into a zip
-  for Resolume, TouchDesigner, or print. The instrument is the atelier;
-  the origin is the edition.
-- Compact **Sound** face is the default on the card: waveform chips, C♯ / D♭,
-  Ionian through Locrian plus Major / Minor / pentatonic / blues / sus, and a
-  **Hz window** (factory 125–501 Hz, the chant band; Lo opens to 7.83 Hz).
-  Field (F, k) is one tap away.
-- Twelve-page **instrument guide** (PDF): what has been built, how to play,
-  and the next chapter (Ableton, Serum, Resolume, Synesthesia). Linked from
-  Enter and from the repository.
-- Always-visible **Default settings** toggle (header, Field, and Sound). Restores
-  mitosis, warm sine, D Dorian, factory mix, and clears loops, layers, and
-  locks — a way home if you get lost in the noise.
-- Circle-of-fifths **key** and church **mode** (plus blues / suspended) toggles.
-  Live pitch quantizes to the scale. The phone compass can walk the key in
-  realtime.
-- Audio **layer** looper: record looping samples, stack overdubs, play/pause
-  each layer from Sound.
-- Field **patches** (save F/k/Du/Dv/species/colour) and **screenshots** of the
-  living pattern.
-- Compiled release packages (Vercel prebuilt zip + source archive + SHA256SUMS)
-  attached to GitHub Releases. `npm run package` rebuilds them. A Release
-  workflow compiles the same archives whenever a GitHub release is published.
+- **Clear glass.** The menu is hidden until you ask for it. Along the top:
+  View, Reset, Rec, Loop, and Play. View opens the full controls. Hide
+  puts them away.
+- **Pose.** Heading sets the scale of the pattern (north broader, south
+  finer). Tilt changes how it grows. A small movement stirs it. Motion
+  permission is requested on Enter.
+- **Chord.** One finger glides with height. A second finger adds a fifth.
+  A third adds the octave. The three move together. Under them is The Hum,
+  the Schumann cavity at 7.83 Hz, heard in the chant band (125–501 Hz).
+- **Listen.** Room mic, a dropped track, or a shared tab. A hit seeds the
+  field under the fingers. Bass, mids, and highs move the chemistry.
+  Spotify’s stream stays inside Spotify.
+- **Still.** A high-resolution PNG of the field, with an `origin.json`
+  of the chemistry, voice, and pose.
+- **Editions.** A press zip (flat, book-match, or kaleidoscope) for
+  Resolume, TouchDesigner, or print. A glyph plate is a maze-like code of
+  that origin. Phone Camera opens the instrument on those settings.
+  Find sticker tracks the print and lays the living field on the paper.
+- **TouchDesigner 087.** Sync packets are v2, with a `feedback` block
+  mapped onto Blur, Sharpen, Level, Transform, and Feedback reset.
+  MIDI CCs 30–35 carry the bands. Pixels stay on NDI. The socket is knobs.
+- **Outer billiards,** optional. The mode is a regular n-gon. The centre
+  of the glass holds. Outer rings walk the scale. Orbit defaults to 0,
+  so a finger holds its pitch until you turn the walk on.
+- **Releases.** Visual and audio credits stamp the glyph. Tracks stack
+  into a sleeve, one plate per song.
 
 ### Changed
 
-- Vibrato is no longer slaved to the gyro. Default depth is **off**. Rate
-  (0.5–12 Hz) and depth (cents) live on the Sound face.
-- Share card and X banner retitled **MORPHOS** / Living Field. Two Morpho
-  silhouettes (Costa Rican blue, hairline teal outline) emerge from the field.
-  Favicon, home-screen icon, Enter mark, and HUD use the same wings.
-- Spatial audio: the glass is a table in front of the listener (HRTF
-  PannerNode). Left/right is azimuth, top is farther and higher, bottom
-  is in the lap. Locked drones and recorded loops sit where they were
-  played. GPS tangent-plane mapping is in `space.ts` for geo loops.
-  Gyro leans the head; compass is reserved for world-space.
-- Product name is **MORPHOS**, subtitle **Living Field**. Wordmark, Enter
-  gate, PWA, and instrument guide retitled. Public URL
-  [morphos.grok.me](https://morphos.grok.me). Repo stays
-  `IAmM3ta/morphogen`.
-- First impression: sine is a warm almost-pure voice (no formant wah). Extra
-  fingers are real voices again — TouchEvents own the glass. Factory field is
-  Pearson mitosis in Abyss (round dividing cells, 3D rim light) instead of
-  noisy coral speckle. Persist key is `morphogen-v13` so the phone picks this
-  up on refresh.
-- Waveforms are architecturally distinct (mix, filter, FM, harmonic layout);
-  live voices bypass the Hum tilt filter so saw/square/pulse cut through.
-- Play surface is an XY pad: **height is pitch**, **across is amplitude**.
-  Pan comes from roll.
-- Restore-defaults also resets volume, mute, audio, gyro, key, and recorded
-  layers (Shift+R, or the Default toggle).
-- F, k, Freeze, and Sound sit in a **card under the wordmark** on the
-  phone (and bottom-right on a laptop) so preview chrome cannot cover them.
-  The card starts as a thin **Freeze / Release / Hide** bar; Field and Sound
-  sheets open on tap. **Sound** is waveform, key, mode, and Hz range. **More**
-  opens the full Field / Image / Body / Sound / Sync console (tabs are labeled).
-  **Hide** (eye-off) clears the chrome so the field is the whole glass.
-- **Freeze** / **Release** are labeled, full-width controls (not an unlabeled
-  layers glyph). Freeze holds the last pitch as a quiet drone you play over —
-  no noise bed, no delay wash, no interval stacking. **Release** peels one
-  layer; **Release all** clears the stack. Four layers. The HUD reads DRONE N.
+- **Dark field.** Pattern bodies are deep teal and blue. The ground stays
+  near black. White is no longer the fill.
+- **Separate forms.** Turning the phone changes the scale. It does not
+  smear every shape along one shared direction.
+- Factory chemistry is **Living** in Abyss: a field that keeps moving.
+  The old mitosis and coral rests migrate to it.
+- Vibrato is not tied to the gyro. Default depth is off. Rate and depth
+  live on the Sound face.
+- Share card, X banner, favicon, and the Enter mark use the Morpho
+  lockup: two blue wings, a hairline outline, on the field.
+- The glass is a table in front of the listener (HRTF). Left and right
+  are azimuth. The top of the glass is farther and higher. Locked drones
+  and loops sit where they were played.
+- Sound sheet is translucent, and it closes. Hide removes the card. The
+  eye brings it back.
 
 ### Fixed
 
-- The compact control card could not be dismissed: Close on the console
-  collapsed it to a Sound sheet that stayed parked in the middle of the
-  field, and Hide chrome never unmounted the dock. Hide now removes the
-  card; a single eye restores it. Field / Sound are sheets, not a permanent
-  slab.
-- Colour circles (Views) only recolored the field, and only until a species
-  morph froze `liveStops`. They now replace the live palette and retune The
-  Hum — brightness, third/fifth, and air follow the circle. Key and mode
-  retune the drone immediately, with or without a finger on the glass.
-- Default sine used an odd-harmonic “chant” table that read as a
-  triangle/square buzzer. It is a true sine again — a little unison
-  chorus, chest peaking, dark lowpass. Extra fingers were aliased onto
-  the first voice; each contact is its own voice. Opening field is
-  **Coral** in Abyss, strongly seeded, so the first frame is already a
-  living reef.
-- Safari/WKWebView went silent after Enter: resume-spam while suspended
-  stuck the context. Resume is gesture-only; master gain is written
-  directly.
-- The unlabeled layers glyph stacked filtered noise into a delay with high
-  feedback, then multiplied live pitch by a fifth/octave per layer, so each
-  tap was louder white noise climbing out of the Hz window, with no off
-  switch except Reset. Freeze is a musical drone inside the window; Release
-  is the off switch. The always-on noise bed is muted so The Hum stays sine.
-
-- First contact froze the whole instrument: scale-degree lookup used a
-  float as an array index (`intervals[3.7]` → `NaN` Hz), `setTargetAtTime`
-  threw, and the animation frame never rescheduled. Pitch is interpolated;
-  audio ramps ignore non-finite values; the solver keeps running if a
-  voice errors. Window-level capturing listeners no longer swallow the
-  console while a finger is down.
+- The control card could not be dismissed. It stayed in the middle of
+  the field. Hide now removes it.
+- Colour views only recoloured the picture, and a morph could freeze
+  the palette. They now retune the live colour and The Hum.
+- The default voice read as a buzzer, and extra fingers collapsed onto
+  the first. It is a sine again, and each contact is its own voice.
+- Opening the app could go silent, or freeze on the first touch
+  (`NaN` Hz from a float used as a scale index). Resume is gesture-only.
+  Pitch is interpolated. The solver keeps running if a voice errors.
 
 ## [0.1.0] — 2026-09-17
 

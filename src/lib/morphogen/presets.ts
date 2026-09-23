@@ -33,10 +33,10 @@ export const PALETTES: Palette[] = [
     id: "abyss",
     name: "Abyss",
     stops: [
-      [0.008, 0.016, 0.026],
-      [0.012, 0.1, 0.16],
-      [0.03, 0.32, 0.4],
-      [0.42, 0.72, 0.68],
+      [0.012, 0.025, 0.07],
+      [0.02, 0.26, 0.42],
+      [0.12, 0.78, 0.88],
+      [0.62, 0.96, 0.95],
     ],
   },
   {
@@ -102,7 +102,7 @@ export const PALETTES: Palette[] = [
 ];
 
 export const PRESETS: SimPreset[] = [
-  { id: "living", name: "Living", blurb: "Ferns. The phone tunes them.", feed: 0.048, kill: 0.0615, du: 0.19, dv: 0.095, paletteId: "abyss" },
+  { id: "living", name: "Living", blurb: "Fine mazes. The phone tunes them.", feed: 0.037, kill: 0.06, du: 0.14, dv: 0.07, paletteId: "abyss" },
   { id: "solitons", name: "Solitons", blurb: "Quiet stable spots", feed: 0.0353, kill: 0.0653, du: 0.21, dv: 0.105, paletteId: "spore" },
   { id: "pulsing", name: "Pulsing", blurb: "Breathing spots", feed: 0.025, kill: 0.06, du: 0.18, dv: 0.09, paletteId: "spore" },
   { id: "holes", name: "Holes", blurb: "Perforated sheet", feed: 0.039, kill: 0.058, du: 0.21, dv: 0.105, paletteId: "abyss" },

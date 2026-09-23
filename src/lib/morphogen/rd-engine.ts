@@ -590,11 +590,17 @@ export class RDEngine {
         const east = 0.5 + 0.5 * Math.sin(hRad);
         const breathe = 0.82 + 0.28 * (0.5 + 0.5 * Math.sin(time * 0.23));
         const stir = posed ? Math.min(1, sense.spin * 1.7 + Math.max(0, sense.gforce - 0.03) * 1.2) : 0;
-        const poseTarget = posed ? 0.82 + 0.34 * north + 0.14 * east : breathe;
-        this.smoothScale += (poseTarget - this.smoothScale) * 0.018;
+        const poseTarget = posed ? 0.48 + 0.9 * north + 0.28 * east : breathe;
+        this.smoothScale += (poseTarget - this.smoothScale) * 0.04;
         const poseScale = this.smoothScale;
-        const feed = params.feed + b.bass * heard * 0.032 + (posed ? sense.pitch * 0.016 + stir * 0.014 : 0);
-        const kill = params.kill - b.mid * heard * 0.02 + (posed ? -sense.roll * 0.011 : 0);
+        const feed =
+          params.feed +
+          b.bass * heard * 0.02 +
+          (posed ? sense.pitch * 0.012 + (north - 0.5) * 0.006 + stir * 0.006 : 0);
+        const kill =
+          params.kill -
+          b.mid * heard * 0.012 +
+          (posed ? -sense.roll * 0.01 + (east - 0.5) * 0.005 : 0);
         const grain = posed ? 1 : Math.max(1, Math.min(1.7, Math.min(this.simW, this.simH) / 1100));
         const du = params.du * (1 + b.high * heard * 0.4) * poseScale * grain;
         const dv = params.dv * (1 - b.bass * heard * 0.22) * poseScale * grain;

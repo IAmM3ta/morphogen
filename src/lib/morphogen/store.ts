@@ -443,7 +443,12 @@ export const useInstrument = create<InstrumentState>()(
           state.presetId === "living" &&
           Math.abs(p0.feed - 0.062) < 0.0015 &&
           Math.abs(p0.kill - 0.0609) < 0.0015;
-        if ((mitosisRest || coralRest || stranded || fernFromSpots) && p0) {
+        const coarseLiving =
+          !!p0 &&
+          state.presetId === "living" &&
+          Math.abs(p0.feed - 0.048) < 0.002 &&
+          Math.abs(p0.kill - 0.0615) < 0.002;
+        if ((mitosisRest || coralRest || stranded || fernFromSpots || coarseLiving) && p0) {
           const living = presetById("living");
           state.presetId = living.id;
           state.params = {

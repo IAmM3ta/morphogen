@@ -247,16 +247,21 @@ vec3 colorize(sampler2D field, vec3 c0, vec3 c1, vec3 c2, vec3 c3, float glowAmt
   float vS = texture(field, uv - vec2(0.0, px.y)).g;
   float vE = texture(field, uv + vec2(px.x, 0.0)).g;
   float vW = texture(field, uv - vec2(px.x, 0.0)).g;
-  float edge = abs(vN - vS) + abs(vE - vW);
-  float sharp = clamp(v * 1.35 - (vN + vS + vE + vW) * 0.12, 0.0, 1.0);
-  v = mix(v, sharp, 0.18);
-  float body = smoothstep(0.05, 0.72, v);
-  float rim = clamp(edge * 4.5, 0.0, 1.0);
-  float t = clamp(body * 0.38 + rim * 0.34, 0.0, 0.9);
+  float vN2 = texture(field, uv + vec2(0.0, px.y * 3.0)).g;
+  float vS2 = texture(field, uv - vec2(0.0, px.y * 3.0)).g;
+  float vE2 = texture(field, uv + vec2(px.x * 3.0, 0.0)).g;
+  float vW2 = texture(field, uv - vec2(px.x * 3.0, 0.0)).g;
+  float fine = abs(vN - vS) + abs(vE - vW);
+  float coarse = abs(vN2 - vS2) + abs(vE2 - vW2);
+  float fill = smoothstep(0.01, 0.46, v);
+  float thread = clamp(fine * 10.0, 0.0, 1.0);
+  float limb = clamp(coarse * 4.2, 0.0, 1.0);
+  float t = clamp(fill * 0.55 + thread * 0.4 + limb * 0.14, 0.0, 0.96);
   vec3 col = paletteStops(t, c0, c1, c2, c3);
-  vec3 nrm = normalize(vec3(-(vE - vW) * (2.2 + glowAmt), (vN - vS) * (2.2 + glowAmt), 0.28));
-  float ndl = max(0.0, dot(nrm, normalize(vec3(-0.42, 0.68, 0.78))));
-  col *= 0.62 + 0.32 * ndl;
+  vec3 nrm = normalize(vec3(-(vE - vW) * (3.2 + glowAmt), (vN - vS) * (3.2 + glowAmt), 0.2));
+  float ndl = max(0.0, dot(nrm, normalize(vec3(-0.35, 0.62, 0.7))));
+  col *= 0.84 + 0.22 * ndl;
+  col += c2 * thread * (0.08 + glowAmt * 0.04);
   return col;
 }
 

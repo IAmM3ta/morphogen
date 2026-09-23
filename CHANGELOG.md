@@ -45,6 +45,8 @@ tunes the chemistry. The field stays dark.
 
 ### Changed
 
+- **Detail.** Fine cyan threads on navy, at two scales. Facing changes how
+  small they are. A tilt changes the kind of pattern. The ground stays dark.
 - **Dark field.** Pattern bodies are deep teal and blue. The ground stays
   near black. White is no longer the fill.
 - **Separate forms.** Turning the phone changes the scale. It does not

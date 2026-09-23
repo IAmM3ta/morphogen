@@ -9,9 +9,8 @@ and this project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 
 ### Added
 
-- **Scale.** The field is drawn as a ridge on black, morpho blue, with a
-  point of light at each junction. The ground is no longer a filled colour.
-  Palette still tints the line. A light palette stays ink on paper.
+- **Field restored.** The ridge-only picture is gone. Colour fills the
+  pattern again. Resting chemistry is Coral, not the thin Scale preset.
   tab audio on a computer. A hit seeds the field under the fingers; bass
   blooms and mids open it. Spotify's stream stays inside Spotify.
 - **Field.** The solver matches the screen, up to 2048 on a phone and 2400

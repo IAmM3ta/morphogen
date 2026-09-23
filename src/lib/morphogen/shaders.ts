@@ -238,28 +238,19 @@ vec3 colorize(sampler2D field, vec3 c0, vec3 c1, vec3 c2, vec3 c3, float glowAmt
   float vE = texture(field, uv + vec2(px.x, 0.0)).g;
   float vW = texture(field, uv - vec2(px.x, 0.0)).g;
   float edge = abs(vN - vS) + abs(vE - vW);
-  float ridge = pow(smoothstep(0.01, 0.12, edge), 0.7);
-  float peak = v - max(max(vN, vS), max(vE, vW));
-  float node = smoothstep(0.002, 0.022, peak) * smoothstep(0.1, 0.42, v);
-  vec3 nrm = normalize(vec3(-(vE - vW), vN - vS, 0.22));
-  float ndl = max(0.0, dot(nrm, normalize(vec3(-0.35, 0.55, 0.76))));
-  float flank = clamp(nrm.x * 0.5 + 0.5, 0.0, 1.0);
-  float paper = smoothstep(0.38, 0.62, dot(c0, vec3(0.299, 0.587, 0.114)));
-
-  vec3 filament = mix(c1, c2, ridge);
-  filament = mix(filament, c3, pow(ndl, 1.5) * ridge);
-  filament += vec3(-0.05, 0.07, 0.1) * flank * ridge;
-  float bite = 1.0 + uPlay.z * 0.45;
-  float bloom = 1.0 + uPlay.x * 0.4 + glowAmt * 0.25;
-  vec3 onDark = c0 * 0.28;
-  onDark += filament * ridge * (1.05 + glowAmt * 0.5) * bite * bloom;
-  onDark += mix(c3, vec3(0.92, 0.96, 1.0), 0.55) * node * (1.1 + glowAmt * 0.35);
-  onDark += c2 * smoothstep(0.28, 0.72, v) * (1.0 - ridge) * 0.07;
-
-  vec3 ink = mix(c3, c2, 0.2);
-  vec3 onPaper = mix(c0, ink, ridge * 0.94);
-  onPaper = mix(onPaper, min(c0, ink) * 0.35, node);
-  return mix(onDark, onPaper, paper);
+  float sharp = clamp(v * 1.6 - (vN + vS + vE + vW) * 0.15, 0.0, 1.0);
+  v = mix(v, sharp, 0.42 + uPlay.z * 0.28);
+  float t = smoothstep(0.02, 0.42, v);
+  vec3 col = paletteStops(t, c0, c1, c2, c3);
+  vec3 nrm = normalize(vec3(-(vE - vW) * (3.4 + glowAmt * 2.8), (vN - vS) * (3.4 + glowAmt * 2.8), 0.16));
+  float ndl = max(0.0, dot(nrm, normalize(vec3(-0.42, 0.68, 0.78))));
+  float rim = pow(1.0 - ndl, 2.4) * edge * 1.8;
+  float bite = 1.0 + uPlay.z * 0.7;
+  float bloom = 1.0 + uPlay.x * 0.55;
+  col *= 0.55 + 1.15 * ndl;
+  col += paletteStops(min(1.0, t + 0.22), c0, c1, c2, c3) * (edge * (0.85 + glowAmt * 0.5) * bite + rim * 0.45 * bloom);
+  col += vec3(0.85, 0.92, 1.0) * pow(ndl, 8.0) * v * (0.22 + uPlay.x * 0.32);
+  return col;
 }
 
 void main() {

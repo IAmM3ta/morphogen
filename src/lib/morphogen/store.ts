@@ -421,22 +421,21 @@ export const useInstrument = create<InstrumentState>()(
           state.compassKey = false;
         }
         const p0 = state.params;
-        const factoryLook =
+        const stranded =
           !!p0 &&
-          (p0.paletteId === "abyss" || p0.paletteId === "field") &&
-          Math.abs((p0.vignette ?? 0.16) - 0.16) < 0.02 &&
-          ((state.presetId === "mitosis" && Math.abs(p0.feed - 0.037) < 0.001 && Math.abs(p0.kill - 0.06) < 0.001) ||
-            (state.presetId === "coral" && Math.abs(p0.feed - 0.0545) < 0.001 && Math.abs(p0.kill - 0.062) < 0.001));
-        if (factoryLook && p0) {
-          const scale = presetById("scale");
-          state.presetId = scale.id;
+          (state.presetId === "scale" || p0.paletteId === "morpho") &&
+          Math.abs(p0.feed - 0.046) < 0.002 &&
+          Math.abs(p0.kill - 0.063) < 0.002;
+        if (stranded && p0) {
+          const coral = presetById("coral");
+          state.presetId = coral.id;
           state.params = {
             ...p0,
-            feed: scale.feed,
-            kill: scale.kill,
-            du: scale.du,
-            dv: scale.dv,
-            paletteId: scale.paletteId,
+            feed: coral.feed,
+            kill: coral.kill,
+            du: coral.du,
+            dv: coral.dv,
+            paletteId: coral.paletteId,
             glow: DEFAULT_PARAMS.glow,
             vignette: DEFAULT_PARAMS.vignette,
             steps: DEFAULT_PARAMS.steps,

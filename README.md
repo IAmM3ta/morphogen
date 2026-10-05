@@ -1,14 +1,14 @@
-# MORPHOS
+# Morphogen
 
-**Living Field.** A theremin made of chemistry. You play a Gray–Scott field with your fingers and with the way you hold the phone. The glass opens dark and clear. The first finger is a pitch. The phone tunes the pattern.
+A **theremin made of chemistry**. 4K-class Gray–Scott reaction-diffusion you play with fingers, the phone’s IMU, and a mouse in any modern browser. The rest state is **The Hum** — Schumann resonances as a sine pad. Optional sync to projectors via TouchDesigner or MIDI.
 
-Public instrument: **[morphos.grok.me](https://morphos.grok.me)** · repository stays [`IAmM3ta/morphogen`](https://github.com/IAmM3ta/morphogen).
+**Live:** [https://morphos.grok.me/](https://morphos.grok.me/)
 
-**[Changelog](CHANGELOG.md)** · **[Instrument guide (PDF)](docs/Morphos-Instrument-Guide.pdf)** · **[Releases](https://github.com/IAmM3ta/morphogen/releases)** · tagged **[v0.1.0](https://github.com/IAmM3ta/morphogen/releases/tag/v0.1.0)** · `main` is ahead of that tag.
+**[Changelog](CHANGELOG.md)** · **[Instrument guide (PDF)](docs/Morphogen-Instrument-Guide.pdf)** · **[Releases](https://github.com/IAmM3ta/morphogen/releases)** · current **[v0.1.0](https://github.com/IAmM3ta/morphogen/releases/tag/v0.1.0)**
 
 ## Download
 
-Compiled packages for the tagged cut live on the [v0.1.0 release](https://github.com/IAmM3ta/morphogen/releases/tag/v0.1.0):
+Compiled packages live on the [v0.1.0 release](https://github.com/IAmM3ta/morphogen/releases/tag/v0.1.0):
 
 | File | What it is |
 | --- | --- |
@@ -16,7 +16,7 @@ Compiled packages for the tagged cut live on the [v0.1.0 release](https://github
 | `morphogen-0.1.0-src.zip` | Source tree at the tag |
 | `SHA256SUMS` | Checksums |
 
-What has changed since that tag is in the [changelog](CHANGELOG.md). Deploy the compiled package with [Vercel](https://vercel.com):
+Deploy the compiled package with [Vercel](https://vercel.com):
 
 ```bash
 unzip morphogen-0.1.0-vercel.zip -d .vercel/output
@@ -27,30 +27,30 @@ Or from source: `npm install && npm run build && npm run preview`.
 
 ## Play
 
-1. Open the app and tap **Enter**. Grant motion. Nothing sounds until you touch the glass.
-2. The menu stays away. **View** opens it. **Reset** returns the factory field. **Rec** records the session. **Loop** records a layer. **Play** starts or pauses those loops.
-3. **One finger.** Slide up and the pitch rises. Slide down and it falls. The voice is a warm sine in D Dorian, about 125–501 Hz. Lo still opens to 7.83 Hz, the Schumann fundamental.
-4. **Two fingers, then three.** The second is a fifth above the first. The third is the octave. They glide together.
-5. **The phone is the other hand.** The direction you face changes the scale of the pattern. A tilt changes how it grows. A small movement stirs it. Turning does not smear the picture.
-6. The field is dark. Bodies of the pattern are deep colour. The ground stays near black.
-7. **Freeze** holds the last pitch as a drone, seated where you froze it. **Release** peels one layer. `L` freezes, `Z` releases, `Shift+Z` clears.
-8. **Headphones.** The glass is a table in front of you. Left and right are direction. The top of the glass is farther away.
-9. **Listen**, on the Sound face, hears a room, a file, or a shared tab. It does not read Spotify’s stream. Silence leaves the chemistry alone.
-10. `U` or `⌘Z` undoes. `R` reseeds the field. `Shift+R` or **Reset** restores factory settings and clears loops. `C` records. `H` hides the chrome.
+1. Open the app and tap **Enter**.
+2. **The Hum is always on.** Default waveform is sine, tuned to Earth cavity modes (~7.83 Hz and its audible octaves).
+3. **Height is pitch, across is amplitude.** Voices snap to the current key and mode. Left/right is no longer pan — roll the chassis to pan. Each finger is a voice. Fingers leave no marks.
+4. **The chassis is the other antenna.** Tilt, roll, spin, and g-force sculpt The Hum. The compass can walk the key around the circle of fifths. Permission is requested on Enter.
+5. On a laptop, move the pointer for pitch — no click required. Touch plays; **drag** plants new growth (a disk of *v*). The field is a live Gray–Scott vis: species morph in place.
+6. **Freeze: stop growth. Release: let it grow again.** `L` freezes, `Z` releases, `Shift+Z` clears.
+7. Species buttons **morph chemistry in place** — they do not reseed. `1`–`9` pick a species.
+8. **Sound** (on the card, or Console → Sound) chooses sine (The Hum), triangle, saw, square, pulse, or spectrum; key (including C♯); mode (Ionian, Aeolian, minor pentatonic, …); and the Hz window (factory 47–376).
+9. `U` or `⌘Z` **undoes** the last change (paint, species, waveform, reset). `R` resets the field, `Shift+R` or the **Default** toggle restores factory settings (mitosis, The Hum, C Ionian, 47–376 Hz, and clears loops). `C` records the session.
+10. Every finger is a voice. On a phone, two (or more) contacts play at once.
 
-## Field
+## Field console
 
-**View** opens the card. **Sound** is waveform, key, mode, the Hz window, and vibrato (off until you ask). **More** opens Field, Image, Body, and Sync. The Field pane follows [VisualPDE Parameters](https://visualpde.com/user-guide/advanced-options#parameters).
+Open **Sound** on the card for waveform, key, mode, and range. **More** opens the full console. On a phone the card sits under the wordmark so preview chrome cannot cover it. The Field pane follows [VisualPDE Parameters](https://visualpde.com/user-guide/advanced-options#parameters): a typeset Pearson Gray–Scott equation, then named sliders `name = value in [min, max]`.
 
 | Symbol | Meaning |
 | --- | --- |
-| **F**, **k** | feed and kill. The phone nudges these while you hold it. |
-| **Dᵤ**, **Dᵥ** | diffusion. Heading scales them. |
-| **R**, **B** | disk brush radius and value |
+| **F**, **k** | feed and kill |
+| **Dᵤ**, **Dᵥ** | diffusion of *u* and *v* |
+| **R**, **B** | disk brush radius and value (species *v*) |
 | **N**, **Δt** | steps per frame and timestep |
-| **L** | hillshade |
+| **L** | hillshade lighting |
 
-Species packs set the chemistry without reseeding. Factory rest is **Living**.
+Touch a coefficient in the equation to bind its slider. Species packs set (F, k, Dᵤ, Dᵥ) without reseeding.
 
 ## Run locally
 
@@ -71,13 +71,12 @@ npm run preview
 - Node 22+
 - A browser with **WebGL2**
 - iPhone / iPad: Safari or Chrome, with motion permission on first enter
-- Headphones for spatial audio
 - Microphone and camera are optional
 
 ## TouchDesigner
 
-In MORPHOS, open **Sync** and connect to a WebSocket DAT running as a server. Callbacks live in `public/td/morphogen_ws_callbacks.py`. Packets are v2 and line up with TouchDesigner Tutorial 087. MIDI CCs 20–35 are the other path.
+In Morphogen, open **Sync** and connect to a WebSocket DAT running as a server. Callbacks live in `public/td/morphogen_ws_callbacks.py`. MIDI CCs 20–29 are an alternative.
 
 ## Stack
 
-TanStack Start, React 19, WebGL2 Gray–Scott, Web Audio (polyphonic theremin, HRTF, The Hum).
+TanStack Start, React 19, WebGL2 Gray–Scott, Web Audio (polyphonic theremin + field pad).

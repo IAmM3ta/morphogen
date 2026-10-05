@@ -27,13 +27,13 @@ Or from source: `npm install && npm run build && npm run preview`.
 
 ## Play
 
-1. Open the app and tap **Enter**. Grant motion. Nothing sounds until you touch the glass.
+1. Open the app and tap **Enter**. Grant motion. *Tap to start sound. Drag to plant growth. Touch the field to hear it.* After Enter, chips read **audio unlocked|failed · motion on|denied**. MIDI is only requested from **Sync**.
 2. The menu stays away. **View** opens it. **Reset** returns the factory field. **Rec** records the session. **Loop** records a layer. **Play** starts or pauses those loops.
 3. **One finger.** Slide up and the pitch rises. Slide down and it falls. The voice is a warm sine in D Dorian, about 125–501 Hz. Lo still opens to 7.83 Hz, the Schumann fundamental.
 4. **Two fingers, then three.** The second is a fifth above the first. The third is the octave. They glide together.
 5. **The phone is the other hand.** The direction you face changes the scale of the pattern. A tilt changes how it grows. A small movement stirs it. Turning does not smear the picture.
 6. The field is dark. Bodies of the pattern are deep colour. The ground stays near black.
-7. **Freeze** holds the last pitch as a drone, seated where you froze it. **Release** peels one layer. `L` freezes, `Z` releases, `Shift+Z` clears.
+7. **Freeze: stop growth. Release: let it grow again.** Touch plays the pitch under your finger; **drag** plants new growth. `L` freezes, `Z` releases, `Shift+Z` clears.
 8. **Headphones.** The glass is a table in front of you. Left and right are direction. The top of the glass is farther away.
 9. **Listen**, on the Sound face, hears a room, a file, or a shared tab. It does not read Spotify’s stream. Silence leaves the chemistry alone.
 10. `U` or `⌘Z` undoes. `R` reseeds the field. `Shift+R` or **Reset** restores factory settings and clears loops. `C` records. `H` hides the chrome.

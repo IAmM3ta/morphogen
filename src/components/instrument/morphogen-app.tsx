@@ -38,8 +38,10 @@ import { decodeGlyphToken, lastRecalledGlyph, type Glyph } from "@/lib/morphogen
 import type { LoopClip } from "@/lib/morphogen/loops";
 import type { FieldShot } from "./field-library";
 import {
+  beginGesture,
   bindHistory,
   clearHistory,
+  endGesture,
   finishUndo,
   maybeCheckpoint,
   subscribeHistory,
@@ -115,6 +117,8 @@ export function MorphogenApp() {
   const [recElapsed, setRecElapsed] = useState(0);
   const [canUndo, setCanUndo] = useState(false);
   const [senseReady, setSenseReady] = useState(false);
+  const [audioChip, setAudioChip] = useState<"unlocked" | "failed" | null>(null);
+  const [motionChip, setMotionChip] = useState<"on" | "denied" | null>(null);
   const [loops, setLoops] = useState<LoopClip[]>([]);
   const [layerRecording, setLayerRecording] = useState(false);
   const [shots, setShots] = useState<FieldShot[]>([]);
@@ -512,7 +516,9 @@ export function MorphogenApp() {
       (v, x, y) => setCharge({ v, x, y }),
       (evt) => {
         audioRef.current?.resume();
-        if (evt.type === "down" && localBrushes.current.length <= 1) maybeCheckpoint();
+        // M-06: touch only plays; an undo checkpoint is taken once a drag plants growth.
+        if (evt.type === "move" && localBrushes.current.length > 0) beginGesture();
+        if (evt.type === "up") endGesture();
       },
     );
     const onDrop = (e: DragEvent) => {
@@ -709,26 +715,26 @@ export function MorphogenApp() {
         setLoops(clips);
         setLayerRecording(rec);
       };
+      setAudioChip("unlocked");
     } catch {
+      setAudioChip("failed");
       toast("Audio could not start — tap again to retry");
     }
 
     runtime.started = true;
     patch({ started: true, panelOpen: false, uiHidden: true });
     const sensePromise = requestSensorPermission();
-    await sensePromise;
+    const granted = await sensePromise;
     audio?.resume();
-    patch({ gyroOn: true });
-    setSenseReady(true);
+    setMotionChip(granted ? "on" : "denied");
+    patch({ gyroOn: granted });
+    setSenseReady(granted);
 
     if (useInstrument.getState().micOn && audioRef.current) {
       const ok = await audioRef.current.connectMic();
       if (!ok) toast("Microphone permission was declined");
     }
-    const midi = new MidiOut();
-    midi.onDevices = setMidiDevices;
-    midiRef.current = midi;
-    void midi.init();
+    // M-18: MIDI stays behind Sync/Stage — do not requestMIDIAccess on Enter.
     const td = new TdClient();
     td.onStatus = (s, err) => {
       setTdStatus(s);
@@ -778,15 +784,44 @@ export function MorphogenApp() {
     tdRef.current?.connect(s.tdUrl, s.tdGrid, () => runtime.mic);
   }, []);
 
+  const ensureMidi = useCallback(async () => {
+    if (!midiRef.current) {
+      const midi = new MidiOut();
+      midi.onDevices = setMidiDevices;
+      midiRef.current = midi;
+    }
+    return midiRef.current.init();
+  }, []);
+
   const onMidiSelect = useCallback(
-    (id: string | null) => {
+    async (id: string | null) => {
+      if (id) await ensureMidi();
       patch({ midiId: id, midiOn: Boolean(id) });
       const midi = midiRef.current;
       if (!midi) return;
       midi.select(id);
       midi.setEnabled(Boolean(id));
     },
-    [patch],
+    [patch, ensureMidi],
+  );
+
+  const onMidiToggle = useCallback(
+    async (on: boolean) => {
+      if (on) {
+        const ok = await ensureMidi();
+        if (!ok) {
+          toast("MIDI is not available in this browser");
+          patch({ midiOn: false, midiId: null });
+          return;
+        }
+        patch({ midiOn: true });
+      } else {
+        patch({ midiOn: false, midiId: null });
+        midiRef.current?.setEnabled(false);
+        midiRef.current?.select(null);
+      }
+    },
+    [ensureMidi, patch],
   );
 
   const requestFs = useCallback(async () => {
@@ -797,6 +832,27 @@ export function MorphogenApp() {
       toast("Fullscreen was blocked");
     }
   }, []);
+
+  // M-02: after Enter, show audio unlocked|failed · motion on|denied.
+  const statusChips =
+    audioChip || motionChip ? (
+      <p
+        className="mt-1 flex flex-wrap gap-1.5 font-mono text-[10px] tracking-[0.08em] text-muted"
+        role="status"
+        aria-live="polite"
+      >
+        {audioChip === "unlocked" && (
+          <span className="rounded-full bg-fg/10 px-2 py-0.5 text-fg">audio unlocked</span>
+        )}
+        {audioChip === "failed" && (
+          <span className="rounded-full bg-destructive/20 px-2 py-0.5 text-fg">audio failed</span>
+        )}
+        {motionChip === "on" && <span className="rounded-full bg-fg/10 px-2 py-0.5 text-fg">motion on</span>}
+        {motionChip === "denied" && (
+          <span className="rounded-full bg-destructive/20 px-2 py-0.5 text-fg">motion denied</span>
+        )}
+      </p>
+    ) : null;
 
   return (
     <div className="relative h-dvh w-full overflow-hidden bg-bg text-fg select-none">
@@ -912,6 +968,14 @@ export function MorphogenApp() {
               {runtime.orbitPeriod > 1 ? ` · P${runtime.orbitPeriod}` : ""}
               {runtime.listen > 0.02 && runtime.bands.rms > 0.04 ? " · LISTEN" : ""}
             </p>
+            {statusChips}
+            <p className="mt-1.5 flex flex-wrap gap-1.5 text-[10px] tracking-[0.14em] text-faint uppercase">
+              <span title="The steady tone underneath. Tilt the phone to brighten it.">Hum</span>
+              <span aria-hidden>·</span>
+              <span title="Touch plays the pitch under your finger. Drag plants new growth.">Hands</span>
+              <span aria-hidden>·</span>
+              <span title="How the pattern grows. F and k change the species; Default brings it home.">Field</span>
+            </p>
           </div>
           <div className="pointer-events-auto hidden flex-wrap justify-end gap-1 rounded-md bg-bg-elevated/90 p-1 shadow-[var(--shadow-border)] sm:flex">
             <Button
@@ -929,7 +993,8 @@ export function MorphogenApp() {
               variant="ghost"
               size="icon-sm"
               onClick={() => setPaused((p) => !p)}
-              aria-label={paused ? "Play" : "Pause"}
+              aria-label={paused ? "Play field" : "Pause field"}
+              title={paused ? "Play field" : "Pause field"}
             >
               {paused ? <Play /> : <Pause />}
             </Button>
@@ -939,10 +1004,11 @@ export function MorphogenApp() {
               onClick={undoLast}
               disabled={!canUndo}
               aria-label="Undo"
+              title="Undo"
             >
               <Undo2 />
             </Button>
-            <Button variant="ghost" size="icon-sm" onClick={resetField} aria-label="Reset field">
+            <Button variant="ghost" size="icon-sm" onClick={resetField} aria-label="Reset field" title="Reset field">
               <RotateCcw />
             </Button>
             <Button
@@ -950,6 +1016,7 @@ export function MorphogenApp() {
               size="icon-sm"
               onClick={toggleRecord}
               aria-label={recording ? "Stop recording" : "Record session"}
+              title={recording ? "Stop recording" : "Record session"}
             >
               {recording ? <Square /> : <Circle />}
             </Button>
@@ -958,10 +1025,11 @@ export function MorphogenApp() {
               size="icon-sm"
               onClick={() => patch({ uiHidden: true, panelOpen: false })}
               aria-label="Hide chrome"
+              title="Hide chrome"
             >
               <EyeOff />
             </Button>
-            <Button variant="ghost" size="icon-sm" onClick={() => void requestFs()} aria-label="Fullscreen">
+            <Button variant="ghost" size="icon-sm" onClick={() => void requestFs()} aria-label="Fullscreen" title="Fullscreen">
               {isFs ? <Minimize2 /> : <Maximize2 />}
             </Button>
           </div>
@@ -972,6 +1040,7 @@ export function MorphogenApp() {
               className="bg-bg/55 shadow-[var(--shadow-border)] backdrop-blur-md"
               onClick={() => patch({ uiHidden: true, panelOpen: false })}
               aria-label="Hide controls"
+              title="Hide controls"
             >
               <EyeOff />
               Hide
@@ -990,7 +1059,8 @@ export function MorphogenApp() {
             onTdConnect={onTdConnect}
             onTdDisconnect={() => tdRef.current?.disconnect()}
             midiDevices={midiDevices}
-            onMidiSelect={onMidiSelect}
+            onMidiSelect={(id) => void onMidiSelect(id)}
+            onMidiToggle={(on) => void onMidiToggle(on)}
             onToggleMic={(on) => void onToggleMic(on)}
             onShareSystem={() => {
               void audioRef.current?.connectSystem().then((result) => {
@@ -1025,7 +1095,11 @@ export function MorphogenApp() {
             onToggleGyro={(on) => {
               patch({ gyroOn: on });
               if (on) {
-                void requestSensorPermission().then(() => setSenseReady(true));
+                void requestSensorPermission().then((ok) => {
+                  setMotionChip(ok ? "on" : "denied");
+                  setSenseReady(ok);
+                  if (!ok) patch({ gyroOn: false });
+                });
               }
             }}
             cameraOn={cameraOn}
@@ -1085,6 +1159,12 @@ export function MorphogenApp() {
         </div>
       )}
 
+      {started && uiHidden && !hunting && statusChips && (
+        <div className="pointer-events-none fixed top-[calc(var(--spacing-hud-t)+3.5rem)] left-1/2 z-50 -translate-x-1/2">
+          {statusChips}
+        </div>
+      )}
+
       {started && uiHidden && !hunting && (
         <div
           data-ui
@@ -1095,6 +1175,7 @@ export function MorphogenApp() {
             className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1 text-fg"
             onClick={() => patch({ uiHidden: false })}
             aria-label="Show controls"
+            title="Show controls"
           >
             <Eye className="size-4" />
             <span className="text-[8px] tracking-[0.14em] text-muted uppercase">View</span>
@@ -1104,6 +1185,7 @@ export function MorphogenApp() {
             className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
             onClick={onDefaults}
             aria-label="Default settings"
+            title="Default: bring the Field home"
           >
             <House className="size-4" />
             <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Reset</span>
@@ -1113,6 +1195,7 @@ export function MorphogenApp() {
             className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
             onClick={toggleRecord}
             aria-label={recording ? "Stop recording" : "Record"}
+            title={recording ? "Stop recording" : "Record"}
           >
             {recording ? <Square className="size-4 text-destructive" /> : <Circle className="size-4" />}
             <span className="text-[8px] tracking-[0.14em] text-muted uppercase">{recording ? "Stop" : "Rec"}</span>
@@ -1122,6 +1205,7 @@ export function MorphogenApp() {
             className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
             onClick={toggleLayer}
             aria-label={layerRecording ? "Stop loop" : "Record a loop"}
+            title={layerRecording ? "Stop loop" : "Record a loop"}
           >
             <Repeat className={cn("size-4", layerRecording && "text-destructive")} />
             <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Loop</span>
@@ -1131,6 +1215,7 @@ export function MorphogenApp() {
             className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
             onClick={togglePlayback}
             aria-label={loops.some((c) => c.playing) ? "Pause loops" : "Play loops"}
+            title={loops.some((c) => c.playing) ? "Pause loops" : "Play loops"}
           >
             {loops.some((c) => c.playing) ? <Pause className="size-4" /> : <Play className="size-4" />}
             <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Play</span>

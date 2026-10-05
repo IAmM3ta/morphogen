@@ -32,11 +32,7 @@ export function StartGate({
           </p>
         ) : (
           <p className="mt-6 max-w-md text-sm leading-relaxed text-muted">
-            A living chemical field. First touch voices a chant — overtones
-            in the current key, then it recedes when you lift. How you hold
-            the phone is the other antenna. Height is pitch, across is
-            amplitude. Fingers leave no marks. Double-tap and hold to freeze
-            a generation.
+            Tap to start sound. Drag to plant growth. Touch the field to hear it.
           </p>
         )}
         <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">

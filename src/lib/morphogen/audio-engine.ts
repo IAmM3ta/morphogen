@@ -13,6 +13,16 @@ import { glassToPlane, islandPeriod, nearestDegree, tableRot } from "./billiards
 import { MAX_LOOPS, pickAudioRecorderMime, type LoopClip } from "./loops";
 import { configurePanner, glassToWorld, placePanner, poseInstrumentListener } from "./space";
 
+/**
+ * Sounding contacts: local hands (touch/hover plays, M-06) plus any remote
+ * brushes not already covered. Field inoculation still reads runtime.brushes.
+ */
+function playHands(): Brush[] {
+  if (runtime.hands.length === 0) return runtime.brushes.slice();
+  const ids = new Set(runtime.hands.map((h) => h.id));
+  return [...runtime.hands, ...runtime.brushes.filter((b) => !ids.has(b.id))];
+}
+
 function ramp(param: AudioParam, value: number, now: number, t = 0.05) {
   if (!Number.isFinite(value) || !Number.isFinite(now) || !Number.isFinite(t) || t <= 0) return;
   try {
@@ -470,7 +480,7 @@ export class AudioEngine {
   private armLoop(buffer: AudioBuffer): LoopClip {
     const ctx = this.ctx!;
     this.loopSeq += 1;
-    const hands = runtime.brushes;
+    const hands = playHands();
     let x = 0.5;
     let y = 0.5;
     if (hands.length > 0) {
@@ -1007,7 +1017,7 @@ export class AudioEngine {
       }
     }
 
-    const hands: Brush[] = runtime.brushes.slice();
+    const hands: Brush[] = playHands();
     if (hands.length === 0 && runtime.antenna.on) {
       hands.push({
         id: -1,
@@ -1108,7 +1118,7 @@ export class AudioEngine {
     const hi = runtime.pitchMaxHz;
     const live = [...this.live.values()];
     const degrees = live.length ? live.map((v) => v.degree) : [nearestDegree(glassToPlane(x, y), Math.max(3, mode.intervals.length), runtime.orbitRot)];
-    const ys = live.length ? runtime.brushes.map((b) => b.y) : [y];
+    const ys = live.length ? playHands().map((b) => b.y) : [y];
     const p = glassToPlane(x, y);
     const period = islandPeriod(p, Math.max(3, mode.intervals.length));
     const k0 = degrees[0] ?? 0;

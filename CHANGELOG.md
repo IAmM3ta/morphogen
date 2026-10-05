@@ -65,6 +65,13 @@ tunes the chemistry. The field stays dark.
 
 ### Fixed
 
+- **Glass defects (M-12/M-02/M-06/M-18/M-19/M-21).** The opening screen reads
+  *Tap to start sound. Drag to plant growth. Touch the field to hear it.*
+  The tap-and-hold freeze gesture is gone; Freeze is a labeled button
+  (*Freeze: stop growth. Release: let it grow again.*). After Enter, chips
+  show audio unlocked|failed and motion on|denied. Touch plays; only a drag
+  plants growth. MIDI is requested from Sync, never on Enter. The window
+  pointermove listener is non-passive. Icon-only controls carry labels.
 - The control card could not be dismissed. It stayed in the middle of
   the field. Hide now removes it.
 - Colour views only recoloured the picture, and a morph could freeze

@@ -1,1 +1,1 @@
-{{LOAD_FROM_FILE:/tmp/push-restore.json}}
+@/home/box/.cursor/projects/workspace/agent-tools/control-dock-restore.tsx

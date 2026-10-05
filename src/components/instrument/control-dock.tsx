@@ -1,1 +1,1 @@
-PROBE
+{{LOAD_FROM_FILE:/tmp/push-restore.json}}

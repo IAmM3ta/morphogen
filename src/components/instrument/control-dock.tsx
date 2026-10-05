@@ -483,9 +483,10 @@ export function ControlDock({
         ) : (
           <>
             <p className="text-xs leading-relaxed text-muted">
-              The scale is a polygon. Center is a hold. Outer rings walk
-              the mode — period n, 2n, 4n. Freeze captures the island;
-              drag it and the shape stays. Orbit 0 is a drone.
+              The scale is a polygon. The center holds a note; the outer
+              rings step through the scale. Freeze stops growth, so the
+              shape holds while you drag it. Set Orbit to 0 for a steady
+              drone.
             </p>
             <div>
               <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Waveform</p>

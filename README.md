@@ -52,6 +52,49 @@ Or from source: `npm install && npm run build && npm run preview`.
 
 Species packs set the chemistry without reseeding. Factory rest is **Living**.
 
+## v2: the sharp field (branch `morphos-v2`)
+
+The reaction–diffusion field is the picture. On browsers with **WebGPU**, MORPHOS runs Gray–Scott as a compute shader. The grid follows device pixels, up to 2048 on the long side on a desktop and 1600 on a phone, and runs 6–40 steps a frame. Edges are cut with derivative anti-aliasing, so they stay crisp. When there is no `navigator.gpu`, no adapter, or the GPU device is lost, the classic WebGL2 field takes over. It plays the same instrument with palette-only looks.
+
+- **Sound drives the chemistry.** Bass raises feed. Brightness (spectral centroid) shifts kill and the palette. Highs open the diffusion ratio. An onset plants symmetric growth. Pitch sets the fold order. Touch alone never plants.
+- **The phone steers the flow.** Tilt sets the direction of anisotropic diffusion and the drift of the flow. The compass turns the orientation. On a desktop, the wheel, Shift+wheel, and the arrow keys stand in for them.
+- **Regimes morph.** Spots, mitosis, stripes, labyrinth, coral, worms, holes, and waves hold for a while, then glide into each other. **Look → Morph** turns this off.
+- **Looks** are colourings of the field: **Field** (the species palette), **Marble**, **Temple Gold**, **Chrome Bloom**, **Teal Beam**, **UV Mandala**, **Projection**, and **Cymatic**. Each one sets a multi-stop colour map, emboss and specular light, thread lines, a style map (where a second regime grows), and an optional kaleidoscope, either a mandala core or the full field.
+- **Adaptive quality** lowers the steps per frame first, then the simulation grid. It never lowers the output resolution, so the picture does not go soft. Reduced motion slows the field and calms the look.
+- **Play modes** sit in the bottom dock: **Field**, **Drone** (a held drone synth), **Bass** (a 16-step bass line with finger record), **Loop** (drums, a drone lane, scenes A–D, Export WAV). **Look** opens the looks. **Full**, **Glass**, and **Keys** sit in the top bar.
+
+| Key | Does |
+| --- | --- |
+| `M` | next play mode |
+| `V` / `Shift+V` | next / previous look |
+| `P` | loop play / stop |
+| `G` | clear glass (everything hidden, a faint eye brings it back) |
+| `F` | fullscreen |
+| `?` | shortcuts sheet |
+| `Esc` | close panels |
+
+Renderer overrides: `?gpu=0` or `?renderer=webgl` forces the WebGL2 field. `?gpu=1` retries WebGPU after a failure in this tab.
+
+### Wallpaper mode
+
+Open **`/wallpaper`** (or add `?wallpaper=1` to any URL). There is no gate, no UI, no prompts, no sensors, and no MIDI, and the cursor hides when idle.
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `visual=` | `temple-gold` | `off`, `marble`, `temple-gold`, `chrome-bloom`, `teal-beam`, `uv-mandala`, `projection`, `cymatic` |
+| `quality=` | `auto` | `low`, `auto`, `high` |
+| `fps=` | `30` | frame cap; `0` means uncapped |
+| `dpr=` | `2` | device-pixel-ratio cap (0.5–3) |
+| `audio=1` | off | ambient held drone, where the host allows autoplay |
+
+Example: `https://morphos.grok.me/wallpaper?visual=uv-mandala&fps=30&dpr=1.5`
+
+Hosts (from their public docs; not tested on these hosts yet):
+
+- **Windows: [Lively Wallpaper](https://github.com/rocksdanister/lively).** Use **+ (Add wallpaper) → Enter URL** and choose the monitor. Lively renders web wallpapers with WebView2 (Edge) or CefSharp. Autoplay is allowed, and Lively pauses playback when a fullscreen app runs ([Web Player](https://github.com/rocksdanister/lively/wiki/Web-Player), [Performance](https://github.com/rocksdanister/lively/wiki/Performance)).
+- **macOS: [Plash](https://sindresorhus.com/plash).** Add the `/wallpaper` URL as a website. Plash mutes audio, can deactivate on battery, and adds an `is-plash-app` class to the page.
+- **Android:** third-party apps such as *Lively Wallpapers-With Website* (Google Play) say they set a web page as a live wallpaper. WebGPU support inside those WebViews has not been verified, so expect the WebGL2 field there. Installing the PWA (Add to Home Screen) and opening `/wallpaper` from its shortcut gives a fullscreen, chrome-less field.
+
 ## Run locally
 
 ```bash
@@ -69,7 +112,7 @@ npm run preview
 ### Requirements
 
 - Node 22+
-- A browser with **WebGL2**
+- A browser with **WebGL2**; **WebGPU** (for example Chrome or Edge 113+ on desktop) for the sharp v2 field
 - iPhone / iPad: Safari or Chrome, with motion permission on first enter
 - Headphones for spatial audio
 - Microphone and camera are optional
@@ -80,4 +123,4 @@ In MORPHOS, open **Sync** and connect to a WebSocket DAT running as a server. Ca
 
 ## Stack
 
-TanStack Start, React 19, WebGL2 Gray–Scott, Web Audio (polyphonic theremin, HRTF, The Hum).
+TanStack Start, React 19, WebGPU (WGSL compute) Gray–Scott with a WebGL2 fallback, Web Audio (polyphonic theremin, HRTF, The Hum).

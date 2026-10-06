@@ -14,6 +14,32 @@ repository stays `IAmM3ta/morphogen`.
 The glass opens clear. A finger is a pitch. The way you hold the phone
 tunes the chemistry. The field stays dark.
 
+### v2: sharp reaction–diffusion (branch `morphos-v2`, draft)
+
+#### Added
+
+- **WebGPU field.** Gray–Scott as a WGSL compute shader is now the primary renderer. It uses a 9-point Laplacian, anisotropic diffusion, a style map so feed and kill vary across the grid, flow advection, and symmetric onset seeding. The render pass is crisp: derivative anti-aliased thresholds, emboss and specular light, a palette LUT, and an optional kaleidoscope. The grid follows device pixels, up to 2048 on a desktop, at 6–40 steps a frame. The WebGL2 field remains the fallback, including when the device is lost mid-session.
+- **Audio drives the chemistry.** Bass raises feed, centroid shifts kill and the palette, highs open the diffusion ratio, onsets plant symmetric growth, and drone pitch sets the fold order. Tilt and compass steer anisotropy and flow.
+- **Regime morph.** The field holds a regime, then glides between spots, mitosis, stripes, labyrinth, coral, worms, holes, and waves.
+- **Looks:** Marble, Temple Gold, Chrome Bloom, Teal Beam, UV Mandala, Projection, and Cymatic, as RD colourings with lighting and symmetry. **Field** keeps the species palette.
+- **Video-informed looks:** Iridescent, Oscillators, Hex Cymatic, and Fluidica. A WGSL lighting pass gives them Schlick thin-film iridescence, a GGX warm key and cool fill, wrap diffuse with cavity AO, faux SSS, and HDR emissive. A three-level bloom chain (½, ¼, ⅛) carries per-look weights and thresholds.
+- **Ripple layer:** a low-res 2D wave equation. Strong onsets kick the centre and touches kick where they land. Its gradient refracts the field and nudges feed and kill. Fluidica's diamond lattice shatters on a bass drop and re-forms after about 30 s.
+- **Adaptive quality.** The steps per frame drop first, then the sim grid. Output resolution never drops. The renderer keeps GPU work to at most two frames in flight.
+- **Sound engine v2:** a Drone synth, a refined 16-step bass with finger record, drums, a transport, loop scenes A–D, a drone lane, Export WAV, and a limiter.
+- **v2 dock:** Field, Drone, Bass, and Loop modes, plus the Look panel. The top bar gains Full (with iOS Add-to-Home-Screen guidance), Glass, and Keys. New keys: M, V/Shift+V, P, G, ?, Esc.
+- **Wallpaper mode:** the `/wallpaper` route or `?wallpaper=1`, with `visual`, `quality`, `fps`, `dpr`, and `audio` options. No UI, sensors, prompts, or MIDI.
+- **PWA manifest:** `display_override` (fullscreen, standalone), 192 and 512 icons, and a Wallpaper shortcut.
+- **Design doc:** `docs/v2/morphos-v2-design.tex` and its PDF.
+
+#### Changed
+
+- A touch alone never plants growth. Drag plants, and onsets seed away from your fingers.
+- Adaptive quality sheds bloom passes and ripple resolution before the deeper step and grid cuts. Skipped (GPU-busy) frames now carry their time forward, so motion keeps pace.
+
+#### Fixed
+
+- Marble: iso lines no longer speckle the empty ground.
+
 ### Added
 
 - **Snapshot.** `backup/54d449a-2026-10-05/` is a full archive of commit

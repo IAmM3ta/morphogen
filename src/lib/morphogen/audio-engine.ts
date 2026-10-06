@@ -12,6 +12,7 @@ import {
 import { glassToPlane, islandPeriod, nearestDegree, tableRot } from "./billiards";
 import { MAX_LOOPS, pickAudioRecorderMime, type LoopClip } from "./loops";
 import { configurePanner, glassToWorld, placePanner, poseInstrumentListener } from "./space";
+import { softClipCurve } from "@/lib/morphos-v2/dsp";
 
 /**
  * Sounding contacts: local hands (touch/hover plays, M-06) plus any remote
@@ -222,6 +223,13 @@ export class AudioEngine {
   voiceCount = 0;
   private ctxHooked = false;
   private resumePromise: Promise<void> | null = null;
+  /** v2: brick-wall limiter + soft clip after the master volume, and an analyser tap. */
+  private limiter: DynamicsCompressorNode | null = null;
+  private clipper: WaveShaperNode | null = null;
+  private analyserTap: AnalyserNode | null = null;
+  private v2Bus: GainNode | null = null;
+  /** v2: when false, touches stop voicing the Hum hands (the Drone/Bass voice takes over). */
+  handsVoiced = true;
   private lastResumeAt = 0;
 
   unlock() {
@@ -305,9 +313,25 @@ export class AudioEngine {
     this.trackGain.gain.value = 0.85;
     this.trackGain.connect(this.compressor);
     this.compressor.connect(this.master);
-    this.master.connect(ctx.destination);
+    // v2 master: limiter so nothing clips, then a transparent-below-knee soft clip.
+    this.limiter = ctx.createDynamicsCompressor();
+    this.limiter.threshold.value = -2;
+    this.limiter.knee.value = 0;
+    this.limiter.ratio.value = 20;
+    this.limiter.attack.value = 0.002;
+    this.limiter.release.value = 0.12;
+    this.clipper = ctx.createWaveShaper();
+    this.clipper.curve = softClipCurve(0.85);
+    this.master.connect(this.limiter);
+    this.limiter.connect(this.clipper);
+    this.clipper.connect(ctx.destination);
+    this.analyserTap = ctx.createAnalyser();
+    this.clipper.connect(this.analyserTap);
+    this.v2Bus = ctx.createGain();
+    this.v2Bus.gain.value = 1;
+    this.v2Bus.connect(this.master);
     this.capture = ctx.createMediaStreamDestination();
-    this.master.connect(this.capture);
+    this.clipper.connect(this.capture);
     this.recDest = ctx.createMediaStreamDestination();
     this.leadBus.connect(this.recDest);
     this.loopBus.connect(this.recDest);
@@ -400,6 +424,27 @@ export class AudioEngine {
     } catch {
       /* ignore */
     }
+  }
+
+  /** v2 hooks — the shared context, an input that rides the master volume, taps. */
+  getContext(): AudioContext | null {
+    return this.ctx;
+  }
+
+  getV2Input(): GainNode | null {
+    return this.v2Bus;
+  }
+
+  getRecordTap(): AudioNode | null {
+    return this.recDest;
+  }
+
+  getAnalyser(): AnalyserNode | null {
+    return this.analyserTap;
+  }
+
+  setHandsVoiced(on: boolean) {
+    this.handsVoiced = on;
   }
 
   captureStream(): MediaStream | null {
@@ -1017,8 +1062,8 @@ export class AudioEngine {
       }
     }
 
-    const hands: Brush[] = playHands();
-    if (hands.length === 0 && runtime.antenna.on) {
+    const hands: Brush[] = this.handsVoiced ? playHands() : [];
+    if (this.handsVoiced && hands.length === 0 && runtime.antenna.on) {
       hands.push({
         id: -1,
         x: runtime.antenna.x,

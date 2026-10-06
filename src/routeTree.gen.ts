@@ -10,11 +10,17 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as WallpaperRouteImport } from './routes/wallpaper'
 import { Route as RCodeRouteImport } from './routes/r.$code'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WallpaperRoute = WallpaperRouteImport.update({
+  id: '/wallpaper',
+  path: '/wallpaper',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RCodeRoute = RCodeRouteImport.update({
@@ -25,27 +31,31 @@ const RCodeRoute = RCodeRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/wallpaper': typeof WallpaperRoute
   '/r/$code': typeof RCodeRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/wallpaper': typeof WallpaperRoute
   '/r/$code': typeof RCodeRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/wallpaper': typeof WallpaperRoute
   '/r/$code': typeof RCodeRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/r/$code'
+  fullPaths: '/' | '/wallpaper' | '/r/$code'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/r/$code'
-  id: '__root__' | '/' | '/r/$code'
+  to: '/' | '/wallpaper' | '/r/$code'
+  id: '__root__' | '/' | '/wallpaper' | '/r/$code'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  WallpaperRoute: typeof WallpaperRoute
   RCodeRoute: typeof RCodeRoute
 }
 
@@ -56,6 +66,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/wallpaper': {
+      id: '/wallpaper'
+      path: '/wallpaper'
+      fullPath: '/wallpaper'
+      preLoaderRoute: typeof WallpaperRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/r/$code': {
@@ -70,6 +87,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  WallpaperRoute: WallpaperRoute,
   RCodeRoute: RCodeRoute,
 }
 export const routeTree = rootRouteImport

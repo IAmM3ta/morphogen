@@ -35,6 +35,8 @@ tunes the chemistry. The field stays dark.
 
 ### Added
 
+- **Snapshot.** `backup/54d449a-2026-10-05/` is a full archive of commit
+  `54d449a` (MEMETiC glass on MORPHOS), kept so that build can be restored.
 - **Clear glass.** The menu is hidden until you ask for it. Along the top:
   View, Reset, Rec, Loop, and Play. View opens the full controls. Hide
   puts them away.

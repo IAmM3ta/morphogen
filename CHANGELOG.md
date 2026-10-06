@@ -22,6 +22,8 @@ tunes the chemistry. The field stays dark.
 - **Audio drives the chemistry.** Bass raises feed, centroid shifts kill and the palette, highs open the diffusion ratio, onsets plant symmetric growth, and drone pitch sets the fold order. Tilt and compass steer anisotropy and flow.
 - **Regime morph.** The field holds a regime, then glides between spots, mitosis, stripes, labyrinth, coral, worms, holes, and waves.
 - **Looks:** Marble, Temple Gold, Chrome Bloom, Teal Beam, UV Mandala, Projection, and Cymatic, as RD colourings with lighting and symmetry. **Field** keeps the species palette.
+- **Video-informed looks:** Iridescent, Oscillators, Hex Cymatic, and Fluidica. A WGSL lighting pass gives them Schlick thin-film iridescence, a GGX warm key and cool fill, wrap diffuse with cavity AO, faux SSS, and HDR emissive. A three-level bloom chain (½, ¼, ⅛) carries per-look weights and thresholds.
+- **Ripple layer:** a low-res 2D wave equation. Strong onsets kick the centre and touches kick where they land. Its gradient refracts the field and nudges feed and kill. Fluidica's diamond lattice shatters on a bass drop and re-forms after about 30 s.
 - **Adaptive quality.** The steps per frame drop first, then the sim grid. Output resolution never drops. The renderer keeps GPU work to at most two frames in flight.
 - **Sound engine v2:** a Drone synth, a refined 16-step bass with finger record, drums, a transport, loop scenes A–D, a drone lane, Export WAV, and a limiter.
 - **v2 dock:** Field, Drone, Bass, and Loop modes, plus the Look panel. The top bar gains Full (with iOS Add-to-Home-Screen guidance), Glass, and Keys. New keys: M, V/Shift+V, P, G, ?, Esc.
@@ -32,6 +34,11 @@ tunes the chemistry. The field stays dark.
 #### Changed
 
 - A touch alone never plants growth. Drag plants, and onsets seed away from your fingers.
+- Adaptive quality sheds bloom passes and ripple resolution before the deeper step and grid cuts. Skipped (GPU-busy) frames now carry their time forward, so motion keeps pace.
+
+#### Fixed
+
+- Marble: iso lines no longer speckle the empty ground.
 
 ### Added
 

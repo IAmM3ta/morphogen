@@ -141,6 +141,7 @@ vertical, Chladni), so two pattern families coexist and their border moves.
 9 & v2 UI & Dock, panels, glass, fullscreen, keys & \status{shipped}\\
 10 & Wallpaper + PWA & \code{/wallpaper}, URL options, manifest & \status{shipped}\\
 11 & Docs & README, CHANGELOG, this document & \status{shipped}\\
+12 & Video-informed looks & Lighting pass, ripple layer, bloom chain, Iridescent, Oscillators, Hex Cymatic, Fluidica & \status{shipped (headless-verified)}\\
 \bottomrule
 \end{tabularx}\end{center}
 
@@ -191,6 +192,7 @@ kind was found and fixed during smoke testing (the bloom pass did not read its u
 %======================================================================
 \section{Adaptive quality: steps before scale, never blur}\label{sec:gov}
 \begin{itemize}
+\item Shedding order: steps to 16 $\to$ bloom passes $\to$ ripple grid $\to$ steps to 6 $\to$ sim grid (Section~\ref{sec:video}).
 \item Step ladder: 6, 8, 10, 12, 16, 20, 24, 28, 32, 36, 40. The default cap is 32 on desktop and 20 on coarse devices.
 \item Grid ladder: $\times$1, 0.85, 0.72, 0.6, 0.5. It is only touched once steps are already at the bottom.
 \item The EMA of frame time is compared with the budget ($1000/\text{fps cap}$, or 16.7\,ms). Above $1.22\times$ the budget, step down
@@ -202,6 +204,7 @@ kind was found and fixed during smoke testing (the bloom pass did not read its u
 
 %======================================================================
 \section{Looks: colourings of the field}\label{sec:looks}
+Twelve looks: the eight below plus four video-informed looks (Section~\ref{sec:video}).
 Each look sets a 256$\times$2 LUT: row 0 is the main map, with frequency and mirror baked in, and row 1 is an accent map. It also sets the lighting,
 thread lines, style map, anisotropy, swirl and symmetry. The palettes follow the MEMETiC brief: gold and bronze filigree,
 liquid rainbow chrome, teal beams and haze, UV magenta and violet, iridescent accents. There is no face rendering.
@@ -223,6 +226,51 @@ Cymatic & the sound's standing waves (Chladni $n,m$) steer growth & none & Chlad
 \end{tabularx}\end{center}
 On the WebGL2 fallback, a look maps to a four-stop palette (\code{fourStops}) through \code{runtime.v2Stops}. The fallback gets
 colour only; it has no kaleidoscope or materials.
+
+%======================================================================
+\section{Video-informed looks}\label{sec:video}
+Four looks come from an analysis of Metta's inspiration videos (\code{m3metic/video-findings.md}). All four are rendered on the WebGPU path only.
+They keep the reaction--diffusion field as the subject and add three things: a lighting pass, a ripple layer, and a three-level bloom chain.
+
+\subsection{Lighting pass (WGSL, materials 8--11)}
+\begin{itemize}
+\item \textbf{Height and normal}: one-texel central differences of $B$ (emboss gain per look), plus the ripple-layer gradient $\nabla h$.
+Optional fine normal noise gives a velvet surface.
+\item \textbf{Thin film}: a Schlick Fresnel term $F=F_0+(1-F_0)(1-N\!\cdot\!V)^5$, with the accent LUT (cyan$\to$magenta$\to$gold) indexed by $1-N\!\cdot\!V$,
+by $B$, and by a slow phase driven by centroid and time.
+\item \textbf{Specular}: GGX (Trowbridge--Reitz) with Schlick--Smith visibility. A warm key light (steered by tilt) and a cool fill each have their own intensity and colour.
+\item \textbf{Matte}: wrap diffuse $(N\!\cdot\!L+w)/(1+w)$. Cavity AO compares $B$ with a 4-tap ring mean at 3 texels. Faux SSS adds warmth on the peaks.
+\item \textbf{HDR emissive}: lines, webs and contours exceed 1.0 in the \code{rgba16float} scene, feeding the bloom chain. Each look sets its own bright-pass threshold.
+\item \textbf{Bloom chain}: a $\tfrac12$-resolution bright pass, then $\tfrac14$ and $\tfrac18$ tent down-samples, combined with per-look weights in the exact-pixel final pass.
+\end{itemize}
+
+\subsection{Ripple layer}
+\begin{itemize}
+\item A low-resolution 2D wave equation with ping-pong buffers, $h' = (2h - h_{-1} + c^2\nabla^2 h)\,d$. Constants: $c^2=0.22$, $d=0.996$, 3 substeps a frame, and damped edges.
+The grid is 320 cells on the long side, stepping down to 224 and then 160 under load.
+\item \textbf{Impulses}: strong onsets (flux or bass over threshold) drop a Gaussian kick at the centre. Every touch, kick or onset ripple drops a small one where it lands.
+\item \textbf{Coupling}: $\nabla h$ refracts the field's sampling UVs in the scene pass. In the sim, crests raise feed ($f \mathrel{+}= g_f h$) and steep fronts raise kill
+($k \mathrel{+}= g_k|\nabla h|$), so the ripples reshape the pattern itself.
+\end{itemize}
+
+\subsection{The four looks}
+\begin{center}\small
+\begin{tabularx}{\linewidth}{@{}l L L@{}}
+\toprule
+Look & From the video & Implementation\\
+\midrule
+Iridescent & inky navy, thin-film cyan/magenta/gold, hyper-glossy, slow viscous flow, topographic contours & navy LUT; film ramp by Fresnel; GGX roughness 0.18; warm key and cyan fill; glowing iso contours; labyrinth pull 0.45; solver speed $\times0.6$; high bloom threshold\\
+Oscillators & dense papillae on rolling waves, slate-teal valleys to peach/gold peaks, velvety, AO, warm tips & mitosis pull 0.9 at $\times0.8$ scale (dense spots); height = $B$ + rolling macro wave; palette mix(slate, peach, smoothstep($h$)); wrap 0.6; cavity AO; faux SSS; normal noise; breathing UV warp\\
+Hex Cymatic & glowing amber hex/triangle grid over dark gloss; central cymatic web; ripples from the centre on transients & analytic, \code{fwidth}-anti-aliased hex and triangle lines refracted by $\nabla h$; Chladni-style $\sin(nx)\sin(my)$ / $\cos$ mode pairs plus a radial mode, weighted by the bass, mid and high bands, with order ``tightened'' by centroid; HDR amber emissive\\
+Fluidica & \#080C16 liquid, silver highlights \#8B9DB6, a gold grid \#FFF0B3$\to$\#D96600 shattered by one big impact into a branching web & the sim pins a diamond lattice (refracted by the ripples). A bass drop, kick or touch releases it (big central impulse) into a coral-regime web, and it re-forms after 30\,s. Silver Schlick environment term, gold emissive web\\
+\bottomrule
+\end{tabularx}\end{center}
+
+\subsection{Quality and limits}
+Under load, the governor sheds work in this order: steps down to 16, then bloom passes (3$\to$1), then ripple grid (320$\to$160), then steps down to 6, then the sim grid.
+Output resolution is never lowered. Depth of field and tilt-shift from the videos are \emph{not} implemented, because they would blur the field, which goes against the
+sharpness priority. The low oblique ``camera'' and the melting-cube geometry are also out of scope: the field stays a flat, full-frame surface. The WebGL2 fallback shows these looks as four-stop colourings only.
+The same pass fixed a bug: iso lines on the empty ground (where $B\approx0$) caused speckle in Marble.
 
 %======================================================================
 \section{Signal flow}

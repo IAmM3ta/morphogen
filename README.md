@@ -59,8 +59,8 @@ The reaction–diffusion field is the picture. On browsers with **WebGPU**, MORP
 - **Sound drives the chemistry.** Bass raises feed. Brightness (spectral centroid) shifts kill and the palette. Highs open the diffusion ratio. An onset plants symmetric growth. Pitch sets the fold order. Touch alone never plants.
 - **The phone steers the flow.** Tilt sets the direction of anisotropic diffusion and the drift of the flow. The compass turns the orientation. On a desktop, the wheel, Shift+wheel, and the arrow keys stand in for them.
 - **Regimes morph.** Spots, mitosis, stripes, labyrinth, coral, worms, holes, and waves hold for a while, then glide into each other. **Look → Morph** turns this off.
-- **Looks** are colourings of the field: **Field** (the species palette), **Marble**, **Temple Gold**, **Chrome Bloom**, **Teal Beam**, **UV Mandala**, **Projection**, and **Cymatic**. Each one sets a multi-stop colour map, emboss and specular light, thread lines, a style map (where a second regime grows), and an optional kaleidoscope, either a mandala core or the full field.
-- **Adaptive quality** lowers the steps per frame first, then the simulation grid. It never lowers the output resolution, so the picture does not go soft. Reduced motion slows the field and calms the look.
+- **Looks** are colourings of the field: **Field** (the species palette), **Marble**, **Temple Gold**, **Chrome Bloom**, **Teal Beam**, **UV Mandala**, **Projection**, and **Cymatic**. Four more come from Metta's inspiration videos. They use a lighting pass (thin-film Fresnel, GGX key and fill, wrap diffuse with cavity AO, HDR emissive with a three-level bloom) and a ripple layer (a small wave simulation whose waves bend the field and nudge its chemistry): **Iridescent**, **Oscillators**, **Hex Cymatic**, and **Fluidica**. Strong onsets send ripples from the centre, and touches ripple where they land. In Fluidica, a bass drop (or a kick or touch) shatters the gold lattice into a branching web, and the lattice re-forms after about 30 seconds. Each one sets a multi-stop colour map, emboss and specular light, thread lines, a style map (where a second regime grows), and an optional kaleidoscope, either a mandala core or the full field.
+- **Adaptive quality** sheds work in this order: steps per frame, bloom passes, the ripple grid, more steps, then the simulation grid. It never lowers the output resolution, so the picture does not go soft. Reduced motion slows the field and calms the look.
 - **Play modes** sit in the bottom dock: **Field**, **Drone** (a held drone synth), **Bass** (a 16-step bass line with finger record), **Loop** (drums, a drone lane, scenes A–D, Export WAV). **Look** opens the looks. **Full**, **Glass**, and **Keys** sit in the top bar.
 
 | Key | Does |
@@ -81,7 +81,7 @@ Open **`/wallpaper`** (or add `?wallpaper=1` to any URL). There is no gate, no U
 
 | Option | Default | Meaning |
 | --- | --- | --- |
-| `visual=` | `temple-gold` | `off`, `marble`, `temple-gold`, `chrome-bloom`, `teal-beam`, `uv-mandala`, `projection`, `cymatic` |
+| `visual=` | `temple-gold` | `off`, `marble`, `temple-gold`, `chrome-bloom`, `teal-beam`, `uv-mandala`, `projection`, `cymatic`, `iridescent`, `oscillators`, `hex-cymatic`, `fluidica` |
 | `quality=` | `auto` | `low`, `auto`, `high` |
 | `fps=` | `30` | frame cap; `0` means uncapped |
 | `dpr=` | `2` | device-pixel-ratio cap (0.5–3) |

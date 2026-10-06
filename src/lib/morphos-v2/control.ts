@@ -124,7 +124,7 @@ export function updateControl(t: number, dt: number): ControlState {
     if (!c.active) {
       fx.reset(nx);
       fy.reset(ny);
-      pushRipple(nx, ny, 0.5);
+      pushRipple(nx, ny, 0.5, undefined, false);
     }
     c.x = clamp01(fx.filter(nx, t));
     c.y = clamp01(fy.filter(ny, t));

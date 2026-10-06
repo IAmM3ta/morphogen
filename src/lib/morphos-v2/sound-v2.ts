@@ -194,7 +194,7 @@ export class SoundV2 {
       const ms = Math.max(0, (time - this.ctx.currentTime) * 1000);
       window.setTimeout(() => {
         noteHit("kick", v);
-        pushRipple(0.5, 0.5, 0.35 * v);
+        pushRipple(0.5, 0.5, 0.35 * v, undefined, false);
       }, ms);
     };
     this.snapshot = this.makeSnapshot();

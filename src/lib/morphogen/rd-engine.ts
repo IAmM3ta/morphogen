@@ -190,6 +190,8 @@ export class RDEngine {
   private slow = 0;
   private frames = 0;
   onFrame: ((dt: number, stats: FieldStats) => void) | null = null;
+  /** Optional frame cap (wallpaper mode). 0 = every animation frame. */
+  maxFps = 0;
 
   constructor(canvas: HTMLCanvasElement, maxSide = 1440) {
     this.canvas = canvas;
@@ -267,6 +269,10 @@ export class RDEngine {
     this.lastT = performance.now();
     const loop = (now: number) => {
       if (!this.running || this.destroyed) return;
+      if (this.maxFps > 0 && now - this.lastT < 1000 / this.maxFps - 2) {
+        this.raf = requestAnimationFrame(loop);
+        return;
+      }
       const dt = Math.min(0.05, (now - this.lastT) / 1000);
       this.lastT = now;
       try {
@@ -459,6 +465,9 @@ export class RDEngine {
   }
 
   currentPalette(): Palette {
+    if (runtime.v2Stops) {
+      return { id: "v2", name: "Look", stops: runtime.v2Stops };
+    }
     const params = runtime.params;
     if (runtime.liveStops) {
       return { id: "live", name: "Live", stops: runtime.liveStops };

@@ -72,6 +72,8 @@ export type Runtime = {
   lockCount: number;
   morph: MorphJob | null;
   liveStops: Palette["stops"] | null;
+  /** v2 look palette for the WebGL2 fallback (null = species palette). */
+  v2Stops: Palette["stops"] | null;
   waveform: WaveformId;
   historyDepth: number;
   keyId: KeyId;
@@ -125,6 +127,7 @@ export const runtime: Runtime = {
   lockCount: 0,
   morph: null,
   liveStops: null,
+  v2Stops: null,
   waveform: DEFAULT_WAVEFORM,
   historyDepth: 0,
   keyId: DEFAULT_KEY,

@@ -7,7 +7,8 @@ import { approach, clamp01, follow } from "./smoothing";
 export const SPECTRUM_BANDS = 32;
 export const MAX_RIPPLES = 8;
 
-export type Ripple = { x: number; y: number; t: number; strength: number; hue: number };
+/** `seed`: whether the WebGPU field plants growth here (touch alone never does — M-06). */
+export type Ripple = { x: number; y: number; t: number; strength: number; hue: number; seed: boolean };
 
 export type AudioFeatures = {
   /** Seconds, monotonic (performance clock). */
@@ -76,18 +77,19 @@ export const features: AudioFeatures = {
   spectrum: new Float32Array(SPECTRUM_BANDS),
   sensors: { tiltX: 0, tiltY: 0, heading: 0, shake: 0, active: false },
   touch: { x: 0.5, y: 0.5, down: false, count: 0 },
-  ripples: Array.from({ length: MAX_RIPPLES }, () => ({ x: 0.5, y: 0.5, t: -100, strength: 0, hue: 0 })),
+  ripples: Array.from({ length: MAX_RIPPLES }, () => ({ x: 0.5, y: 0.5, t: -100, strength: 0, hue: 0, seed: false })),
   rippleHead: 0,
 };
 
 /** Drop a ripple (onset, kick, shake, touch-down) at glass coords 0–1. */
-export function pushRipple(x: number, y: number, strength: number, hue = features.centroid) {
+export function pushRipple(x: number, y: number, strength: number, hue = features.centroid, seed = true) {
   const r = features.ripples[features.rippleHead % MAX_RIPPLES]!;
   r.x = x;
   r.y = y;
   r.t = features.now;
   r.strength = clamp01(strength);
   r.hue = hue;
+  r.seed = seed;
   features.rippleHead = (features.rippleHead + 1) % MAX_RIPPLES;
 }
 
@@ -220,7 +222,8 @@ export class FeatureAnalyser {
       f.onset = 1;
       const tx = f.touch.down ? f.touch.x : 0.5 + (Math.random() - 0.5) * 0.5;
       const ty = f.touch.down ? f.touch.y : 0.5 + (Math.random() - 0.5) * 0.5;
-      pushRipple(tx, ty, clamp01(0.4 + (flux - mean) / 30), f.centroid);
+      // Under a finger the onset only ripples; elsewhere it plants growth.
+      pushRipple(tx, ty, clamp01(0.4 + (flux - mean) / 30), f.centroid, !f.touch.down);
     }
     f.live = true;
   }
@@ -231,6 +234,8 @@ export class FeatureAnalyser {
  * signal when no audio is live (wallpaper mode without sound), so visuals
  * still breathe.
  */
+let ghostAt = 0;
+
 export function tickFeatures(dt: number, nowSec: number) {
   const f = features;
   f.now = nowSec;
@@ -253,6 +258,11 @@ export function tickFeatures(dt: number, nowSec: number) {
     f.drone.level = approach(f.drone.level, 0.3, dt, 2);
     for (let b = 0; b < SPECTRUM_BANDS; b++) {
       f.spectrum[b] = approach(f.spectrum[b]!, 0.15 + 0.12 * Math.sin(t * 0.3 + b * 0.4), dt, 0.6);
+    }
+    // A slow ghost pulse so a silent wallpaper still blooms now and then.
+    if (t - ghostAt > 7 + Math.random() * 5) {
+      ghostAt = t;
+      pushRipple(0.2 + Math.random() * 0.6, 0.2 + Math.random() * 0.6, 0.45);
     }
   }
 }

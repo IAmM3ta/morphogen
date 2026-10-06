@@ -38,6 +38,15 @@ import type { MidiDevice } from "@/lib/morphogen/midi-out";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
+/** MEMETiC tooltips — Hum / Hands / Field (M-21). */
+const TAB_HINTS: Record<string, string> = {
+  field: "How the pattern grows. F and k change the species; Default brings it home.",
+  image: "Drop a photo onto the field, or use the camera.",
+  sense: "Touch plays the pitch under your finger. Drag plants new growth.",
+  sound: "The steady tone underneath. Tilt the phone to brighten it.",
+  sync: "Stage path — TouchDesigner WebSocket and MIDI. MIDI permission is requested here, not on Enter.",
+};
+
 const TABS = [
   { id: "field", label: "Field", icon: SlidersHorizontal },
   { id: "image", label: "Image", icon: ImagePlus },
@@ -178,6 +187,7 @@ export function ControlDock({
   onTdDisconnect,
   midiDevices,
   onMidiSelect,
+  onMidiToggle,
   onToggleMic,
   onShareSystem,
   onLoadTrack,
@@ -222,6 +232,7 @@ export function ControlDock({
   onTdDisconnect: () => void;
   midiDevices: MidiDevice[];
   onMidiSelect: (id: string | null) => void;
+  onMidiToggle: (on: boolean) => void;
   onToggleMic: (on: boolean) => void;
   onShareSystem: () => void;
   onLoadTrack: (file: File) => void;
@@ -318,8 +329,8 @@ export function ControlDock({
               size="default"
               className="min-h-11 flex-1"
               onClick={onLock}
-              aria-label="Freeze drone"
-              title="Hold the last pitch as a drone. Play over it. Release peels a layer."
+              aria-label="Freeze: stop growth"
+              title="Freeze: stop growth. Release: let it grow again."
             >
               <Layers />
               {lockCount > 0 ? `Freeze ${lockCount}` : "Freeze"}
@@ -330,7 +341,8 @@ export function ControlDock({
               className="min-h-11 flex-1"
               onClick={onPop}
               disabled={lockCount === 0}
-              aria-label="Release freeze"
+              aria-label="Release: let it grow again"
+              title="Freeze: stop growth. Release: let it grow again."
             >
               Release
             </Button>
@@ -356,6 +368,8 @@ export function ControlDock({
               className="flex-1"
               onClick={() => openFace("field")}
               aria-pressed={sheetOpen && face === "field"}
+              aria-label="Field"
+              title="How the pattern grows. F and k change the species; Default brings it home."
             >
               Field
             </Button>
@@ -365,10 +379,18 @@ export function ControlDock({
               className="flex-1"
               onClick={() => openFace("sound")}
               aria-pressed={sheetOpen && face === "sound"}
+              aria-label="Sound"
+              title="The steady tone underneath. Tilt the phone to brighten it."
             >
               Sound
             </Button>
-            <Button variant="ghost" size="sm" onClick={() => patch({ panelOpen: true })}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => patch({ panelOpen: true })}
+              aria-label="More controls"
+              title="More controls"
+            >
               More
             </Button>
             <Button asChild variant="ghost" size="sm">
@@ -405,9 +427,8 @@ export function ControlDock({
             {face === "field" ? (
           <>
             <p className="text-xs leading-relaxed text-muted">
-              Freeze captures every sounding finger as an island. Drag
-              that chord — an isometry, the intervals stay. Centre of the
-              glass is a hold; the rim walks the mode.
+              Freeze: stop growth. Release: let it grow again. Field — How the
+              pattern grows. F and k change the species; Default brings it home.
             </p>
             <button
               type="button"
@@ -454,7 +475,7 @@ export function ControlDock({
               <Button variant="ghost" size="sm" className="flex-1" onClick={onReset}>
                 <RotateCcw /> Reset
               </Button>
-              <Button variant="ghost" size="sm" onClick={onCapture} aria-label="Capture field">
+              <Button variant="ghost" size="sm" onClick={onCapture} aria-label="Capture field" title="Capture field">
                 <Camera />
               </Button>
             </div>
@@ -462,9 +483,10 @@ export function ControlDock({
         ) : (
           <>
             <p className="text-xs leading-relaxed text-muted">
-              The scale is a polygon. Center is a hold. Outer rings walk
-              the mode — period n, 2n, 4n. Freeze captures the island;
-              drag it and the shape stays. Orbit 0 is a drone.
+              The scale is a polygon. The center holds a note; the outer
+              rings step through the scale. Freeze stops growth, so the
+              shape holds while you drag it. Set Orbit to 0 for a steady
+              drone.
             </p>
             <div>
               <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Waveform</p>
@@ -535,7 +557,7 @@ export function ControlDock({
           >
             <EyeOff />
           </Button>
-          <Button variant="faint" size="icon-sm" onClick={() => patch({ panelOpen: false })} aria-label="Close">
+          <Button variant="faint" size="icon-sm" onClick={() => patch({ panelOpen: false })} aria-label="Close" title="Close">
             <X />
           </Button>
         </div>
@@ -554,9 +576,10 @@ export function ControlDock({
                 on ? "bg-bg-subtle text-fg" : "hover:text-fg",
               )}
               aria-pressed={on}
-              title={t.label}
+              aria-label={t.label}
+              title={TAB_HINTS[t.id] ?? t.label}
             >
-              <Icon className="size-4" />
+              <Icon className="size-4" aria-hidden />
               <span className="text-[9px] tracking-[0.1em] uppercase">{t.label}</span>
             </button>
           );
@@ -608,7 +631,7 @@ export function ControlDock({
           <div className="flex flex-col gap-5">
             <ToggleRow
               label="Tilt & motion"
-              hint="How you hold the phone is the other antenna. Tilt is pitch, roll leans the room. Vibrato is on the Sound face — not the gyro."
+              hint="Hum — The steady tone underneath. Tilt the phone to brighten it."
               checked={gyroOn}
               onCheckedChange={onToggleGyro}
             />
@@ -619,11 +642,9 @@ export function ControlDock({
               onCheckedChange={onToggleMic}
             />
             <p className="text-xs leading-relaxed text-muted">
-              On an iPhone this is a spatial instrument: tilt, roll, compass,
-              acceleration, finger pressure. Each finger is a theremin voice —
-              height is pitch, across is amplitude. The compass can walk the
-              key around the circle of fifths. Fingers do not paint. Move
-              the pointer on a laptop the same way, no click required.
+              Hands — Touch plays the pitch under your finger. Drag plants new
+              growth. Hum — The steady tone underneath. Tilt the phone to
+              brighten it.
             </p>
             <div className="rounded-md bg-bg-subtle p-3">
               <p className="text-xs text-muted">Open on another phone</p>
@@ -658,7 +679,7 @@ export function ControlDock({
             />
             <ToggleRow
               label="Voice of the field"
-              hint="The field is silent until a finger. Sine is an overtone chant in the current key; lift and it recedes."
+              hint="Hum — The steady tone underneath. Tilt the phone to brighten it."
               checked={audioOn}
               onCheckedChange={(on) => patch({ audioOn: on })}
             />
@@ -678,9 +699,9 @@ export function ControlDock({
               onCheckedChange={(on) => patch({ muted: on })}
             />
             <p className="text-xs text-muted">
-              Up the glass is pitch, across is amplitude. Voices snap to the
-              selected key and mode, inside the Hz window below. Sine is the
-              default. Roll pans. Press harder for more harmonic.
+              Hands — Touch plays the pitch under your finger. Drag plants new
+              growth. Hum — The steady tone underneath. Tilt the phone to
+              brighten it.
             </p>
             <div>
               <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Waveform</p>
@@ -742,6 +763,7 @@ export function ControlDock({
             onTdConnect={onTdConnect}
             onTdDisconnect={onTdDisconnect}
             onMidiSelect={onMidiSelect}
+            onMidiToggle={onMidiToggle}
           />
         )}
       </div>
@@ -1010,15 +1032,27 @@ function FieldTab({
       <section>
         <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Loop</p>
         <p className="mb-3 text-xs leading-relaxed text-muted">
-          Freeze holds the last pitch as a drone you play over. Further motion
-          grows off the frozen field. Four layers. Release peels one; it is
-          not a noise gate.
+          Freeze: stop growth. Release: let it grow again.
         </p>
         <div className="flex gap-2">
-          <Button variant="secondary" size="sm" className="flex-1" onClick={onLock}>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="flex-1"
+            onClick={onLock}
+            aria-label="Freeze: stop growth"
+            title="Freeze: stop growth. Release: let it grow again."
+          >
             Freeze
           </Button>
-          <Button variant="ghost" size="sm" onClick={onPop} disabled={lockCount === 0}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onPop}
+            disabled={lockCount === 0}
+            aria-label="Release: let it grow again"
+            title="Freeze: stop growth. Release: let it grow again."
+          >
             Release
           </Button>
         </div>
@@ -1243,6 +1277,7 @@ function SyncTab({
   onTdConnect,
   onTdDisconnect,
   onMidiSelect,
+  onMidiToggle,
 }: {
   tdUrl: string;
   tdGrid: boolean;
@@ -1254,6 +1289,7 @@ function SyncTab({
   onTdConnect: () => void;
   onTdDisconnect: () => void;
   onMidiSelect: (id: string | null) => void;
+  onMidiToggle: (on: boolean) => void;
 }) {
   const patch = useInstrument((s) => s.patch);
   return (
@@ -1331,10 +1367,7 @@ function SyncTab({
           label="Send MIDI CC"
           hint={MIDI_MAP.map((m) => `${m.cc} ${m.name}`).join(" · ")}
           checked={midiOn}
-          onCheckedChange={(v) => {
-            patch({ midiOn: v });
-            if (!v) onMidiSelect(null);
-          }}
+          onCheckedChange={(v) => onMidiToggle(v)}
         />
         {midiDevices.length > 0 && (
           <select

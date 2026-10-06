@@ -178,11 +178,10 @@ type Finger = {
   py: number;
   sx: number;
   sy: number;
+  /** Birth time — used to collapse pointer/touch duplicates of one finger. */
   t: number;
-  lock: boolean;
-  locked: boolean;
-  painting: boolean;
-  hold: number | null;
+  /** True after an explicit drag — plants growth (M-06 / MEMETiC Hands). */
+  planting: boolean;
   pressure: number;
   radius: number;
 };
@@ -198,24 +197,24 @@ export type ContactEvent = {
   radius: number;
 };
 
+/**
+ * Pointer/touch → play hands always; field brushes only after an explicit drag.
+ * Touch plays; drag plants (M-06). Freeze is a labeled button on the glass (Freeze: stop growth. Release: let it grow again.) — no tap-and-hold gesture.
+ */
 export function localPointerBrushes(
   canvas: HTMLElement,
   getSize: () => { size: number; strength: number },
   onChange?: (brushes: Brush[]) => void,
-  onLock?: (x: number, y: number) => void,
-  onCharge?: (charge: number, x: number, y: number) => void,
+  _onLock?: (x: number, y: number) => void,
+  _onCharge?: (charge: number, x: number, y: number) => void,
   onContact?: (evt: ContactEvent) => void,
 ): () => void {
   const fingers = new Map<number, Finger>();
   const alias = new Map<number, number>();
-  const DOUBLE_MS = 420;
-  const HOLD_MS = 260;
   const TAP_MOVE = 22;
-  const DOUBLE_DIST = 64;
   const NEAR_PX = 18;
   /** Touch.identifier offset so mouse pointerId (often 1) never collides. */
   const TOUCH_ID = 1000;
-  let lastTap = { t: 0, x: 0, y: 0 };
   let windowBound = false;
 
   const feel = (pressure: number, width: number, height: number) => {
@@ -228,13 +227,13 @@ export function localPointerBrushes(
   };
 
   const sync = () => {
-    const list: Brush[] = [];
+    const hands: Brush[] = [];
+    const paint: Brush[] = [];
     let maxP = 0;
     for (const f of fingers.values()) {
-      if (!f.painting) continue;
       const { size, strength } = getSize();
       maxP = Math.max(maxP, f.pressure);
-      list.push({
+      const brush: Brush = {
         id: f.id,
         x: f.x,
         y: f.y,
@@ -244,12 +243,14 @@ export function localPointerBrushes(
         strength: strength * (0.7 + f.pressure * 0.45),
         pressure: f.pressure,
         radius: f.radius,
-      });
-      if (list.length >= MAX_BRUSHES) break;
+      };
+      if (hands.length < MAX_BRUSHES) hands.push(brush);
+      if (f.planting && paint.length < MAX_BRUSHES) paint.push(brush);
     }
     runtime.sense.pressure = maxP;
-    if (onChange) onChange(list);
-    else runtime.brushes = list;
+    runtime.hands = hands;
+    if (onChange) onChange(paint);
+    else runtime.brushes = paint;
   };
 
   const fromClient = (clientX: number, clientY: number) => {
@@ -297,25 +298,6 @@ export function localPointerBrushes(
     onContact?.({ type, id: f.id, x: f.x, y: f.y, pressure: f.pressure, radius: f.radius });
   };
 
-  const startPaint = (f: Finger) => {
-    if (f.painting) return;
-    f.painting = true;
-    f.lock = false;
-    if (f.hold != null) {
-      window.clearTimeout(f.hold);
-      f.hold = null;
-    }
-    onCharge?.(0, 0, 0);
-    sync();
-    emit("down", f);
-  };
-
-  const cancelPendingLocks = () => {
-    for (const f of fingers.values()) {
-      if (f.lock && !f.locked && !f.painting) startPaint(f);
-    }
-  };
-
   const begin = (id: number, clientX: number, clientY: number, pressure: number, width: number, height: number) => {
     if (fingers.has(canon(id))) {
       move(canon(id), clientX, clientY, pressure, width, height);
@@ -329,14 +311,6 @@ export function localPointerBrushes(
     }
 
     const { x, y, px, py } = fromClient(clientX, clientY);
-    const now = performance.now();
-    const isDouble =
-      fingers.size === 0 &&
-      now - lastTap.t < DOUBLE_MS &&
-      Math.hypot(px - lastTap.x, py - lastTap.y) < DOUBLE_DIST;
-
-    if (fingers.size > 0) cancelPendingLocks();
-
     const fFeel = feel(pressure, width, height);
     const f: Finger = {
       id,
@@ -346,43 +320,15 @@ export function localPointerBrushes(
       py: y,
       sx: px,
       sy: py,
-      t: now,
-      lock: isDouble,
-      locked: false,
-      painting: !isDouble,
-      hold: null,
+      t: performance.now(),
+      planting: false,
       pressure: fFeel.pressure,
       radius: fFeel.radius,
     };
     fingers.set(id, f);
     runtime.antenna = { x, y, on: false, pressure: 0 };
-
-    if (isDouble) {
-      f.hold = window.setTimeout(() => {
-        const cur = fingers.get(id);
-        if (!cur || cur.painting || cur.locked) return;
-        cur.locked = true;
-        onLock?.(cur.x, cur.y);
-        onCharge?.(0, 0, 0);
-        try {
-          navigator.vibrate?.(16);
-        } catch {
-          /* no haptics */
-        }
-      }, HOLD_MS);
-      const started = now;
-      const tick = () => {
-        const cur = fingers.get(id);
-        if (!cur || !cur.lock || cur.locked || cur.painting) return;
-        const charge = Math.min(1, (performance.now() - started) / HOLD_MS);
-        onCharge?.(charge, cur.x, cur.y);
-        if (charge < 1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    } else {
-      sync();
-      emit("down", f);
-    }
+    sync();
+    emit("down", f);
   };
 
   const move = (
@@ -406,32 +352,23 @@ export function localPointerBrushes(
     const dx = f.x - f.px;
     const dy = f.y - f.py;
     runtime.pointerMotion = Math.min(1.8, runtime.pointerMotion + Math.hypot(dx, dy) * 8);
-
-    const moved = Math.hypot(px - f.sx, py - f.sy);
-    if (f.lock && !f.locked && !f.painting && moved > TAP_MOVE) startPaint(f);
-    else if (f.painting) {
-      sync();
-      emit("move", f);
+    if (!f.planting && Math.hypot(px - f.sx, py - f.sy) > TAP_MOVE) {
+      f.planting = true;
     }
+    sync();
+    emit("move", f);
   };
 
   const end = (id: number, clientX: number, clientY: number) => {
     const cid = canon(id);
     const f = fingers.get(cid);
     if (!f) return;
-    if (f.hold != null) window.clearTimeout(f.hold);
-    const { x, y, px, py } = fromClient(clientX, clientY);
+    const { x, y } = fromClient(clientX, clientY);
     f.x = x;
     f.y = y;
-    if (!f.painting && !f.locked) {
-      const elapsed = performance.now() - f.t;
-      const moved = Math.hypot(px - f.sx, py - f.sy);
-      if (elapsed < 280 && moved < TAP_MOVE) lastTap = { t: performance.now(), x: px, y: py };
-    }
-    if (f.painting) emit("up", f);
+    emit("up", f);
     fingers.delete(cid);
     dropAliases(cid);
-    onCharge?.(0, 0, 0);
     sync();
   };
 
@@ -562,13 +499,9 @@ export function localPointerBrushes(
   };
 
   const clearAll = () => {
-    for (const f of fingers.values()) {
-      if (f.hold != null) window.clearTimeout(f.hold);
-      if (f.painting) emit("up", f);
-    }
+    for (const f of fingers.values()) emit("up", f);
     fingers.clear();
     alias.clear();
-    onCharge?.(0, 0, 0);
     runtime.antenna.on = false;
     sync();
     unbindWindow();
@@ -576,7 +509,8 @@ export function localPointerBrushes(
 
   const pointerOpts: AddEventListenerOptions = { passive: false, capture: true };
   const touchOpts: AddEventListenerOptions = { passive: false, capture: true };
-  const winMoveOpts: AddEventListenerOptions = { passive: true };
+  // Must be non-passive: onPointerMove may call preventDefault while tracking.
+  const winMoveOpts: AddEventListenerOptions = { passive: false };
   const winUpOpts: AddEventListenerOptions = { capture: true };
 
   const bindWindow = () => {
@@ -621,9 +555,6 @@ export function localPointerBrushes(
   canvas.style.userSelect = "none";
 
   return () => {
-    for (const f of fingers.values()) {
-      if (f.hold != null) window.clearTimeout(f.hold);
-    }
     fingers.clear();
     alias.clear();
     unbindWindow();
@@ -639,7 +570,7 @@ export function localPointerBrushes(
     window.removeEventListener("blur", onBlur);
     document.removeEventListener("visibilitychange", onVis);
     runtime.antenna.on = false;
+    runtime.hands = [];
     sync();
   };
 }
-

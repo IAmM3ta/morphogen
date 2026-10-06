@@ -48,6 +48,8 @@ export type MorphJob = {
 export type Runtime = {
   params: SimParams;
   brushes: Brush[];
+  /** Play contacts (audio): every touch/hover. Field inoculation (brushes) only after a drag (M-06). */
+  hands: Brush[];
   antenna: Antenna;
   sense: Sense;
   flowX: number;
@@ -100,6 +102,7 @@ export const DEFAULT_LISTEN = 0.55;
 export const runtime: Runtime = {
   params: { ...DEFAULT_PARAMS },
   brushes: [],
+  hands: [],
   antenna: { x: 0.5, y: 0.5, on: false, pressure: 0 },
   sense: { roll: 0, pitch: 0, yaw: 0, spin: 0, gforce: 0, heading: 0, pressure: 0, compass: false },
   flowX: 0,

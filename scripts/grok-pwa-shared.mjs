@@ -167,6 +167,8 @@ export function renderWebManifest(hostHeader) {
       start_url: "/",
       scope: "/",
       display: "standalone",
+      // MORPHOS v2: prefer true fullscreen when the browser offers it.
+      display_override: ["fullscreen", "standalone"],
       background_color: "#000000",
       theme_color: "#000000",
       launch_handler: { client_mode: ["navigate-existing", "auto"] },
@@ -176,6 +178,11 @@ export function renderWebManifest(hostHeader) {
           sizes: "180x180",
           type: "image/png",
         },
+        { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
+        { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      ],
+      shortcuts: [
+        { name: "Live wallpaper", short_name: "Wallpaper", url: "/wallpaper" },
       ],
     },
     null,

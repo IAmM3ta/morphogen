@@ -5,6 +5,7 @@ import {
   Eye,
   EyeOff,
   House,
+  Keyboard,
   Maximize2,
   Minimize2,
   Pause,
@@ -48,6 +49,16 @@ import {
   undo as popUndo,
 } from "@/lib/morphogen/history";
 import { cn } from "@/lib/utils";
+import { RDGpuEngine } from "@/lib/morphos-v2/rd-gpu/engine";
+import { look, lookStatus, setLook, type QualityPref } from "@/lib/morphos-v2/rd-gpu/look";
+import { markWebGPUFailed, wantWebGPU, type FieldEngine } from "@/lib/morphos-v2/field-engine";
+import { MODES, SoundV2 } from "@/lib/morphos-v2/sound-v2";
+import { FeatureAnalyser, tickFeatures } from "@/lib/morphos-v2/features";
+import { bindDesktopControls, control, updateControl } from "@/lib/morphos-v2/control";
+import { useV2 } from "@/lib/morphos-v2/store-v2";
+import { fourStops, visualById, type VisualId, VISUALS } from "@/lib/morphos-v2/visuals/presets";
+import { V2Dock } from "./v2/v2-dock";
+import { ShortcutsSheet } from "./v2/shortcuts-sheet";
 
 type TabId = "field" | "image" | "sense" | "sound" | "sync";
 
@@ -57,11 +68,37 @@ function formatRec(seconds: number) {
   return `${m}:${String(s % 60).padStart(2, "0")}`;
 }
 
-export function MorphogenApp() {
+/** `?wallpaper=1` (or the /wallpaper route): chrome-less, no prompts, no gate. */
+function readWallpaperQuery() {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("wallpaper") === "1";
+}
+
+/** Wallpaper URL options: ?visual= ?quality=low|auto|high ?fps= ?dpr= ?audio=1 */
+function applyWallpaperLook(): VisualId {
+  const q = typeof window === "undefined" ? new URLSearchParams() : new URLSearchParams(window.location.search);
+  const want = q.get("visual") ?? "temple-gold";
+  const visual = (VISUALS.find((v) => v.id === want)?.id ?? "temple-gold") as VisualId;
+  const qual = q.get("quality");
+  const quality: QualityPref = qual === "low" || qual === "high" ? qual : "auto";
+  const fpsRaw = Number(q.get("fps") ?? "30");
+  const maxFps = Number.isFinite(fpsRaw) && fpsRaw > 0 && fpsRaw < 240 ? fpsRaw : 0;
+  const dprRaw = Number(q.get("dpr") ?? "2");
+  const maxDpr = Number.isFinite(dprRaw) && dprRaw >= 0.5 ? Math.min(3, dprRaw) : 2;
+  setLook({ visual, quality, maxFps, maxDpr });
+  return visual;
+}
+
+export function MorphogenApp({ wallpaper: wallpaperProp = false }: { wallpaper?: boolean } = {}) {
+  const [wallpaper] = useState(() => wallpaperProp || readWallpaperQuery());
+  const [wallVisual] = useState<VisualId | null>(() => (wallpaper ? applyWallpaperLook() : null));
   const canvasWrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gpuCanvasRef = useRef<HTMLCanvasElement>(null);
+  const soundRef = useRef<SoundV2 | null>(null);
+  const analyserRef = useRef<FeatureAnalyser | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const engineRef = useRef<RDEngine | null>(null);
+  const engineRef = useRef<FieldEngine | null>(null);
   const audioRef = useRef<AudioEngine | null>(null);
   const midiRef = useRef<MidiOut | null>(null);
   const tdRef = useRef<TdClient | null>(null);
@@ -76,6 +113,7 @@ export function MorphogenApp() {
   const defaultsRef = useRef<() => void>(() => {});
   const recordRef = useRef<() => void>(() => {});
   const undoRef = useRef<() => void>(() => {});
+  const requestFsRef = useRef<() => Promise<void>>(async () => {});
   const huntAfter = useRef(false);
   const lastLockAt = useRef(0);
   const sensorsUnhook = useRef<(() => void) | null>(null);
@@ -128,6 +166,14 @@ export function MorphogenApp() {
   const [trackName, setTrackName] = useState("");
   const [trackOn, setTrackOn] = useState(false);
   const [webAr, setWebAr] = useState(false);
+  const [renderer, setRenderer] = useState<"pending" | "webgpu" | "webgl2">("pending");
+  const [engineEpoch, setEngineEpoch] = useState(0);
+  const [sound, setSound] = useState<SoundV2 | null>(null);
+  const [showKeys, setShowKeys] = useState(false);
+  const [cursorIdle, setCursorIdle] = useState(false);
+  const v2Mode = useV2((s) => s.mode);
+  const v2Visual = useV2((s) => s.visual);
+  const glass = useV2((s) => s.glass);
   const factory = useInstrument(isFactoryInstrument);
   const atDefaults = factory && lockCount === 0 && loops.length === 0;
 
@@ -210,7 +256,7 @@ export function MorphogenApp() {
       rec.stop();
       return;
     }
-    const canvas = canvasRef.current;
+    const canvas = engineRef.current?.canvas ?? canvasRef.current;
     if (!canvas) {
       toast("Nothing to record yet");
       return;
@@ -383,119 +429,176 @@ export function MorphogenApp() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    let engine: RDEngine;
-    try {
-      engine = new RDEngine(canvas, pickSimMaxSide());
-    } catch (err) {
-      setGlError(err instanceof Error ? err.message : "WebGL2 unavailable");
-      return;
-    }
-    engineRef.current = engine;
-    bindHistory({
-      capture: () => {
-        const s = useInstrument.getState();
-        return {
-          params: { ...s.params },
-          presetId: s.presetId,
-          waveform: s.waveform,
-          lockCount: engine.lockCount,
-          keyId: s.keyId,
-          modeId: s.modeId,
-          pitchMinHz: s.pitchMinHz,
-          pitchMaxHz: s.pitchMaxHz,
-        };
-      },
-      checkpointField: () => engine.checkpoint(),
-      restoreField: () => engine.undo(),
-    });
-    engine.onFrame = (_dt, stats) => {
-      try {
-        audioRef.current?.tick();
-      } catch {
-        /* keep the field alive if a voice errors */
-      }
-      const inst = useInstrument.getState();
-      if (inst.gyroOn && inst.compassKey && runtime.sense.compass) {
-        const next = headingToKey(runtime.sense.heading, inst.keyId);
-        if (next !== inst.keyId) inst.setKey(next, true);
-      }
-      if (runtime.sense.compass) setCompassLive(true);
-      setEnergy((e) => (Math.abs(e - stats.energy) > 0.02 ? stats.energy : e));
-      const a = audioRef.current;
-      const brushes = runtime.brushes;
-      const brushAmp = brushes.length
-        ? Math.min(1, brushes.reduce((sum, b) => sum + b.strength, 0) / brushes.length)
-        : 0;
-      const hzNow = a?.lastHz ?? 0;
-      const lo = runtime.pitchMinHz;
-      const hi = Math.max(lo + 1, runtime.pitchMaxHz);
-      const pitch = hzNow > 1 ? Math.log(Math.max(hzNow, lo) / lo) / Math.log(hi / lo) : 0.5;
-      const timbre =
-        runtime.waveform === "sine"
-          ? 0.12
-          : runtime.waveform === "triangle"
-            ? 0.34
-            : runtime.waveform === "sawtooth"
-              ? 0.72
-              : runtime.waveform === "square"
-                ? 0.86
-                : runtime.waveform === "pulse"
-                  ? 1
-                  : 0.48;
-      runtime.play.amp = Math.max(brushAmp, runtime.bands.rms * runtime.listen);
-      runtime.play.pitch = Math.max(0, Math.min(1, pitch));
-      runtime.play.timbre = timbre;
-      if (a) {
-        setHz((h) => (Math.abs(h - a.lastHz) > 1.5 ? a.lastHz : h));
-        setVoices(a.voiceCount);
-      }
+    let disposed = false;
+    let current: FieldEngine | null = null;
+    const wire = (engine: FieldEngine) => {
+      current = engine;
+      engineRef.current = engine;
+      bindHistory({
+        capture: () => {
+          const s = useInstrument.getState();
+          return {
+            params: { ...s.params },
+            presetId: s.presetId,
+            waveform: s.waveform,
+            lockCount: engine.lockCount,
+            keyId: s.keyId,
+            modeId: s.modeId,
+            pitchMinHz: s.pitchMinHz,
+            pitchMaxHz: s.pitchMaxHz,
+          };
+        },
+        checkpointField: () => engine.checkpoint(),
+        restoreField: () => engine.undo(),
+      });
+      engine.onFrame = (_dt, stats) => {
+        try {
+          // v2: features → control → sound, every field frame.
+          const nowS = performance.now() / 1000;
+          tickFeatures(_dt, nowS);
+          analyserRef.current?.update(_dt);
+          updateControl(nowS, _dt);
+          soundRef.current?.frame(_dt, control);
+        } catch {
+          /* v2 layers must never stall the field */
+        }
+        try {
+          audioRef.current?.tick();
+        } catch {
+          /* keep the field alive if a voice errors */
+        }
+        const inst = useInstrument.getState();
+        if (inst.gyroOn && inst.compassKey && runtime.sense.compass) {
+          const next = headingToKey(runtime.sense.heading, inst.keyId);
+          if (next !== inst.keyId) inst.setKey(next, true);
+        }
+        if (runtime.sense.compass) setCompassLive(true);
+        setEnergy((e) => (Math.abs(e - stats.energy) > 0.02 ? stats.energy : e));
+        const a = audioRef.current;
+        const brushes = runtime.brushes;
+        const brushAmp = brushes.length
+          ? Math.min(1, brushes.reduce((sum, b) => sum + b.strength, 0) / brushes.length)
+          : 0;
+        const hzNow = a?.lastHz ?? 0;
+        const lo = runtime.pitchMinHz;
+        const hi = Math.max(lo + 1, runtime.pitchMaxHz);
+        const pitch = hzNow > 1 ? Math.log(Math.max(hzNow, lo) / lo) / Math.log(hi / lo) : 0.5;
+        const timbre =
+          runtime.waveform === "sine"
+            ? 0.12
+            : runtime.waveform === "triangle"
+              ? 0.34
+              : runtime.waveform === "sawtooth"
+                ? 0.72
+                : runtime.waveform === "square"
+                  ? 0.86
+                  : runtime.waveform === "pulse"
+                    ? 1
+                    : 0.48;
+        runtime.play.amp = Math.max(brushAmp, runtime.bands.rms * runtime.listen);
+        runtime.play.pitch = Math.max(0, Math.min(1, pitch));
+        runtime.play.timbre = timbre;
+        if (a) {
+          setHz((h) => (Math.abs(h - a.lastHz) > 1.5 ? a.lastHz : h));
+          setVoices(a.voiceCount);
+        }
+      };
+      engine.start();
+      const probe = () => ({
+        energy: runtime.stats.energy,
+        meanV: runtime.stats.meanV,
+        brushes: runtime.brushes.map((b) => ({ id: b.id, x: +b.x.toFixed(3), y: +b.y.toFixed(3) })),
+        fingers: runtime.brushes.length,
+        locks: engine.lockCount,
+        feed: runtime.params.feed,
+        kill: runtime.params.kill,
+        du: runtime.params.du,
+        dv: runtime.params.dv,
+        steps: runtime.params.steps,
+        speed: runtime.params.speed,
+        sim: { w: engine.simW, h: engine.simH },
+        gyro: useInstrument.getState().gyroOn,
+        sense: { ...runtime.sense },
+        preset: useInstrument.getState().presetId,
+        hz: audioRef.current?.lastHz ?? 0,
+        voices: audioRef.current?.voiceCount ?? 0,
+        audio: audioRef.current?.contextState() ?? "none",
+        audioOn: useInstrument.getState().audioOn,
+        antenna: runtime.antenna.on,
+        recording: recorderRef.current.recording,
+        morphing: Boolean(runtime.morph),
+        waveform: runtime.waveform,
+        history: runtime.historyDepth,
+        key: runtime.keyId,
+        mode: runtime.modeId,
+        palette: runtime.params.paletteId,
+        pitch: [runtime.pitchMinHz, runtime.pitchMaxHz],
+        vibrato: [runtime.vibratoRate, runtime.vibratoDepth],
+        heading: runtime.sense.heading,
+        loops: audioRef.current?.getLoops().length ?? 0,
+        space: runtime.brushes.map((b) => glassToWorld(b.x, b.y)),
+        atDefaults: isFactoryInstrument(useInstrument.getState()),
+      });
+      (window as unknown as { __morphogen: typeof probe }).__morphogen = probe;
+      setEngineEpoch((n) => n + 1);
     };
-    engine.start();
-    const probe = () => ({
-      energy: runtime.stats.energy,
-      meanV: runtime.stats.meanV,
-      brushes: runtime.brushes.map((b) => ({ id: b.id, x: +b.x.toFixed(3), y: +b.y.toFixed(3) })),
-      fingers: runtime.brushes.length,
-      locks: engine.lockCount,
-      feed: runtime.params.feed,
-      kill: runtime.params.kill,
-      du: runtime.params.du,
-      dv: runtime.params.dv,
-      steps: runtime.params.steps,
-      speed: runtime.params.speed,
-      sim: { w: engine.simW, h: engine.simH },
-      gyro: useInstrument.getState().gyroOn,
-      sense: { ...runtime.sense },
-      preset: useInstrument.getState().presetId,
-      hz: audioRef.current?.lastHz ?? 0,
-      voices: audioRef.current?.voiceCount ?? 0,
-      audio: audioRef.current?.contextState() ?? "none",
-      audioOn: useInstrument.getState().audioOn,
-      antenna: runtime.antenna.on,
-      recording: recorderRef.current.recording,
-      morphing: Boolean(runtime.morph),
-      waveform: runtime.waveform,
-      history: runtime.historyDepth,
-      key: runtime.keyId,
-      mode: runtime.modeId,
-      palette: runtime.params.paletteId,
-      pitch: [runtime.pitchMinHz, runtime.pitchMaxHz],
-      vibrato: [runtime.vibratoRate, runtime.vibratoDepth],
-      heading: runtime.sense.heading,
-      loops: audioRef.current?.getLoops().length ?? 0,
-      space: runtime.brushes.map((b) => glassToWorld(b.x, b.y)),
-      atDefaults: isFactoryInstrument(useInstrument.getState()),
-    });
-    (window as unknown as { __morphogen: typeof probe }).__morphogen = probe;
-    return () => {
-      delete (window as unknown as { __morphogen?: typeof probe }).__morphogen;
+    const teardown = () => {
+      delete (window as unknown as { __morphogen?: unknown }).__morphogen;
       bindHistory(null);
       clearHistory();
       recorderRef.current.stop();
-      engine.destroy();
+      current?.destroy();
+      current = null;
       engineRef.current = null;
     };
-  }, []);
+    const startGl = () => {
+      if (disposed) return;
+      try {
+        const gl = new RDEngine(canvas, wallpaper ? Math.min(1440, pickSimMaxSide()) : pickSimMaxSide());
+        gl.maxFps = look.maxFps;
+        lookStatus.renderer = "webgl2";
+        lookStatus.simW = gl.simW;
+        lookStatus.simH = gl.simH;
+        setRenderer("webgl2");
+        wire(gl);
+      } catch (err) {
+        setGlError(err instanceof Error ? err.message : "WebGL2 unavailable");
+      }
+    };
+    (window as unknown as { __morphosV2?: () => unknown }).__morphosV2 = () => ({ ...lookStatus, look: { ...look } });
+    const gpuCanvas = gpuCanvasRef.current;
+    if (gpuCanvas && wantWebGPU()) {
+      void RDGpuEngine.create(gpuCanvas).then((res) => {
+        if (disposed) {
+          if (res.ok) res.engine.destroy();
+          return;
+        }
+        if (!res.ok) {
+          lookStatus.reason = res.reason;
+          startGl();
+          return;
+        }
+        res.engine.onLost = (reason) => {
+          if (disposed || current !== res.engine) return;
+          // Device lost or GPU error: fall back to the WebGL2 field, keep playing.
+          lookStatus.reason = reason;
+          markWebGPUFailed();
+          teardown();
+          startGl();
+          if (!wallpaper) toast("Switched to the classic field renderer");
+        };
+        lookStatus.renderer = "webgpu";
+        setRenderer("webgpu");
+        wire(res.engine);
+      });
+    } else {
+      startGl();
+    }
+    return () => {
+      disposed = true;
+      teardown();
+    };
+  }, [wallpaper]);
 
   useEffect(() => {
     const wrap = canvasWrapRef.current;
@@ -608,13 +711,38 @@ export function MorphogenApp() {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement | null)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      if (wallpaper) return;
+      const v2 = useV2.getState();
+      if (!e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (e.key === "m" || e.key === "M") {
+          const i = MODES.findIndex((m) => m.id === v2.mode);
+          v2.setMode(MODES[(i + 1) % MODES.length]!.id);
+          return;
+        }
+        if (e.key === "v" || e.key === "V") {
+          v2.cycleVisual(e.shiftKey ? -1 : 1);
+          return;
+        }
+        if (e.key === "p" || e.key === "P") {
+          soundRef.current?.togglePlay();
+          return;
+        }
+        if (e.key === "g" || e.key === "G") {
+          v2.setGlass(!v2.glass);
+          return;
+        }
+        if (e.key === "?") {
+          setShowKeys((k) => !k);
+          return;
+        }
+      }
       if (e.key === " ") {
         e.preventDefault();
         setPaused((p) => !p);
       } else if (e.key === "h" || e.key === "H") {
         patch({ uiHidden: !useInstrument.getState().uiHidden, panelOpen: false });
       } else if (e.key === "f" || e.key === "F") {
-        void toggleFullscreen();
+        void requestFsRef.current();
       } else if (e.key === "r" || e.key === "R") {
         if (e.shiftKey) defaultsRef.current();
         else resetRef.current();
@@ -633,6 +761,12 @@ export function MorphogenApp() {
         if (e.shiftKey) clearAllLocks();
         else popTo((engineRef.current?.lockCount ?? 1) - 1);
       } else if (e.key === "Escape") {
+        setShowKeys(false);
+        if (v2.glass || v2.panel) {
+          v2.setGlass(false);
+          v2.setPanel(null);
+          return;
+        }
         patch({ panelOpen: false, uiHidden: false });
       } else if (e.key >= "1" && e.key <= "9") {
         const preset = PRESETS[Number(e.key) - 1];
@@ -641,7 +775,7 @@ export function MorphogenApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [applyPreset, patch, clearAllLocks, popTo]);
+  }, [applyPreset, patch, clearAllLocks, popTo, wallpaper]);
 
   const applyImageUrl = useCallback((url: string | null) => {
     const engine = engineRef.current;
@@ -662,7 +796,7 @@ export function MorphogenApp() {
   useEffect(() => {
     const slot = images.find((i) => i.id === activeImageId);
     if (!cameraOn) applyImageUrl(slot?.url ?? null);
-  }, [images, activeImageId, cameraOn, applyImageUrl]);
+  }, [images, activeImageId, cameraOn, applyImageUrl, engineEpoch]);
 
   useEffect(() => {
     let raf = 0;
@@ -702,6 +836,101 @@ export function MorphogenApp() {
     };
   }, [cameraOn, patch]);
 
+  /** v2 sound rig + analyser on the shared AudioContext (created inside the Enter gesture). */
+  const startSoundV2 = useCallback((audio: AudioEngine) => {
+    if (soundRef.current) return soundRef.current;
+    try {
+      const ctx = audio.getContext();
+      const input = audio.getV2Input();
+      if (!ctx || !input) return null;
+      const s = new SoundV2(ctx, input, audio.getRecordTap(), (voiced) => audio.setHandsVoiced(voiced));
+      const v2 = useV2.getState();
+      s.setDrone(v2.drone);
+      s.setBass(v2.bass);
+      s.setMode(v2.mode);
+      soundRef.current = s;
+      setSound(s);
+      const an = audio.getAnalyser();
+      if (an) analyserRef.current = new FeatureAnalyser(an);
+      return s;
+    } catch {
+      return null;
+    }
+  }, []);
+
+  // v2: play mode → sound rig (hands voice the Hum only in Field mode).
+  useEffect(() => {
+    sound?.setMode(v2Mode);
+  }, [sound, v2Mode]);
+
+  // v2: looks on the WebGL2 fallback recolour the classic field (palette only).
+  useEffect(() => {
+    const id = wallVisual ?? v2Visual;
+    runtime.v2Stops = renderer === "webgl2" && id !== "off" ? fourStops(visualById(id)) : null;
+  }, [renderer, v2Visual, wallVisual]);
+
+  // v2: prefers-reduced-motion slows growth and softens ripples.
+  useEffect(() => {
+    if (typeof matchMedia === "undefined") return;
+    const mq = matchMedia("(prefers-reduced-motion: reduce)");
+    const apply = () => setLook({ reducedMotion: mq.matches });
+    apply();
+    mq.addEventListener?.("change", apply);
+    return () => mq.removeEventListener?.("change", apply);
+  }, []);
+
+  // v2: wheel = tilt, Shift+wheel = compass, arrows nudge — the desktop stand-ins for motion.
+  useEffect(() => {
+    const wrap = canvasWrapRef.current;
+    if (!wrap || wallpaper) return;
+    return bindDesktopControls(wrap);
+  }, [wallpaper]);
+
+  // Wallpaper: no gate, no prompts, no sensors, no MIDI. Optional ?audio=1 ambient drone.
+  useEffect(() => {
+    if (!wallpaper) return;
+    runtime.started = true;
+    patch({ started: true, uiHidden: true, panelOpen: false });
+    if (new URLSearchParams(window.location.search).get("audio") !== "1") return;
+    try {
+      const audio = new AudioEngine();
+      audio.unlock();
+      audioRef.current = audio;
+      audio.setVolume(useInstrument.getState().volume);
+      audio.setMuted(false);
+      const s = startSoundV2(audio);
+      s?.setMode("drone");
+      s?.setHold(true);
+    } catch {
+      /* silent wallpaper is fine */
+    }
+  }, [wallpaper, patch, startSoundV2]);
+
+  // Wallpaper: hide the cursor when it rests.
+  useEffect(() => {
+    if (!wallpaper) return;
+    let t = 0;
+    const wake = () => {
+      setCursorIdle(false);
+      window.clearTimeout(t);
+      t = window.setTimeout(() => setCursorIdle(true), 2500);
+    };
+    wake();
+    window.addEventListener("pointermove", wake, { passive: true });
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener("pointermove", wake);
+    };
+  }, [wallpaper]);
+
+  useEffect(
+    () => () => {
+      soundRef.current?.dispose();
+      soundRef.current = null;
+    },
+    [],
+  );
+
   const enter = useCallback(async () => {
     let audio: AudioEngine | null = null;
     try {
@@ -715,6 +944,7 @@ export function MorphogenApp() {
         setLoops(clips);
         setLayerRecording(rec);
       };
+      startSoundV2(audio);
       setAudioChip("unlocked");
     } catch {
       setAudioChip("failed");
@@ -741,7 +971,7 @@ export function MorphogenApp() {
       setTdError(err ?? "");
     };
     tdRef.current = td;
-  }, [patch]);
+  }, [patch, startSoundV2]);
 
   useEffect(() => {
     if (!webAr) return;
@@ -825,13 +1055,17 @@ export function MorphogenApp() {
   );
 
   const requestFs = useCallback(async () => {
-    try {
-      if (document.fullscreenElement) await document.exitFullscreen();
-      else await document.documentElement.requestFullscreen();
-    } catch {
-      toast("Fullscreen was blocked");
+    const ok = await toggleFullscreen();
+    if (!ok) {
+      const ios = /iPhone|iPod/i.test(navigator.userAgent);
+      const standalone =
+        matchMedia("(display-mode: standalone)").matches ||
+        (navigator as Navigator & { standalone?: boolean }).standalone === true;
+      toast(ios && !standalone ? "On iPhone, use Share → Add to Home Screen for full screen" : "Fullscreen was blocked");
     }
   }, []);
+
+  requestFsRef.current = requestFs;
 
   // M-02: after Enter, show audio unlocked|failed · motion on|denied.
   const statusChips =
@@ -855,9 +1089,23 @@ export function MorphogenApp() {
     ) : null;
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-bg text-fg select-none">
+    <div
+      className={cn("relative h-dvh w-full overflow-hidden bg-bg text-fg select-none", wallpaper && cursorIdle && "cursor-none")}
+    >
       <div ref={canvasWrapRef} className="absolute inset-0 touch-none" style={{ touchAction: "none" }}>
-        <canvas ref={canvasRef} className={cn("block h-full w-full touch-none", hunting && "opacity-0")} />
+        <canvas
+          ref={canvasRef}
+          className={cn("block h-full w-full touch-none", hunting && "opacity-0", renderer === "webgpu" && "hidden")}
+        />
+        <canvas
+          ref={gpuCanvasRef}
+          aria-hidden
+          className={cn(
+            "absolute inset-0 block h-full w-full touch-none",
+            hunting && "opacity-0",
+            renderer !== "webgpu" && "hidden",
+          )}
+        />
         {started && !hunting && orbitRate > 0.05 && (
           <OrbitGlass n={runtime.orbitN} rot={runtime.orbitRot} degrees={runtime.orbitDegrees} />
         )}
@@ -884,7 +1132,7 @@ export function MorphogenApp() {
 
       {hunting && (
         <ArOverlay
-          field={canvasRef.current}
+          field={engineRef.current?.canvas ?? canvasRef.current}
           onClose={() => {
             setHunting(false);
             patch({ uiHidden: false });
@@ -908,7 +1156,7 @@ export function MorphogenApp() {
         </div>
       )}
 
-      {!started && !glError && !webAr && (
+      {!started && !glError && !webAr && !wallpaper && (
         <StartGate
           onEnter={() => void enter()}
           onHunt={() => {
@@ -1159,13 +1407,42 @@ export function MorphogenApp() {
         </div>
       )}
 
-      {started && uiHidden && !hunting && statusChips && (
+      {started && uiHidden && !hunting && !wallpaper && !glass && statusChips && (
         <div className="pointer-events-none fixed top-[calc(var(--spacing-hud-t)+3.5rem)] left-1/2 z-50 -translate-x-1/2">
           {statusChips}
         </div>
       )}
 
-      {started && uiHidden && !hunting && (
+      {started && uiHidden && !hunting && !wallpaper && glass && (
+        <button
+          type="button"
+          data-ui
+          className="pointer-events-auto fixed top-hud-t right-3 z-50 rounded-full bg-bg/20 p-2 text-fg/50 hover:text-fg"
+          onClick={() => useV2.getState().setGlass(false)}
+          aria-label="Show controls"
+          title="Show controls (G or Esc)"
+        >
+          <Eye className="size-4" />
+        </button>
+      )}
+
+      {started && uiHidden && !hunting && !wallpaper && !glass && (
+        <V2Dock
+          sound={sound}
+          motion={motionChip === "on" ? "on" : motionChip === "denied" ? "denied" : "off"}
+          onEnableMotion={() => {
+            void requestSensorPermission().then((ok) => {
+              setMotionChip(ok ? "on" : "denied");
+              setSenseReady(ok);
+              patch({ gyroOn: ok });
+            });
+          }}
+        />
+      )}
+
+      {showKeys && !wallpaper && <ShortcutsSheet onClose={() => setShowKeys(false)} />}
+
+      {started && uiHidden && !hunting && !wallpaper && !glass && (
         <div
           data-ui
           className="pointer-events-auto fixed top-hud-t left-1/2 z-50 flex -translate-x-1/2 items-end gap-0.5 rounded-full bg-bg/28 px-1 py-1 text-fg shadow-[var(--shadow-border)] backdrop-blur-md"
@@ -1220,6 +1497,36 @@ export function MorphogenApp() {
             {loops.some((c) => c.playing) ? <Pause className="size-4" /> : <Play className="size-4" />}
             <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Play</span>
           </button>
+          <button
+            type="button"
+            className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
+            onClick={() => void requestFs()}
+            aria-label={isFs ? "Exit fullscreen" : "Fullscreen"}
+            title={isFs ? "Exit fullscreen (F)" : "Fullscreen (F)"}
+          >
+            {isFs ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
+            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Full</span>
+          </button>
+          <button
+            type="button"
+            className="flex w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1"
+            onClick={() => useV2.getState().setGlass(true)}
+            aria-label="Clear glass"
+            title="Clear glass: hide every control (G). Esc brings them back."
+          >
+            <EyeOff className="size-4" />
+            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Glass</span>
+          </button>
+          <button
+            type="button"
+            className="hidden w-11 flex-col items-center gap-0.5 rounded-full px-1 py-1 sm:flex"
+            onClick={() => setShowKeys(true)}
+            aria-label="Keyboard shortcuts"
+            title="Keyboard shortcuts (?)"
+          >
+            <Keyboard className="size-4" />
+            <span className="text-[8px] tracking-[0.14em] text-muted uppercase">Keys</span>
+          </button>
         </div>
       )}
 
@@ -1233,11 +1540,21 @@ export function MorphogenApp() {
   );
 }
 
-async function toggleFullscreen() {
+/** Fullscreen API with the WebKit prefix; resolves false when the browser refuses (e.g. iPhone Safari). */
+async function toggleFullscreen(): Promise<boolean> {
+  const d = document as Document & { webkitFullscreenElement?: Element | null; webkitExitFullscreen?: () => Promise<void> | void };
+  const el = document.documentElement as HTMLElement & { webkitRequestFullscreen?: () => Promise<void> | void };
   try {
-    if (document.fullscreenElement) await document.exitFullscreen();
-    else await document.documentElement.requestFullscreen();
+    if (document.fullscreenElement || d.webkitFullscreenElement) {
+      if (document.exitFullscreen) await document.exitFullscreen();
+      else await d.webkitExitFullscreen?.();
+      return true;
+    }
+    if (el.requestFullscreen) await el.requestFullscreen();
+    else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+    else return false;
+    return true;
   } catch {
-    /* ignore */
+    return false;
   }
 }

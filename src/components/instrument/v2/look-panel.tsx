@@ -50,12 +50,15 @@ export function LookPanel({ onClose }: { onClose: () => void }) {
           {gpu ? "WebGPU" : status.renderer === "webgl2" ? "WebGL2 fallback" : "…"}
           {status.simW ? ` · ${status.simW}×${status.simH}` : ""}
           {gpu && status.steps ? ` · ${status.steps} steps` : ""}
+          {gpu && status.bloom ? ` · bloom ${status.bloom}` : ""}
+          {gpu && status.ripple ? ` · ripples ${status.ripple}` : ""}
           {gpu && morph && status.regime ? ` · → ${status.regime}` : ""}
+          {gpu && status.grid ? ` · ${status.grid}` : ""}
         </span>
       </div>
       {!gpu && status.renderer === "webgl2" && (
         <p className="mt-2 text-[11px] text-muted">
-          This browser has no WebGPU, so looks recolour the classic field. Relief, symmetry and sound-driven growth need WebGPU.
+          This browser has no WebGPU, so looks recolour the classic field. Relief, lighting, ripples, symmetry and sound-driven growth need WebGPU.
         </p>
       )}
     </Sheet>

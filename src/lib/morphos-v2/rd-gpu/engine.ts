@@ -18,14 +18,19 @@ import { features, MAX_RIPPLES, SPECTRUM_BANDS } from "../features";
 import { control } from "../control";
 import { approach } from "../smoothing";
 import type { FieldEngine } from "../field-engine";
-import { RegimeDrift } from "../rd-regimes";
+import { RegimeDrift, REGIMES } from "../rd-regimes";
 import { buildLut, LUT_W } from "../visuals/lut";
 import { VARY_INDEX, visualById, type RGB, type VisualPreset } from "../visuals/presets";
 import { look, lookStatus } from "./look";
-import { BLOOM, FINAL, PACK, RESAMPLE, SCENE, SIM, STATS } from "./wgsl";
+import { BLOOM, FINAL, PACK, RESAMPLE, SCENE, SIM, STATS, WAVE, WPACK } from "./wgsl";
 
-const SIM_FLOATS = 33 * 4;
-const VIEW_FLOATS = 18 * 4;
+const SIM_FLOATS = 35 * 4;
+const VIEW_FLOATS = 26 * 4;
+const WAVE_FLOATS = 6 * 4;
+/** Ripple layer long side (cells) and its quality ladder. */
+const RIPPLE_BASE = 320;
+const RIPPLE_LADDER = [1, 0.7, 0.5];
+const WAVE_SUBSTEPS = 3;
 const HDR: GPUTextureFormat = "rgba16float";
 const STEP_LADDER = [6, 8, 10, 12, 16, 20, 24, 28, 32, 36, 40];
 const SCALE_LADDER = [1, 0.85, 0.72, 0.6, 0.5];
@@ -33,6 +38,19 @@ const SCALE_LADDER = [1, 0.85, 0.72, 0.6, 0.5];
 const EMPTY: Brush = { id: -1, x: 0, y: 0, px: 0, py: 0, size: 0.03, strength: 0, pressure: 0, radius: 0 };
 
 type Tex = { tex: GPUTexture; view: GPUTextureView; w: number; h: number };
+type Chain = {
+  w: number;
+  h: number;
+  scene: Tex;
+  b1: Tex;
+  b2: Tex;
+  b3: Tex;
+  bgBloom: GPUBindGroup;
+  bgDown2: GPUBindGroup;
+  bgDown3: GPUBindGroup;
+  bgFinal: GPUBindGroup;
+};
+type Impulse = [x: number, y: number, radius: number, amp: number];
 
 function chooseSim(cssW: number, cssH: number, maxSide: number) {
   const a = Math.max(1, cssW) / Math.max(1, cssH);
@@ -74,6 +92,9 @@ export class RDGpuEngine implements FieldEngine {
   private pBloom!: GPURenderPipeline;
   private pFinal!: GPURenderPipeline;
   private pFinalCap: GPURenderPipeline | null = null;
+  private pDown!: GPURenderPipeline;
+  private pWave!: GPUComputePipeline;
+  private pWPack!: GPUComputePipeline;
   private mScene!: GPUShaderModule;
   private mBloom!: GPUShaderModule;
   private mFinal!: GPUShaderModule;
@@ -104,15 +125,33 @@ export class RDGpuEngine implements FieldEngine {
   private dummyImg: GPUTexture;
   private sampRep: GPUSampler;
   private sampClamp: GPUSampler;
-  private scene: Tex | null = null;
-  private bloom: Tex | null = null;
+  private chain: Chain | null = null;
+  // ripple layer (2D wave equation)
+  private waveU: GPUBuffer;
+  private waveData = new Float32Array(WAVE_FLOATS);
+  private waveBuf: [GPUBuffer, GPUBuffer] | null = null;
+  private waveCur = 0;
+  private waveTex: Tex | null = null;
+  private bgWave: [GPUBindGroup, GPUBindGroup] | null = null;
+  private bgWPack: [GPUBindGroup, GPUBindGroup] | null = null;
+  private rippleIdx = 0;
+  private bloomPasses = 3;
+  private impulses: Impulse[] = [];
+  private waveSeen = new Float64Array(MAX_RIPPLES).fill(-1);
+  private prevOnset = 0;
+  private sMid = 0;
+  private tighten = 0;
+  // Fluidica lattice
+  private gridPin = 0;
+  private gridTarget = 1;
+  private shatterAt = -1e9;
+  private shatterGlow = 0;
+  private lastVisual = "";
 
   private bgSim: [GPUBindGroup, GPUBindGroup] | null = null;
   private bgPack: [GPUBindGroup, GPUBindGroup] | null = null;
   private bgStats: [GPUBindGroup, GPUBindGroup] | null = null;
   private bgScene: GPUBindGroup | null = null;
-  private bgBloom: GPUBindGroup | null = null;
-  private bgFinal: GPUBindGroup | null = null;
 
   // control state
   private seedSeen = -1;
@@ -142,6 +181,8 @@ export class RDGpuEngine implements FieldEngine {
   // GPU backpressure: never queue more than two frames of work, and feed the
   // governor the measured GPU time, not just the rAF interval.
   private inFlight = 0;
+  /** Time from skipped (GPU-busy) frames, folded into the next real frame. */
+  private carryDt = 0;
   private gpuMs = 0;
   private cool = 120;
   private stepCap: number;
@@ -203,6 +244,7 @@ export class RDGpuEngine implements FieldEngine {
     this.viewU = device.createBuffer({ size: VIEW_FLOATS * 4, usage: U.UNIFORM | U.COPY_DST });
     this.packU = device.createBuffer({ size: 32, usage: U.UNIFORM | U.COPY_DST });
     this.statsU = device.createBuffer({ size: 16, usage: U.UNIFORM | U.COPY_DST });
+    this.waveU = device.createBuffer({ size: WAVE_FLOATS * 4, usage: U.UNIFORM | U.COPY_DST });
     this.dummy = device.createBuffer({ size: 16, usage: U.STORAGE });
     this.statsBuf = device.createBuffer({ size: 256 * 8, usage: U.STORAGE | U.COPY_SRC });
     this.statsRead = device.createBuffer({ size: 256 * 8, usage: U.MAP_READ | U.COPY_DST });
@@ -259,7 +301,7 @@ export class RDGpuEngine implements FieldEngine {
     const d = this.device;
     d.pushErrorScope("validation");
     try {
-      const [mSim, mPack, mStats, mRs, mScene, mBloom, mFinal] = await Promise.all([
+      const [mSim, mPack, mStats, mRs, mScene, mBloom, mFinal, mWave, mWPack] = await Promise.all([
         this.module(SIM, "rd-sim"),
         this.module(PACK, "rd-pack"),
         this.module(STATS, "rd-stats"),
@@ -267,11 +309,14 @@ export class RDGpuEngine implements FieldEngine {
         this.module(SCENE, "rd-scene"),
         this.module(BLOOM, "rd-bloom"),
         this.module(FINAL, "rd-final"),
+        this.module(WAVE, "rd-wave"),
+        this.module(WPACK, "rd-wave-pack"),
       ]);
       this.mScene = mScene;
       this.mBloom = mBloom;
       this.mFinal = mFinal;
       const comp = (m: GPUShaderModule) => d.createComputePipelineAsync({ layout: "auto", compute: { module: m, entryPoint: "main" } });
+      [this.pWave, this.pWPack, this.pDown] = await Promise.all([comp(mWave), comp(mWPack), this.fullPipe(mBloom, "fsDown", HDR)]);
       [this.pSim, this.pPack, this.pStats, this.pResample, this.pScene, this.pBloom, this.pFinal] = await Promise.all([
         comp(mSim),
         comp(mPack),
@@ -336,8 +381,9 @@ export class RDGpuEngine implements FieldEngine {
       this.locks.forEach((b) => b?.destroy());
       this.clearFieldHistory();
       this.fieldTex?.tex.destroy();
-      this.scene?.tex.destroy();
-      this.bloom?.tex.destroy();
+      this.destroyChain(this.chain);
+      this.waveBuf?.forEach((b) => b.destroy());
+      this.waveTex?.tex.destroy();
       if (this.imgTex !== this.dummyImg) this.imgTex.destroy();
       this.ctx.unconfigure();
       this.device.destroy();
@@ -612,6 +658,61 @@ export class RDGpuEngine implements FieldEngine {
     return (this.lockStart + this.lockCount - 1) % 4;
   }
 
+  // ---------------------------------------------------------------- ripple layer
+
+  /** Low-res wave grid (aspect of the canvas); rebuilt when the quality rung changes. */
+  private fitWave() {
+    const cssW = this.canvas.clientWidth || window.innerWidth || 1;
+    const cssH = this.canvas.clientHeight || window.innerHeight || 1;
+    const long = Math.max(64, Math.round(RIPPLE_BASE * RIPPLE_LADDER[this.rippleIdx]!));
+    const a = cssW / cssH;
+    const w = a >= 1 ? long : Math.max(48, Math.round(long * a));
+    const h = a >= 1 ? Math.max(48, Math.round(long / a)) : long;
+    lookStatus.ripple = `${w}×${h}`;
+    if (this.waveTex && this.waveTex.w === w && this.waveTex.h === h) return;
+    const d = this.device;
+    this.waveBuf?.forEach((b) => b.destroy());
+    const old = this.waveTex;
+    if (old) void d.queue.onSubmittedWorkDone().then(() => old.tex.destroy());
+    const mk = () => d.createBuffer({ size: w * h * 8, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+    this.waveBuf = [mk(), mk()];
+    this.waveCur = 0;
+    const t = d.createTexture({
+      size: [w, h],
+      format: HDR,
+      usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING,
+    });
+    this.waveTex = { tex: t, view: t.createView(), w, h };
+    const wb = this.waveBuf;
+    this.bgWave = [0, 1].map((from) =>
+      d.createBindGroup({
+        layout: this.pWave.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.waveU } },
+          { binding: 1, resource: { buffer: wb[from]! } },
+          { binding: 2, resource: { buffer: wb[1 - from]! } },
+        ],
+      }),
+    ) as [GPUBindGroup, GPUBindGroup];
+    this.bgWPack = [0, 1].map((from) =>
+      d.createBindGroup({
+        layout: this.pWPack.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: { buffer: this.waveU } },
+          { binding: 1, resource: { buffer: wb[from]! } },
+          { binding: 2, resource: this.waveTex!.view },
+        ],
+      }),
+    ) as [GPUBindGroup, GPUBindGroup];
+    this.bgSim = null;
+    this.bgScene = null;
+  }
+
+  private pushImpulse(x: number, y: number, radius: number, amp: number) {
+    if (this.impulses.length >= 4) this.impulses.shift();
+    this.impulses.push([x, y, radius, amp * (look.reducedMotion ? 0.35 : 1)]);
+  }
+
   // ---------------------------------------------------------------- bind groups
 
   private ensureBindGroups() {
@@ -630,6 +731,7 @@ export class RDGpuEngine implements FieldEngine {
             { binding: 3, resource: { buffer: lockBuf } },
             { binding: 4, resource: this.imgTex.createView() },
             { binding: 5, resource: this.sampClamp },
+            { binding: 6, resource: this.waveTex!.view },
           ],
         });
       this.bgSim = [mk(0), mk(1)];
@@ -676,18 +778,43 @@ export class RDGpuEngine implements FieldEngine {
         { binding: 2, resource: this.lutTex.createView() },
         { binding: 3, resource: this.sampRep },
         { binding: 4, resource: this.sampClamp },
+        { binding: 5, resource: this.waveTex!.view },
       ],
     });
   }
 
+  /** Scene + three bloom levels (½, ¼, ⅛) and their bind groups. */
+  private makeChain(w: number, h: number, pFinal: GPURenderPipeline): Chain {
+    const scene = this.makeTex(w, h);
+    const b1 = this.makeTex(Math.max(1, w >> 1), Math.max(1, h >> 1));
+    const b2 = this.makeTex(Math.max(1, b1.w >> 1), Math.max(1, b1.h >> 1));
+    const b3 = this.makeTex(Math.max(1, b2.w >> 1), Math.max(1, b2.h >> 1));
+    return {
+      w,
+      h,
+      scene,
+      b1,
+      b2,
+      b3,
+      bgBloom: this.bloomBindGroup(this.pBloom, scene),
+      bgDown2: this.bloomBindGroup(this.pDown, b1),
+      bgDown3: this.bloomBindGroup(this.pDown, b2),
+      bgFinal: this.finalBindGroup(pFinal, scene, b1, b2, b3),
+    };
+  }
+
+  private destroyChain(c: Chain | null) {
+    if (!c) return;
+    c.scene.tex.destroy();
+    c.b1.tex.destroy();
+    c.b2.tex.destroy();
+    c.b3.tex.destroy();
+  }
+
   private ensureTargets(w: number, h: number) {
-    if (this.scene && this.scene.w === w && this.scene.h === h && this.bgFinal) return;
-    this.scene?.tex.destroy();
-    this.bloom?.tex.destroy();
-    this.scene = this.makeTex(w, h);
-    this.bloom = this.makeTex(Math.max(1, w >> 1), Math.max(1, h >> 1));
-    this.bgBloom = this.bloomBindGroup(this.pBloom, this.scene);
-    this.bgFinal = this.finalBindGroup(this.pFinal, this.scene, this.bloom);
+    if (this.chain && this.chain.w === w && this.chain.h === h) return;
+    this.destroyChain(this.chain);
+    this.chain = this.makeChain(w, h, this.pFinal);
   }
 
   private makeTex(w: number, h: number): Tex {
@@ -710,14 +837,16 @@ export class RDGpuEngine implements FieldEngine {
     });
   }
 
-  private finalBindGroup(p: GPURenderPipeline, scene: Tex, bloom: Tex) {
+  private finalBindGroup(p: GPURenderPipeline, scene: Tex, b1: Tex, b2: Tex, b3: Tex) {
     return this.device.createBindGroup({
       layout: p.getBindGroupLayout(0),
       entries: [
         { binding: 0, resource: { buffer: this.viewU } },
         { binding: 1, resource: scene.view },
-        { binding: 2, resource: bloom.view },
+        { binding: 2, resource: b1.view },
         { binding: 3, resource: this.sampClamp },
+        { binding: 4, resource: b2.view },
+        { binding: 5, resource: b3.view },
       ],
     });
   }
@@ -735,12 +864,24 @@ export class RDGpuEngine implements FieldEngine {
       return;
     }
     const budget = look.maxFps > 0 ? 1000 / look.maxFps : 16.7;
-    if (this.ema > budget * 1.22) {
-      // Steps first, then sim grid. Output resolution is never lowered.
+    const stepDown = () => {
       const i = STEP_LADDER.findIndex((s) => s >= this.stepCap);
-      if (i > 1) {
-        this.stepCap = STEP_LADDER[i - 1]!;
-      } else if (this.scaleIdx < SCALE_LADDER.length - 1) {
+      this.stepCap = STEP_LADDER[Math.max(0, i - 1)]!;
+    };
+    const stepUp = () => {
+      const i = STEP_LADDER.findIndex((s) => s >= this.stepCap);
+      this.stepCap = STEP_LADDER[Math.min(STEP_LADDER.length - 1, i + 1)]!;
+    };
+    if (this.ema > budget * 1.22) {
+      // Order: steps (to 16) → bloom passes → ripple grid → steps (to 6) →
+      // sim grid. None of these touch the output resolution, so it never blurs.
+      if (this.stepCap > 16) stepDown();
+      else if (this.bloomPasses > 1) this.bloomPasses--;
+      else if (this.rippleIdx < RIPPLE_LADDER.length - 1) {
+        this.rippleIdx++;
+        this.fitWave();
+      } else if (this.stepCap > STEP_LADDER[0]!) stepDown();
+      else if (this.scaleIdx < SCALE_LADDER.length - 1) {
         this.scaleIdx++;
         this.fitSim();
       }
@@ -748,13 +889,15 @@ export class RDGpuEngine implements FieldEngine {
       this.ema = budget;
     } else if (this.ema < budget * 0.82) {
       const max = isCoarse() ? 24 : 40;
-      if (this.scaleIdx > 0 && this.stepCap >= 16) {
+      if (this.stepCap < 16) stepUp();
+      else if (this.scaleIdx > 0) {
         this.scaleIdx--;
         this.fitSim();
-      } else if (this.stepCap < max) {
-        const i = STEP_LADDER.findIndex((s) => s >= this.stepCap);
-        this.stepCap = STEP_LADDER[Math.min(STEP_LADDER.length - 1, i + 1)]!;
-      }
+      } else if (this.rippleIdx > 0) {
+        this.rippleIdx--;
+        this.fitWave();
+      } else if (this.bloomPasses < 3) this.bloomPasses++;
+      else if (this.stepCap < max) stepUp();
       this.cool = 240;
     }
   }
@@ -771,6 +914,7 @@ export class RDGpuEngine implements FieldEngine {
     if (this.failed || !this.state) return;
     if (this.inFlight >= 2) {
       // GPU is behind: skip this frame's work but keep audio/UI ticking.
+      this.carryDt = Math.min(0.1, this.carryDt + dt);
       try {
         this.onFrame?.(dt, runtime.stats);
       } catch {
@@ -779,6 +923,9 @@ export class RDGpuEngine implements FieldEngine {
       return;
     }
     this.governor(dt);
+    // Animation time keeps pace even when frames were skipped.
+    dt = Math.min(0.1, dt + this.carryDt);
+    this.carryDt = 0;
     if (runtime.seedNonce !== this.seedSeen) this.seed();
     if (runtime.scatterNonce !== this.scatterSeen) this.scatterSeen = runtime.scatterNonce;
     tickMorph(dt);
@@ -815,18 +962,64 @@ export class RDGpuEngine implements FieldEngine {
     const poseTarget = posed ? 0.48 + 0.9 * north + 0.28 * east : breathe;
     this.smoothScale += (poseTarget - this.smoothScale) * 0.04;
     const grain = posed ? 1 : Math.max(1, Math.min(1.7, Math.min(this.simW, this.simH) / 1100));
-    let feed = params.feed + b.bass * heard * 0.02 + (posed ? sense.pitch * 0.012 + (north - 0.5) * 0.006 + stir * 0.006 : 0);
-    let kill = params.kill - b.mid * heard * 0.012 + (posed ? -sense.roll * 0.01 + (east - 0.5) * 0.005 : 0);
+    // Looks may pull the chemistry toward a regime (dense spots, coral web…).
+    const reg = p.regime ? REGIMES.find((r) => r.id === p.regime) : undefined;
+    const pull = reg ? p.regimePull : 0;
+    const baseFeed = reg ? params.feed + (reg.feed - params.feed) * pull : params.feed;
+    const baseKill = reg ? params.kill + (reg.kill - params.kill) * pull : params.kill;
+    let feed = baseFeed + b.bass * heard * 0.02 + (posed ? sense.pitch * 0.012 + (north - 0.5) * 0.006 + stir * 0.006 : 0);
+    let kill = baseKill - b.mid * heard * 0.012 + (posed ? -sense.roll * 0.01 + (east - 0.5) * 0.005 : 0);
     // v2: the music breathes through the chemistry.
     feed += this.sBass * 0.0045 * k;
     kill += (this.sCen - 0.4) * 0.0035 * k;
-    let du = params.du * (1 + b.high * heard * 0.4) * this.smoothScale * grain * look.scale * (1 + this.sHigh * 0.08 * k);
-    let dv = params.dv * (1 - b.bass * heard * 0.22) * this.smoothScale * grain * look.scale;
+    let du = params.du * (1 + b.high * heard * 0.4) * this.smoothScale * grain * look.scale * p.scaleMul * (1 + this.sHigh * 0.08 * k);
+    let dv = params.dv * (1 - b.bass * heard * 0.22) * this.smoothScale * grain * look.scale * p.scaleMul;
     let simDt = Math.max(
       0.35,
       Math.min(posed ? 1.85 : 2.1, params.speed * (posed ? 1.05 + stir * 0.35 : grain) * (1 + b.rms * heard * 0.7 + runtime.beat * 0.35)),
     );
     if (look.reducedMotion) simDt *= 0.6;
+    simDt *= p.speedMul;
+
+    // ---- Ripple layer impulses: strong onsets at the centre, touches where they land.
+    this.sMid = approach(this.sMid, f.mid, dt, 0.2);
+    this.tighten = approach(this.tighten, Math.round(this.sCen * 6) / 2, dt, 0.12);
+    const onsetEdge = f.onset > 0.95 && this.prevOnset <= 0.95;
+    this.prevOnset = f.onset;
+    const strong = onsetEdge && (f.flux > 0.28 || f.bass > 0.45 || f.sub > 0.45);
+    if (strong) this.pushImpulse(0.5, 0.5, 0.045, (1.1 + Math.min(1, f.flux * 1.5)) * k);
+    let touchKick = false;
+    for (let i = 0; i < MAX_RIPPLES; i++) {
+      const r = f.ripples[i]!;
+      if (r.t === this.waveSeen[i] || r.strength <= 0 || f.now - r.t > 1) continue;
+      this.waveSeen[i] = r.t;
+      this.pushImpulse(r.x, r.y, 0.022, 0.55 * r.strength);
+      if (!r.seed && r.strength > 0.3) touchKick = true;
+    }
+    // ---- Fluidica: lattice holds until a bass drop (or a kick/touch) shatters it.
+    if (p.id !== this.lastVisual) {
+      this.lastVisual = p.id;
+      this.gridPin = 0;
+      this.gridTarget = 1;
+      this.shatterAt = -1e9;
+    }
+    if (p.grid.kind === "diamond") {
+      if (this.gridTarget === 0 && this.time - this.shatterAt > 30) this.gridTarget = 1;
+      const armed = this.gridTarget === 1 && this.gridPin > 0.6;
+      const drop = onsetEdge && (this.sBass > 0.35 || f.sub > 0.45 || f.flux > 0.5);
+      if (armed && (drop || touchKick)) {
+        this.gridTarget = 0;
+        this.shatterAt = this.time;
+        this.shatterGlow = 1;
+        this.pushImpulse(0.5, 0.5, 0.07, 3.2);
+      }
+      this.gridPin = approach(this.gridPin, this.gridTarget, dt, this.gridTarget > this.gridPin ? 2.5 : 0.25);
+      lookStatus.grid = this.gridTarget === 1 ? (armed ? "lattice" : "forming") : "shattered";
+    } else {
+      this.gridPin = 0;
+      lookStatus.grid = "";
+    }
+    this.shatterGlow *= Math.exp(-1.4 * dt);
 
     // Orientation from tilt (or compass, or a slow drift).
     const tilt = Math.hypot(control.tiltX, control.tiltY);
@@ -912,7 +1105,20 @@ export class RDGpuEngine implements FieldEngine {
       }
       v4(r.x, 1 - r.y, 0.012 + 0.022 * r.strength, amt);
     }
+    v4(p.ripple.feed * k, p.ripple.kill * 8 * k, this.gridPin, p.grid.kind === "diamond" ? p.grid.n : 0);
+    v4(p.grid.width, 0.15, 0, 0);
     this.device.queue.writeBuffer(this.simU, 0, s);
+
+    // Wave uniforms (impulses are spread over the substeps).
+    this.fitWave();
+    const wd = this.waveData;
+    wd.fill(0);
+    const ww = this.waveTex!.w;
+    const wh = this.waveTex!.h;
+    wd.set([ww, wh, 1 / ww, 1 / wh, 0.22, 0.996, 1 / WAVE_SUBSTEPS, ww / wh], 0);
+    this.impulses.forEach((im, i) => wd.set(im, 8 + i * 4));
+    this.impulses.length = 0;
+    this.device.queue.writeBuffer(this.waveU, 0, wd);
 
     // Pack uniforms (lock ghosts).
     const pw = this.packData;
@@ -931,6 +1137,17 @@ export class RDGpuEngine implements FieldEngine {
     const gx = Math.ceil(this.simW / 16);
     const gy = Math.ceil(this.simH / 16);
     const cp = enc.beginComputePass();
+    const wgx = Math.ceil(this.waveTex!.w / 16);
+    const wgy = Math.ceil(this.waveTex!.h / 16);
+    cp.setPipeline(this.pWave);
+    for (let i = 0; i < WAVE_SUBSTEPS; i++) {
+      cp.setBindGroup(0, this.bgWave![this.waveCur]!);
+      cp.dispatchWorkgroups(wgx, wgy);
+      this.waveCur = 1 - this.waveCur;
+    }
+    cp.setPipeline(this.pWPack);
+    cp.setBindGroup(0, this.bgWPack![this.waveCur]!);
+    cp.dispatchWorkgroups(wgx, wgy);
     cp.setPipeline(this.pSim);
     for (let i = 0; i < steps; i++) {
       cp.setBindGroup(0, this.bgSim![this.cur]!);
@@ -1017,6 +1234,18 @@ export class RDGpuEngine implements FieldEngine {
       const on = age >= 0 && age < 3.5 ? r.strength * (look.reducedMotion ? 0.3 : 1) : 0;
       v4(r.x, r.y, Math.max(0, age), on);
     }
+    // Lighting pass, ripple layer, grids, modal overlay, bloom chain.
+    const lp = p.light;
+    v4(lp.roughness, lp.film, lp.filmPhase + this.sCen * 0.2, lp.wrap);
+    v4(lp.ao, lp.emissive, lp.key, lp.fill);
+    v4(lp.keyColor[0], lp.keyColor[1], lp.keyColor[2], lp.sss);
+    v4(lp.fillColor[0], lp.fillColor[1], lp.fillColor[2], lp.normalNoise);
+    const calmW = look.reducedMotion ? 0.3 : 1;
+    v4(p.ripple.refract, p.grid.glow, p.grid.n, p.warp * calmW);
+    v4(0.35 + this.sBass * 1.4, this.sMid * 1.2, this.sHigh * 1.4, p.modal);
+    v4(this.tighten, this.shatterGlow * 0.5, p.ripple.normal, p.grid.width);
+    const lv = p.bloomLevels;
+    v4(lv[0], this.bloomPasses >= 2 ? lv[1] : 0, this.bloomPasses >= 3 ? lv[2] : 0, p.bloomThreshold);
   }
 
   private renderTo(enc: GPUCommandEncoder, p: VisualPreset, _time: number, capture: { view: GPUTextureView; w: number; h: number } | null) {
@@ -1038,25 +1267,16 @@ export class RDGpuEngine implements FieldEngine {
     }
     this.packView(p, w, h);
     this.device.queue.writeBuffer(this.viewU, 0, this.viewData);
-    let scene: Tex;
-    let bloom: Tex;
-    let bgBloom: GPUBindGroup;
-    let bgFinal: GPUBindGroup;
+    let ch: Chain;
     let pFinal: GPURenderPipeline;
     let out: GPUTextureView;
     if (capture) {
-      scene = this.makeTex(w, h);
-      bloom = this.makeTex(Math.max(1, w >> 1), Math.max(1, h >> 1));
       pFinal = this.pFinalCap!;
-      bgBloom = this.bloomBindGroup(this.pBloom, scene);
-      bgFinal = this.finalBindGroup(pFinal, scene, bloom);
+      ch = this.makeChain(w, h, pFinal);
       out = capture.view;
     } else {
       this.ensureTargets(w, h);
-      scene = this.scene!;
-      bloom = this.bloom!;
-      bgBloom = this.bgBloom!;
-      bgFinal = this.bgFinal!;
+      ch = this.chain!;
       pFinal = this.pFinal;
       out = this.ctx.getCurrentTexture().createView();
     }
@@ -1069,16 +1289,16 @@ export class RDGpuEngine implements FieldEngine {
       rp.draw(3);
       rp.end();
     };
-    pass(scene.view, this.pScene, this.bgScene!);
-    pass(bloom.view, this.pBloom, bgBloom);
-    pass(out, pFinal, bgFinal);
+    pass(ch.scene.view, this.pScene, this.bgScene!);
+    pass(ch.b1.view, this.pBloom, ch.bgBloom);
+    const passes = capture ? 3 : this.bloomPasses;
+    if (passes >= 2) pass(ch.b2.view, this.pDown, ch.bgDown2);
+    if (passes >= 3) pass(ch.b3.view, this.pDown, ch.bgDown3);
+    pass(out, pFinal, ch.bgFinal);
+    lookStatus.bloom = this.bloomPasses;
     if (capture) {
-      const sc = scene;
-      const bl = bloom;
-      void this.device.queue.onSubmittedWorkDone().then(() => {
-        sc.tex.destroy();
-        bl.tex.destroy();
-      });
+      const c = ch;
+      void this.device.queue.onSubmittedWorkDone().then(() => this.destroyChain(c));
     }
   }
 

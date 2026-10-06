@@ -52,6 +52,8 @@ struct SimU {
   brush: array<vec4f, 8>,
   trail: array<vec4f, 8>,
   seeds: array<vec4f, 8>, // x, y, radius, amount (per step)
+  wave: vec4f,    // ripple→feed gain, ripple→kill gain, gridPin, gridN
+  wave2: vec4f,   // grid line width, grid refraction, 0, 0
 };
 
 @group(0) @binding(0) var<uniform> u: SimU;
@@ -60,6 +62,7 @@ struct SimU {
 @group(0) @binding(3) var<storage, read> lockB: array<vec2f>;
 @group(0) @binding(4) var imgTex: texture_2d<f32>;
 @group(0) @binding(5) var samp: sampler;
+@group(0) @binding(6) var rippleTex: texture_2d<f32>; // h, dh/dx, dh/dy (top-down)
 
 fn idx(x: i32, y: i32) -> u32 {
   let w = i32(u.res.x);
@@ -176,8 +179,11 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 
   // Style map: blend the species regime with a drifting second regime.
   let m = styleMask(uv, q) * u.rd2.w;
-  let F = mix(u.rd.x, u.rd2.y, m);
-  let K = mix(u.rd.y, u.rd2.z, m);
+  // Ripple layer: crests feed growth, steep wave fronts raise kill, so the
+  // waves visibly reshape the pattern rather than just sliding over it.
+  let rv = textureSampleLevel(rippleTex, samp, vec2f(uv.x, 1.0 - uv.y), 0.0);
+  let F = clamp(mix(u.rd.x, u.rd2.y, m) + u.wave.x * rv.x, 0.006, 0.1);
+  let K = clamp(mix(u.rd.y, u.rd2.z, m) + u.wave.y * length(rv.yz), 0.03, 0.08);
   var A = c.x;
   var B = c.y;
   let r = A * B * B;
@@ -186,6 +192,21 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
 
   A = mix(A, 0.5, s);
   B = mix(B, 1.0, s);
+
+  // Fluidica: hold a diamond lattice (refracted by the ripples) until a
+  // bass-drop releases it into a branching web.
+  let pin = u.wave.z;
+  if (pin > 0.001) {
+    let gN = u.wave.w;
+    let gq = q + vec2f(rv.y, -rv.z) * u.wave2.y;
+    let d1 = abs(fract((gq.x + gq.y) * gN) - 0.5);
+    let d2 = abs(fract((gq.x - gq.y) * gN) - 0.5);
+    let dl = min(d1, d2);
+    let pxw = 1.5 * gN * u.res.w;
+    let line = 1.0 - smoothstep(u.wave2.x, u.wave2.x + pxw, dl);
+    B = mix(B, max(B * (0.15 + 0.85 * line), line * 0.42), pin * 0.22);
+    A = mix(A, mix(1.0, 0.45, line), pin * 0.22);
+  }
 
   let minSide = min(u.res.x, u.res.y);
   let bd = (uv - u.pts.zw) * u.res.xy;
@@ -241,6 +262,82 @@ fn main(@builtin(global_invocation_id) gid: vec3u) {
   let nz = hash21(vec2f(gid.xy) + vec2f(floor(u.flow.w * 6.0) * 17.0, 3.0));
   B = B + (nz - 0.5) * 0.00045;
   dst[u32(y) * W + u32(x)] = vec2f(clamp(A, 0.0, 1.0), clamp(B, 0.0, 1.0));
+}
+`;
+
+/**
+ * Ripple layer: low-res 2D wave equation, ping-pong (h, hPrev). Impulses are
+ * Gaussian kicks (onsets at the centre, touches where they land). Edges are
+ * damped so rings fade instead of reflecting. Grid is top-down (y down).
+ */
+export const WAVE = /* wgsl */ `
+struct WaveU {
+  res: vec4f,              // w, h, 1/w, 1/h
+  p: vec4f,                // c², damping, substep impulse scale, aspect
+  imp: array<vec4f, 4>,    // x, y (0..1, y down), radius (0..1 of height), amplitude
+};
+@group(0) @binding(0) var<uniform> u: WaveU;
+@group(0) @binding(1) var<storage, read> src: array<vec2f>;
+@group(0) @binding(2) var<storage, read_write> dst: array<vec2f>;
+
+fn hAt(x: i32, y: i32) -> f32 {
+  let w = i32(u.res.x);
+  let h = i32(u.res.y);
+  return src[u32(clamp(y, 0, h - 1) * w + clamp(x, 0, w - 1))].x;
+}
+
+@compute @workgroup_size(16, 16)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  let W = u32(u.res.x);
+  let H = u32(u.res.y);
+  if (gid.x >= W || gid.y >= H) { return; }
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  let c = src[gid.y * W + gid.x];
+  let lap = hAt(x + 1, y) + hAt(x - 1, y) + hAt(x, y + 1) + hAt(x, y - 1) - 4.0 * c.x;
+  var nh = (2.0 * c.x - c.y + u.p.x * lap) * u.p.y;
+  let ex = f32(min(min(x, i32(W) - 1 - x), min(y, i32(H) - 1 - y)));
+  nh = nh * mix(0.86, 1.0, clamp(ex / 10.0, 0.0, 1.0));
+  let uv = (vec2f(gid.xy) + 0.5) * u.res.zw;
+  for (var k = 0; k < 4; k = k + 1) {
+    let im = u.imp[k];
+    if (abs(im.w) > 0.00001) {
+      let d = length((uv - im.xy) * vec2f(u.p.w, 1.0)) / max(im.z, 0.004);
+      nh = nh + im.w * u.p.z * exp(-d * d);
+    }
+  }
+  dst[gid.y * W + gid.x] = vec2f(clamp(nh, -4.0, 4.0), c.x);
+}
+`;
+
+/** Ripple height + gradient into a filterable texture for the sim and scene. */
+export const WPACK = /* wgsl */ `
+struct WaveU {
+  res: vec4f,
+  p: vec4f,
+  imp: array<vec4f, 4>,
+};
+@group(0) @binding(0) var<uniform> u: WaveU;
+@group(0) @binding(1) var<storage, read> state: array<vec2f>;
+@group(0) @binding(2) var outTex: texture_storage_2d<rgba16float, write>;
+
+fn hAt(x: i32, y: i32) -> f32 {
+  let w = i32(u.res.x);
+  let h = i32(u.res.y);
+  return state[u32(clamp(y, 0, h - 1) * w + clamp(x, 0, w - 1))].x;
+}
+
+@compute @workgroup_size(16, 16)
+fn main(@builtin(global_invocation_id) gid: vec3u) {
+  let W = u32(u.res.x);
+  let H = u32(u.res.y);
+  if (gid.x >= W || gid.y >= H) { return; }
+  let x = i32(gid.x);
+  let y = i32(gid.y);
+  let h = hAt(x, y);
+  let gx = (hAt(x + 1, y) - hAt(x - 1, y)) * 0.5;
+  let gy = (hAt(x, y + 1) - hAt(x, y - 1)) * 0.5;
+  textureStore(outTex, gid.xy, vec4f(h, gx, gy, 1.0));
 }
 `;
 
@@ -342,6 +439,14 @@ struct ViewU {
   fx: vec4f,      // bloom, haze, grain, vignette
   tint: vec4f,    // haze rgb, playAmp
   ripples: array<vec4f, 8>, // x, y (0..1, y down), age, strength
+  lp0: vec4f,     // roughness, thin-film strength, film phase, wrap
+  lp1: vec4f,     // cavity AO, emissive gain, key intensity, fill intensity
+  keyc: vec4f,    // key rgb (warm), faux SSS
+  fillc: vec4f,   // fill rgb (cool), fine normal noise
+  rip: vec4f,     // ripple refraction, grid glow, grid N, breathing warp
+  modal: vec4f,   // bass, mid, high band amplitudes, modal strength
+  modal2: vec4f,  // tighten (centroid), shatter glow, ripple normal gain, grid width
+  bw: vec4f,      // bloom level weights (½, ¼, ⅛), bright-pass threshold
 };
 @group(0) @binding(0) var<uniform> u: ViewU;
 
@@ -357,6 +462,41 @@ export const SCENE = NOISE + VIEW + /* wgsl */ `
 @group(0) @binding(2) var lutTex: texture_2d<f32>;
 @group(0) @binding(3) var sampRep: sampler;
 @group(0) @binding(4) var sampClamp: sampler;
+@group(0) @binding(5) var rippleTex: texture_2d<f32>;
+
+// ---- Lighting pass helpers (video-informed looks) ----
+fn schlick(cosT: f32, f0: f32) -> f32 {
+  return f0 + (1.0 - f0) * pow(1.0 - clamp(cosT, 0.0, 1.0), 5.0);
+}
+// GGX / Trowbridge-Reitz with Schlick-Smith visibility; view is +z (screen).
+fn ggx(n: vec3f, l: vec3f, rough: f32) -> f32 {
+  let vv = vec3f(0.0, 0.0, 1.0);
+  let hv = normalize(l + vv);
+  let a = max(rough * rough, 0.002);
+  let a2 = a * a;
+  let nh = max(dot(n, hv), 0.0);
+  let dd = nh * nh * (a2 - 1.0) + 1.0;
+  let D = a2 / (PI * dd * dd);
+  let nl = max(dot(n, l), 0.0);
+  let nv = max(n.z, 0.001);
+  let k = a * 0.5;
+  let G = (nl / (nl * (1.0 - k) + k)) * (nv / (nv * (1.0 - k) + k));
+  return D * G / max(4.0 * nv, 0.004);
+}
+fn wrapDiffuse(n: vec3f, l: vec3f, w: f32) -> f32 {
+  return max((dot(n, l) + w) / (1.0 + w), 0.0);
+}
+// Signed distance to the nearest hex-cell edge (cells of inradius 0.5).
+fn hexEdge(p: vec2f) -> f32 {
+  let r = vec2f(1.0, 1.7320508);
+  let hr = r * 0.5;
+  let a = p - r * floor(p / r) - hr;
+  let pb = p - hr;
+  let b = pb - r * floor(pb / r) - hr;
+  let g = select(b, a, dot(a, a) < dot(b, b));
+  let ga = abs(g);
+  return 0.5 - max(dot(ga, vec2f(0.5, 0.8660254)), ga.x);
+}
 
 fn lut(t: f32) -> vec3f {
   return textureSampleLevel(lutTex, sampClamp, vec2f(clamp(t, 0.0, 1.0) * 0.996 + 0.002, 0.25), 0.0).rgb;
@@ -397,7 +537,10 @@ fn fsScene(@builtin(position) fc: vec4f) -> @location(0) vec4f {
   if (mode > 1.5) { kMix = 1.0; }
   else if (mode > 0.5) { kMix = 1.0 - smoothstep(coreR * 0.97, coreR, r); }
   let fq = mix(q, kq * 0.92, kMix);
-  let suv = fq / vec2f(aspect, 1.0) + 0.5;
+  // Ripple layer refracts where the field is sampled; Oscillators also breathe.
+  let rv = textureSampleLevel(rippleTex, sampClamp, uv, 0.0);
+  let wv = u.rip.w * vec2f(sin(q.y * 2.7 + u.time.x * 0.31), cos(q.x * 2.3 - u.time.x * 0.27));
+  let suv = fq / vec2f(aspect, 1.0) + 0.5 + rv.yz * u.rip.x + wv;
 
   let st = fieldAt(suv);
   let v = st.y;
@@ -420,7 +563,8 @@ fn fsScene(@builtin(position) fc: vec4f) -> @location(0) vec4f {
   let spec = pow(max(dot(reflect(-L, nrm), vec3f(0.0, 0.0, 1.0)), 0.0), 18.0 + 46.0 * u.look.z) * u.look.z;
   let thread = 1.0 - smoothstep(0.0, aa * 1.6, abs(v - th));
   let iso = abs(fract(v * 6.0 + 0.5) - 0.5) / 6.0;
-  let isoLine = 1.0 - smoothstep(0.0, aa * 1.3, iso);
+  // No iso lines on the empty ground (B≈0), where noise made them speckle.
+  let isoLine = (1.0 - smoothstep(0.0, aa * 1.3, iso)) * smoothstep(0.02, 0.06, v);
 
   let mat = i32(u.look.x);
   let edge = u.look.w;
@@ -479,8 +623,94 @@ fn fsScene(@builtin(position) fc: vec4f) -> @location(0) vec4f {
     col = col + (1.0 - smoothstep(0.0, 0.07, r)) * accent(tm * 0.02 + cen) * (0.25 + bass * 0.35);
   } else if (mat == 6) {
     col = lutWrap(t + u.look2.y) * (0.58 + 0.52 * diff) + spec * 0.35 + thread * edge * lutWrap(t + 0.5 + u.look2.y) * 0.6;
-  } else {
+  } else if (mat == 7) {
     col = col * (0.4 + 0.72 * diff) + spec * 0.5 + thread * edge * vec3f(1.0, 0.9, 0.6) * 0.7;
+  } else {
+    // ---- Lighting pass: height/normal from the RD field (+ ripple heights).
+    let rg = u.modal2.z;
+    let Ek = 3.0 + u.look.y * 14.0;
+    var nL = normalize(vec3f(-gx * Ek - rv.y * rg, -gy * Ek - rv.z * rg, 1.0));
+    if (u.fillc.w > 0.0) {
+      let nn = vec2f(hash21(floor(suv * u.sim.xy)), hash21(floor(suv * u.sim.xy) + 17.0)) - 0.5;
+      nL = normalize(nL + vec3f(nn * u.fillc.w, 0.0));
+    }
+    let Lk = L;
+    let Lf = normalize(vec3f(0.75, 0.25, 0.55));
+    let ndv = clamp(nL.z, 0.0, 1.0);
+    let rough = u.lp0.x;
+    let o3 = px * 3.0;
+    let blurB = (fieldAt(suv + o3).y + fieldAt(suv - o3).y + fieldAt(suv + vec2f(o3.x, -o3.y)).y + fieldAt(suv + vec2f(-o3.x, o3.y)).y) * 0.25;
+    let cav = mix(1.0, clamp(1.0 - max(blurB - v, 0.0) * 7.0, 0.0, 1.0), u.lp1.x);
+    let keyS = ggx(nL, Lk, rough) * u.lp1.z;
+    let fillS = ggx(nL, Lf, min(1.0, rough * 1.5)) * u.lp1.w;
+    let kd = wrapDiffuse(nL, Lk, u.lp0.w);
+    let fd = wrapDiffuse(nL, Lf, u.lp0.w);
+    let fres = schlick(ndv, 0.04);
+    let em = u.lp1.y;
+
+    if (mat == 8) {
+      // Iridescent: inky navy body, thin-film cyan→magenta→gold by Fresnel.
+      let film = accent(u.lp0.z + (1.0 - ndv) * 1.7 + v * 0.9 + tm * 0.008 + cen * 0.15);
+      col = lut(t) * (0.35 + 0.65 * kd) * cav;
+      let bodyI = smoothstep(0.02, th + 0.08, v);
+      col = col + film * u.lp0.y * (0.18 + 1.1 * fres) * (0.06 + 0.94 * bodyI);
+      col = col + u.keyc.rgb * keyS + u.fillc.rgb * fillS;
+      col = col + film * isoLine * edge * 0.55 * em + film * thread * 0.35 * em;
+    } else if (mat == 9) {
+      // Oscillators: slate-teal valleys → peach/gold peaks, velvet + cavity AO.
+      let roll = sin(q.x * 3.1 + tm * 0.21) * cos(q.y * 2.3 - tm * 0.17);
+      let H = clamp(v * 2.2, 0.0, 1.0) * 0.72 + (roll * 0.5 + 0.5) * 0.28;
+      let pal = lut(smoothstep(0.04, 0.96, H));
+      let sheen = pow(1.0 - ndv, 3.0) * 0.25;
+      let sss = u.keyc.rgb * pow(H, 3.0) * u.keyc.w * (0.4 + 0.6 * (1.0 - kd));
+      col = pal * (0.1 + kd * u.lp1.z * u.keyc.rgb + fd * u.lp1.w * u.fillc.rgb) * cav;
+      col = col + sss + sheen * u.fillc.rgb + vec3f(keyS * 0.25);
+    } else if (mat == 10) {
+      // Hex Cymatic: dark glossy base, AA hex grid refracted by ripples,
+      // modal sin(nx)sin(my) web keyed to the bands, HDR amber glow.
+      col = lut(t) * 0.3 * (0.4 + 0.6 * kd) * cav + u.keyc.rgb * keyS * 0.5 + u.fillc.rgb * fillS * 0.4;
+      let gp = (q + rv.yz * u.rip.x * 1.8) * u.rip.z;
+      let he = hexEdge(gp);
+      let aaH = max(fwidth(he) * 1.2, 0.0008);
+      let gw = u.modal2.w;
+      let hexL = 1.0 - smoothstep(gw - aaH, gw + aaH, he);
+      let tq = gp * 2.0;
+      let t1 = abs(fract(tq.x) - 0.5);
+      let t2 = abs(fract(dot(tq, vec2f(0.5, 0.8660254))) - 0.5);
+      let t3 = abs(fract(dot(tq, vec2f(-0.5, 0.8660254))) - 0.5);
+      let tri = min(t1, min(t2, t3));
+      let aaT = max(fwidth(tri) * 1.2, 0.0008);
+      let triL = (1.0 - smoothstep(gw * 0.5 - aaT, gw * 0.5 + aaT, tri)) * 0.18;
+      let centreW = 0.3 + 0.7 * (1.0 - smoothstep(0.15, 0.85, r));
+      let mx = q * 2.0;
+      let tg = u.modal2.x;
+      let n1 = 2.0 + tg;
+      let n2 = 4.0 + tg * 2.0;
+      let n3 = 7.0 + tg * 3.0;
+      // Antisymmetric pairs of sin(nx)·sin(my) modes give Chladni nodal webs;
+      // each audio band weights one mode, centroid "tightens" the order.
+      let a1 = cos(n1 * PI * mx.x) * cos((n1 + 2.0) * PI * mx.y) + cos((n1 + 2.0) * PI * mx.x) * cos(n1 * PI * mx.y);
+      let a2 = sin(n2 * PI * mx.x) * sin((n2 + 3.0) * PI * mx.y) + sin((n2 + 3.0) * PI * mx.x) * sin(n2 * PI * mx.y);
+      let a3 = cos(n3 * PI * length(mx)) * 0.7;
+      let mval = u.modal.x * a1 + u.modal.y * a2 + u.modal.z * a3;
+      let aaM = max(fwidth(mval) * 1.2, 0.0015);
+      let web = (1.0 - smoothstep(0.0, aaM * 1.5 + 0.004, abs(mval))) * u.modal.w * (1.0 - smoothstep(0.35, 0.8, r));
+      let glow = accent(0.3 + v * 0.5 + cen * 0.2);
+      let pulse = 0.55 + bass * 0.9 + abs(rv.x) * 0.8;
+      col = col + glow * (hexL + triL) * u.rip.y * pulse * em * centreW;
+      col = col + accent(0.7) * web * em * 0.6;
+      col = col + glow * thread * edge * em * 0.4;
+    } else {
+      // Fluidica: #080C16 oily liquid, silver Fresnel highlights, gold web.
+      let base = vec3f(0.031, 0.047, 0.086) * (0.55 + 0.45 * (1.0 - smoothstep(0.1, 0.9, r)));
+      col = base * (0.5 + 0.5 * kd);
+      col = col + u.fillc.rgb * fres * (0.55 + 0.9 * fd) + u.fillc.rgb * fillS + u.keyc.rgb * keyS * 0.6;
+      let body = smoothstep(th - aa, th + aa, v);
+      let hot = smoothstep(0.12, 0.5, v);
+      let webC = lut(0.45 + 0.55 * hot);
+      col = col + webC * (body * 0.3 + thread * 0.7 + hot * hot * 0.25) * em * (0.75 + 0.35 * bass) * cav;
+      col = col + webC * u.modal2.y * smoothstep(0.0, 0.6, abs(rv.x));
+    }
   }
 
   // MorphoMark ghosts.
@@ -514,13 +744,32 @@ export const BLOOM = VIEW + /* wgsl */ `
 fn tap(uv: vec2f) -> vec3f {
   let c = textureSampleLevel(sceneTex, sampClamp, uv, 0.0).rgb;
   let l = max(c.r, max(c.g, c.b));
-  // Bass lowers the bloom knee a touch (also keeps binding 0 in the auto layout).
-  return c * smoothstep(0.55 - u.audio.x * 0.08, 1.25, l);
+  // Per-look bright-pass knee; bass lowers it a touch.
+  let th = u.bw.w - u.audio.y * 0.08;
+  return c * smoothstep(th, th + 0.7, l);
+}
+
+// Down-sample + 9-tap tent (no threshold) for the ¼ and ⅛ bloom levels.
+@fragment
+fn fsDown(@builtin(position) fc: vec4f) -> @location(0) vec4f {
+  let dims = vec2f(max(textureDimensions(sceneTex) / 2u, vec2u(1u)));
+  let uv = fc.xy / dims;
+  let p = 1.0 / vec2f(textureDimensions(sceneTex));
+  var c = textureSampleLevel(sceneTex, sampClamp, uv, 0.0).rgb * 0.25;
+  c = c + (textureSampleLevel(sceneTex, sampClamp, uv + vec2f(p.x * 1.5, 0.0), 0.0).rgb
+         + textureSampleLevel(sceneTex, sampClamp, uv - vec2f(p.x * 1.5, 0.0), 0.0).rgb
+         + textureSampleLevel(sceneTex, sampClamp, uv + vec2f(0.0, p.y * 1.5), 0.0).rgb
+         + textureSampleLevel(sceneTex, sampClamp, uv - vec2f(0.0, p.y * 1.5), 0.0).rgb) * 0.125;
+  c = c + (textureSampleLevel(sceneTex, sampClamp, uv + p * 1.5, 0.0).rgb
+         + textureSampleLevel(sceneTex, sampClamp, uv - p * 1.5, 0.0).rgb
+         + textureSampleLevel(sceneTex, sampClamp, uv + vec2f(p.x, -p.y) * 1.5, 0.0).rgb
+         + textureSampleLevel(sceneTex, sampClamp, uv + vec2f(-p.x, p.y) * 1.5, 0.0).rgb) * 0.0625;
+  return vec4f(c * (0.98 + u.bw.x * 0.0), 1.0);
 }
 
 @fragment
 fn fsBloom(@builtin(position) fc: vec4f) -> @location(0) vec4f {
-  let dims = vec2f(textureDimensions(sceneTex)) * 0.5;
+  let dims = vec2f(max(textureDimensions(sceneTex) / 2u, vec2u(1u)));
   let uv = fc.xy / dims;
   let p = 2.0 / dims;
   var c = tap(uv) * 0.16;
@@ -536,6 +785,8 @@ export const FINAL = NOISE + VIEW + /* wgsl */ `
 @group(0) @binding(1) var sceneTex: texture_2d<f32>;
 @group(0) @binding(2) var bloomTex: texture_2d<f32>;
 @group(0) @binding(3) var sampClamp: sampler;
+@group(0) @binding(4) var bloom2: texture_2d<f32>;
+@group(0) @binding(5) var bloom3: texture_2d<f32>;
 
 fn soft(c: f32) -> f32 {
   return select(c, 0.82 + 0.18 * (1.0 - exp(-(c - 0.82) / 0.18)), c > 0.82);
@@ -548,7 +799,9 @@ fn fsFinal(@builtin(position) fc: vec4f) -> @location(0) vec4f {
   let q = (uv - 0.5) * vec2f(aspect, 1.0);
   // Exact pixel fetch: the field is never filtered on the way out.
   var col = textureLoad(sceneTex, vec2i(fc.xy), 0).rgb;
-  let b = textureSampleLevel(bloomTex, sampClamp, uv, 0.0).rgb;
+  let b = textureSampleLevel(bloomTex, sampClamp, uv, 0.0).rgb * u.bw.x
+        + textureSampleLevel(bloom2, sampClamp, uv, 0.0).rgb * u.bw.y
+        + textureSampleLevel(bloom3, sampClamp, uv, 0.0).rgb * u.bw.z;
   col = col + b * u.fx.x * (1.0 + u.audio.y * 0.8 + u.audio.x * 0.4);
   let tm = u.time.x;
   let hz = vnoise(q * 1.4 + vec2f(tm * 0.011, -tm * 0.007)) * vnoise(q * 3.1 - vec2f(tm * 0.006, 0.0));

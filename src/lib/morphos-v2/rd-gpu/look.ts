@@ -39,4 +39,10 @@ export const lookStatus = {
   steps: 0,
   fps: 0,
   reason: "",
+  /** Bloom passes in use (3 → 1 under load). */
+  bloom: 3,
+  /** Ripple-layer grid, e.g. "320×200". */
+  ripple: "",
+  /** Fluidica lattice state: lattice | forming | shattered. */
+  grid: "",
 };

@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Aperture,
   AudioLines,
@@ -38,14 +38,44 @@ import type { MidiDevice } from "@/lib/morphogen/midi-out";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-/** MEMETiC tooltips — Hum / Hands / Field (M-21). */
+/** MEMETiC face copy — locked for M-24 (Play · Plant · Freeze · Sync). */
+const FACE_COPY = {
+  play: "Touch to hear the pitch under your finger.",
+  plant: "Drag to put new growth in the field.",
+  freeze: "Stop growth. Release lets it grow again.",
+  sync: "Connect MIDI and keep the beat. Permission only opens here.",
+} as const;
+
+/** Console tab hints (M-21). Sync one-liner matches FACE_COPY.sync. */
 const TAB_HINTS: Record<string, string> = {
   field: "How the pattern grows. F and k change the species; Default brings it home.",
   image: "Drop a photo onto the field, or use the camera.",
-  sense: "Touch plays the pitch under your finger. Drag plants new growth.",
+  sense: FACE_COPY.play + " " + FACE_COPY.plant,
   sound: "The steady tone underneath. Tilt the phone to brighten it.",
-  sync: "Stage path — TouchDesigner WebSocket and MIDI. MIDI permission is requested here, not on Enter.",
+  sync: FACE_COPY.sync,
 };
+
+/** Opaque dock chrome — solid #101216 family, no glass wash over the RD field (M-24). */
+const DOCK_PANEL =
+  "bg-bg-elevated text-fg shadow-[var(--shadow-border),0_16px_48px_rgba(0,0,0,0.62)]";
+
+/** M-06: highlight Play vs Plant from live hands/brushes — no new physics. */
+function useFieldFace(): "idle" | "play" | "plant" {
+  const [face, setFace] = useState<"idle" | "play" | "plant">("idle");
+  useEffect(() => {
+    let raf = 0;
+    const tick = () => {
+      const planting = runtime.brushes.length > 0;
+      const playing = runtime.hands.length > 0;
+      const next = planting ? "plant" : playing ? "play" : "idle";
+      setFace((prev) => (prev === next ? prev : next));
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+  return face;
+}
 
 const TABS = [
   { id: "field", label: "Field", icon: SlidersHorizontal },
@@ -298,6 +328,7 @@ export function ControlDock({
   const fileRef = useRef<HTMLInputElement>(null);
   const [face, setFace] = useState<"field" | "sound">("sound");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const fieldFace = useFieldFace();
 
   const hideChrome = () => {
     setSheetOpen(false);
@@ -310,6 +341,12 @@ export function ControlDock({
       setSheetOpen(true);
     }
   };
+  /** M-15: Sync lives behind the Stage door — not coequal with play faces. */
+  const openStage = () => {
+    setSheetOpen(false);
+    onTab("sync");
+    patch({ panelOpen: true });
+  };
 
   if (!panelOpen) {
     const fmt4 = (n: number) => n.toFixed(4);
@@ -318,19 +355,48 @@ export function ControlDock({
       <div
         data-ui
         className={cn(
-          "pointer-events-auto relative z-50 flex w-full flex-col-reverse overflow-hidden rounded-xl bg-bg/35 px-3 pt-3 pb-3 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:bottom-3 sm:w-80 sm:flex-col",
-          sheetOpen && "max-h-[min(72dvh,32rem)]",
+          "pointer-events-auto relative z-50 flex w-full flex-col-reverse overflow-hidden rounded-xl px-3 pt-3 pb-3 sm:absolute sm:right-3 sm:bottom-3 sm:w-80 sm:flex-col",
+          DOCK_PANEL,
+          // M-20: cap sheet height at laptop 1280×800 so Sound/Field scroll inside the card.
+          sheetOpen && "max-h-[min(68dvh,28rem)]",
         )}
       >
         <div className="flex shrink-0 flex-col gap-2">
-          <div className="flex items-center gap-1.5">
+          {/* Play · Plant · Freeze on-glass; Sync demoted behind Stage (M-24 / M-15). */}
+          <div className="grid grid-cols-4 gap-1">
+            <button
+              type="button"
+              className={cn(
+                "flex min-h-11 flex-col items-center justify-center rounded-sm px-1 text-center shadow-[var(--shadow-border)] transition-colors duration-150",
+                fieldFace === "play" ? "bg-fg text-bg" : "bg-bg-subtle text-fg hover:bg-fg/8",
+              )}
+              onClick={() => toast(FACE_COPY.play)}
+              aria-label={`Play — ${FACE_COPY.play}`}
+              title={FACE_COPY.play}
+              aria-pressed={fieldFace === "play"}
+            >
+              <span className="text-xs font-medium tracking-wide">Play</span>
+            </button>
+            <button
+              type="button"
+              className={cn(
+                "flex min-h-11 flex-col items-center justify-center rounded-sm px-1 text-center shadow-[var(--shadow-border)] transition-colors duration-150",
+                fieldFace === "plant" ? "bg-fg text-bg" : "bg-bg-subtle text-fg hover:bg-fg/8",
+              )}
+              onClick={() => toast(FACE_COPY.plant)}
+              aria-label={`Plant — ${FACE_COPY.plant}`}
+              title={FACE_COPY.plant}
+              aria-pressed={fieldFace === "plant"}
+            >
+              <span className="text-xs font-medium tracking-wide">Plant</span>
+            </button>
             <Button
               variant={lockCount > 0 ? "secondary" : "outline"}
               size="default"
-              className="min-h-11 flex-1"
+              className="min-h-11 px-1"
               onClick={onLock}
-              aria-label="Freeze: stop growth"
-              title="Freeze: stop growth. Release: let it grow again."
+              aria-label={`Freeze — ${FACE_COPY.freeze}`}
+              title={FACE_COPY.freeze}
             >
               <Layers />
               {lockCount > 0 ? `Freeze ${lockCount}` : "Freeze"}
@@ -338,11 +404,31 @@ export function ControlDock({
             <Button
               variant="ghost"
               size="default"
+              className="min-h-11 px-1"
+              onClick={openStage}
+              aria-label={`Stage — Sync. ${FACE_COPY.sync}`}
+              title={`Stage · Sync — ${FACE_COPY.sync}`}
+            >
+              <Radio />
+              Stage
+            </Button>
+          </div>
+          <p className="text-[10px] leading-snug text-muted">
+            {fieldFace === "plant"
+              ? FACE_COPY.plant
+              : fieldFace === "play"
+                ? FACE_COPY.play
+                : FACE_COPY.freeze}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <Button
+              variant="ghost"
+              size="default"
               className="min-h-11 flex-1"
               onClick={onPop}
               disabled={lockCount === 0}
-              aria-label="Release: let it grow again"
-              title="Freeze: stop growth. Release: let it grow again."
+              aria-label="Release — let it grow again"
+              title={FACE_COPY.freeze}
             >
               Release
             </Button>
@@ -403,8 +489,8 @@ export function ControlDock({
         </div>
 
         {sheetOpen && (
-          <div className="mb-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto sm:mt-3 sm:mb-0">
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 py-1">
+          <div className="mb-3 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain sm:mt-3 sm:mb-0">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 bg-bg-elevated py-1">
               <p className="text-xs tracking-[0.18em] text-muted uppercase">
                 {face === "sound" ? "Sound" : "Field"}
               </p>
@@ -427,8 +513,8 @@ export function ControlDock({
             {face === "field" ? (
           <>
             <p className="text-xs leading-relaxed text-muted">
-              Freeze: stop growth. Release: let it grow again. Field — How the
-              pattern grows. F and k change the species; Default brings it home.
+              {FACE_COPY.freeze} Field — How the pattern grows. F and k change
+              the species; Default brings it home.
             </p>
             <button
               type="button"
@@ -498,7 +584,7 @@ export function ControlDock({
                     onClick={() => setWaveform(w.id)}
                     className={cn(
                       "rounded-sm px-2 py-2 text-center shadow-[var(--shadow-border)] transition-colors duration-150",
-                      waveform === w.id ? "bg-fg/90 text-bg" : "bg-bg/25 text-fg hover:bg-fg/10",
+                      waveform === w.id ? "bg-fg text-bg" : "bg-bg-subtle text-fg hover:bg-fg/10",
                     )}
                     aria-pressed={waveform === w.id}
                   >
@@ -543,7 +629,10 @@ export function ControlDock({
   return (
     <aside
       data-ui
-      className="pointer-events-auto relative z-50 flex h-[min(72dvh,36rem)] w-full flex-col overflow-hidden rounded-xl bg-bg/45 text-fg shadow-[var(--shadow-border)] sm:absolute sm:right-3 sm:top-hud-t sm:bottom-3 sm:h-auto sm:w-80"
+      className={cn(
+        "pointer-events-auto relative z-50 flex h-[min(68dvh,32rem)] w-full flex-col overflow-hidden rounded-xl sm:absolute sm:right-3 sm:top-hud-t sm:bottom-3 sm:h-auto sm:max-h-[calc(100dvh-var(--spacing-hud-t)-1.25rem)] sm:w-80",
+        DOCK_PANEL,
+      )}
     >
       <header className="flex items-center justify-between px-4 pt-3 pb-2">
         <p className="text-xs tracking-[0.28em] text-muted uppercase">Console</p>
@@ -1031,17 +1120,15 @@ function FieldTab({
 
       <section>
         <p className="mb-2 text-xs tracking-[0.18em] text-muted uppercase">Loop</p>
-        <p className="mb-3 text-xs leading-relaxed text-muted">
-          Freeze: stop growth. Release: let it grow again.
-        </p>
+        <p className="mb-3 text-xs leading-relaxed text-muted">{FACE_COPY.freeze}</p>
         <div className="flex gap-2">
           <Button
             variant="secondary"
             size="sm"
             className="flex-1"
             onClick={onLock}
-            aria-label="Freeze: stop growth"
-            title="Freeze: stop growth. Release: let it grow again."
+            aria-label={`Freeze — ${FACE_COPY.freeze}`}
+            title={FACE_COPY.freeze}
           >
             Freeze
           </Button>
@@ -1050,8 +1137,8 @@ function FieldTab({
             size="sm"
             onClick={onPop}
             disabled={lockCount === 0}
-            aria-label="Release: let it grow again"
-            title="Freeze: stop growth. Release: let it grow again."
+            aria-label="Release — let it grow again"
+            title={FACE_COPY.freeze}
           >
             Release
           </Button>
@@ -1294,6 +1381,10 @@ function SyncTab({
   const patch = useInstrument((s) => s.patch);
   return (
     <div className="flex flex-col gap-5">
+      <div>
+        <p className="text-sm text-fg">Sync</p>
+        <p className="mt-1 text-xs leading-relaxed text-muted">{FACE_COPY.sync}</p>
+      </div>
       <div>
         <p className="text-sm text-fg">TouchDesigner WebSocket</p>
         <p className="mt-1 text-xs leading-relaxed text-muted">

@@ -212,3 +212,10 @@
   background: color-mix(in oklab, var(--color-fg) 8%, transparent);
 }
 
+
+/* M-24: opaque dock panels over the living field — no washed glass. */
+.dock-panel {
+  background: var(--color-bg-elevated);
+  color: var(--color-fg);
+  box-shadow: var(--shadow-border), 0 16px 48px rgba(0, 0, 0, 0.62);
+}

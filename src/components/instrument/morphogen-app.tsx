@@ -924,7 +924,7 @@ export function MorphogenApp() {
           data-ui
           className="pointer-events-none absolute top-[max(0.55rem,env(safe-area-inset-top))] left-1/2 z-30 -translate-x-1/2"
         >
-          <div className="flex items-center gap-2 rounded-full bg-bg-elevated/90 px-3 py-1.5 shadow-[var(--shadow-border)]">
+          <div className="flex items-center gap-2 rounded-full bg-bg-elevated px-3 py-1.5 shadow-[var(--shadow-border)]">
             <span className="rec-pulse block size-2 rounded-full bg-destructive" />
             <span className="font-mono text-xs tabular-nums text-fg">REC {formatRec(recElapsed)}</span>
           </div>
@@ -936,7 +936,7 @@ export function MorphogenApp() {
           <Button
             variant="ghost"
             size="sm"
-            className="bg-bg/45 shadow-[var(--shadow-border)] backdrop-blur-sm"
+            className="bg-bg-elevated shadow-[var(--shadow-border)]"
             onClick={() => void captureField()}
             aria-label="Capture still"
             title="Save a high-resolution still of the field"
@@ -952,7 +952,7 @@ export function MorphogenApp() {
           data-ui
           className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-center px-16 pt-hud-t sm:justify-between sm:px-4"
         >
-          <div className="pointer-events-none max-w-[calc(100%-8.5rem)] rounded-md bg-bg-elevated/90 px-2 py-1 shadow-[var(--shadow-border)]">
+          <div className="pointer-events-none max-w-[calc(100%-8.5rem)] rounded-md bg-bg-elevated px-2 py-1 shadow-[var(--shadow-border),0_8px_24px_rgba(0,0,0,0.45)]">
             <p className="flex items-center gap-1.5 text-lg text-fg">
               <MorphoMark className="size-5" />
               <Wordmark variant="hud" />
@@ -972,12 +972,12 @@ export function MorphogenApp() {
             <p className="mt-1.5 flex flex-wrap gap-1.5 text-[10px] tracking-[0.14em] text-faint uppercase">
               <span title="The steady tone underneath. Tilt the phone to brighten it.">Hum</span>
               <span aria-hidden>·</span>
-              <span title="Touch plays the pitch under your finger. Drag plants new growth.">Hands</span>
+              <span title="Play: touch to hear. Plant: drag to grow.">Hands</span>
               <span aria-hidden>·</span>
               <span title="How the pattern grows. F and k change the species; Default brings it home.">Field</span>
             </p>
           </div>
-          <div className="pointer-events-auto hidden flex-wrap justify-end gap-1 rounded-md bg-bg-elevated/90 p-1 shadow-[var(--shadow-border)] sm:flex">
+          <div className="pointer-events-auto hidden flex-wrap justify-end gap-1 rounded-md bg-bg-elevated p-1 shadow-[var(--shadow-border),0_8px_24px_rgba(0,0,0,0.45)] sm:flex">
             <Button
               variant={atDefaults ? "secondary" : "ghost"}
               size="sm"
@@ -1037,7 +1037,7 @@ export function MorphogenApp() {
             <Button
               variant="ghost"
               size="sm"
-              className="bg-bg/55 shadow-[var(--shadow-border)] backdrop-blur-md"
+              className="bg-bg-elevated shadow-[var(--shadow-border)]"
               onClick={() => patch({ uiHidden: true, panelOpen: false })}
               aria-label="Hide controls"
               title="Hide controls"
@@ -1168,7 +1168,7 @@ export function MorphogenApp() {
       {started && uiHidden && !hunting && (
         <div
           data-ui
-          className="pointer-events-auto fixed top-hud-t left-1/2 z-50 flex -translate-x-1/2 items-end gap-0.5 rounded-full bg-bg/28 px-1 py-1 text-fg shadow-[var(--shadow-border)] backdrop-blur-md"
+          className="pointer-events-auto fixed top-hud-t left-1/2 z-50 flex -translate-x-1/2 items-end gap-0.5 rounded-full bg-bg-elevated px-1 py-1 text-fg shadow-[var(--shadow-border),0_12px_32px_rgba(0,0,0,0.55)]"
         >
           <button
             type="button"

@@ -406,11 +406,11 @@ export function ControlDock({
               size="default"
               className="min-h-11 px-1"
               onClick={openStage}
-              aria-label={`Stage — Sync. ${FACE_COPY.sync}`}
+              aria-label={`Stage · Sync — ${FACE_COPY.sync}`}
               title={`Stage · Sync — ${FACE_COPY.sync}`}
             >
               <Radio />
-              Stage
+              Stage · Sync
             </Button>
           </div>
           <p className="text-[10px] leading-snug text-muted">

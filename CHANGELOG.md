@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased (main — pending Grok republish)
+
+### Opaque dock (M-24)
+- Solid elevated dock panels; Play · Plant · Freeze · **Stage · Sync** on chrome with MEMETiC one-liners
+- Hum · Hands · Field remain chips; Hum lock line locked
+- Guide-only Bentov credit; `docs/mui-bentov-spike.md` (Synesthesia audio contract, Shadertoy multipass, dual WGSL/GLSL post-clear)
+- `docs/GROK-APP-BUILDER-REPUBLISH.md` — step-by-step live publish (GitHub does not deploy morphos.grok.me)
+
+### Still draft
+- `morphos-v2` (PR #2) — WebGPU RD, looks, wallpaper — not merged
+
+
 All notable changes to MORPHOS are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),

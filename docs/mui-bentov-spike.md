@@ -91,3 +91,34 @@ Splash unchanged. Theory stays in the Guide.
 - **Fade** — Soften or brighten the whole look.
 
 Scene titles: plain only (“Ripple”, “Sand”, “Trail”). Guide may credit references; glass must not.
+
+
+## Bentov research lock (Guide / engine only — never on-glass)
+
+**Source:** Itzhak Bentov, *Stalking the Wild Pendulum: On the Mechanics of Consciousness* (1977). Biomedical inventor (steerable cardiac catheter). Speculative **model**, not proven physics — Bentov frames it as a model that should be replaced when it breaks.
+
+### Chapter map
+
+| Ch | Focus | Morphos use |
+|---|---|---|
+| 1 | Sound, waves, vibration, nodes, Chladni, interference, beats, hologram, coherence, resonance/entrainment | Toolkit already in MUI map 1–4 + visual multipass |
+| 2 | Matter as mostly void + oscillating fields | Field as vibratory medium (RD / Look) |
+| 3 | Action/rest Morse code (nodes) | Freeze = rest; Release/Play = action half-cycle |
+| 4 | Time dilates in altered states; observer expands at rest points | Freeze dwell as “rest-point” attention (Guide) |
+| 5 | Consciousness = quantity (response count) × quality (frequency refinement) | Bass·Mid·High as quality bands (engine) |
+| 6–7 | Relative realities; learning as climbing frequency bands | Look scenes as band-tuned aesthetics |
+| 8 | Toroidal / holographic universe (“absolute” as calm sea; realities as ripples) | Multipass interference; wallpaper fragment = part holds whole |
+| 9–10 | Intuition + Creator reflections | Out of product scope |
+| App. | Physio-kundalini as standing waves in the ventricles | Guide theory only |
+
+### Core claim for Morphos (engine feel, not UI copy)
+
+Heart–aorta resonates ~**7 Hz** in stillness → ~**14 rest points/s** → at each node, momentum ≈ 0 so position is indefinite → psyche briefly couples to a holographic field. Meditation ≈ entrainment to Earth’s ~7.5 Hz cavity. Resonance minimizes energy; **decoherence is waste** (Hum unlock = hard cut, not soft fade).
+
+- Hum lock target feel ≈ **7 Hz** pulse (do **not** banner Schumann or Bentov on-glass — M-23 stays cleared).
+- Freeze = node / rest. Play = action half-cycle.
+- Beat = beat-frequency down-conversion (fast → slow shapes Gray–Scott).
+- Look multipass = interference / hologram grammar.
+- Bass·Mid·High = frequency bands of “quality.”
+
+Theory lives in the Guide (may credit Bentov). Glass stays MEMETiC plain English only.

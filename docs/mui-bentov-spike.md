@@ -81,3 +81,13 @@ One look = fragment program(s) + control panel + music reaction. MIDI/OSC mappab
 - **Beat** (Stage, after M-24) — Two close tones make a slow pulse. That pulse shapes the field.
 
 Splash unchanged. Theory stays in the Guide.
+
+## Visual-layer on-glass (MEMETiC lock — plain English)
+
+- **Look** — Pick how the field paints to the sound.
+- **Bass · Mid · High** — How hard each band pushes the picture.
+- **Hit** — A sharp flash when that band spikes.
+- **Beat** — Pulses with the clock. Same face as Stage · Sync’s beat.
+- **Fade** — Soften or brighten the whole look.
+
+Scene titles: plain only (“Ripple”, “Sand”, “Trail”). Guide may credit references; glass must not.

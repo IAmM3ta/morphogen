@@ -48,6 +48,11 @@ const FACE_COPY = {
   hum: "The steady tone underneath. When it locks, everything pulls into one pulse.",
   /** Beat Stage face — post–M-24 only; not on chrome yet. */
   beat: "Two close tones make a slow pulse. That pulse shapes the field.",
+  /** Visual layer (post–M-24 looks) — MEMETiC; never product/site names on-glass. */
+  look: "Pick how the field paints to the sound.",
+  bands: "How hard each band pushes the picture.",
+  hit: "A sharp flash when that band spikes.",
+  fade: "Soften or brighten the whole look.",
 } as const;
 
 /** Console tab hints (M-21). Sync one-liner matches FACE_COPY.sync. */

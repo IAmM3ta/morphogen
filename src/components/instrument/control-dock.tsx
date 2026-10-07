@@ -44,6 +44,15 @@ const FACE_COPY = {
   plant: "Drag to put new growth in the field.",
   freeze: "Stop growth. Release lets it grow again.",
   sync: "Connect MIDI and keep the beat. Permission only opens here.",
+  /** Hum chip — MEMETiC Bentov MUI lock (plain English). */
+  hum: "The steady tone underneath. When it locks, everything pulls into one pulse.",
+  /** Beat Stage face — post–M-24 only; not on chrome yet. */
+  beat: "Two close tones make a slow pulse. That pulse shapes the field.",
+  /** Visual layer (post–M-24 looks) — MEMETiC; never product/site names on-glass. */
+  look: "Pick how the field paints to the sound.",
+  bands: "How hard each band pushes the picture.",
+  hit: "A sharp flash when that band spikes.",
+  fade: "Soften or brighten the whole look.",
 } as const;
 
 /** Console tab hints (M-21). Sync one-liner matches FACE_COPY.sync. */
@@ -51,7 +60,7 @@ const TAB_HINTS: Record<string, string> = {
   field: "How the pattern grows. F and k change the species; Default brings it home.",
   image: "Drop a photo onto the field, or use the camera.",
   sense: FACE_COPY.play + " " + FACE_COPY.plant,
-  sound: "The steady tone underneath. Tilt the phone to brighten it.",
+  sound: FACE_COPY.hum,
   sync: FACE_COPY.sync,
 };
 
@@ -406,11 +415,11 @@ export function ControlDock({
               size="default"
               className="min-h-11 px-1"
               onClick={openStage}
-              aria-label={`Stage — Sync. ${FACE_COPY.sync}`}
+              aria-label={`Stage · Sync — ${FACE_COPY.sync}`}
               title={`Stage · Sync — ${FACE_COPY.sync}`}
             >
               <Radio />
-              Stage
+              Stage · Sync
             </Button>
           </div>
           <p className="text-[10px] leading-snug text-muted">

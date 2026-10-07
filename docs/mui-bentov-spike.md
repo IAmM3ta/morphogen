@@ -122,3 +122,9 @@ Heart–aorta resonates ~**7 Hz** in stillness → ~**14 rest points/s** → at 
 - Bass·Mid·High = frequency bands of “quality.”
 
 Theory lives in the Guide (may credit Bentov). Glass stays MEMETiC plain English only.
+
+## Guide credit (MEMETiC lock — Guide only)
+
+> Inspired by Itzhak Bentov’s *Stalking the Wild Pendulum* — a model of vibratory matter, rest points, and entrainment. Morphos treats that as metaphor for play: freeze as a pause in the field, the Hum as the steady pulse, Beat as two tones making a slower pulse. Bentov’s claims are speculative; the instrument is the proof surface.
+
+On-glass Hum stays: “The steady tone underneath. When it locks, everything pulls into one pulse.” No Bentov, no Schumann, no 7 Hz on the chrome.

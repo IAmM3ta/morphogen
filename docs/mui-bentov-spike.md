@@ -24,3 +24,15 @@
 - New dock chrome faces
 - On-glass Bentov jargon (MEMETiC one-liners only)
 - Republish before main carries `6b37d6c`
+
+
+## On-glass one-liners (MEMETiC lock — plain English)
+
+- **Play** — Touch to hear the pitch under your finger.
+- **Plant** — Drag to put new growth in the field.
+- **Freeze** — Stop growth. Release lets it grow again.
+- **Stage · Sync** — Connect MIDI and keep the beat. Permission only opens here.
+- **Hum** — The steady tone underneath. When it locks, everything pulls into one pulse.
+- **Beat** (Stage, after M-24) — Two close tones make a slow pulse. That pulse shapes the field.
+
+Splash unchanged. Theory stays in the Guide.
